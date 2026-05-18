@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ne">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>राष्ट्रिय सतर्कता केन्द्र - सेवाग्राही सर्वेक्षण </title>
+    <!-- Google Fonts & Chart.js CDN -->
+    <link href="https://fonts.googleapis.com/css2?family=Mukta:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Kalimati&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-content">
+                <img src="coa.png" alt="Coat of Arms" class="coa-logo">
+                <div class="header-text">
+                    <h5 class="gov-text">नेपाल सरकार</h5>
+                    <h1>राष्ट्रिय सतर्कता केन्द्र</h1>
+                    <p>सेवाग्राही सर्वेक्षण - सार्वजनिक संस्थाको सेवा प्रवाह अनुगमन</p>
+                </div>
+            </div>
+            <div class="flag-container">
+                <img src="./nepal-flag.gif" alt="Flag of Nepal" class="nepal-flag">
+            </div>
+        </div>
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="form-tab"> सर्वेक्षण फारम</button>
+            <button class="tab-btn" data-tab="dashboard-tab"> ड्यासबोर्ड / तथ्याङ्क</button>
+        </div>
+
+        <!-- FORM PANEL -->
+        <div id="form-tab" class="panel active-panel">
+            <div class="survey-card">
+                <form id="surveyForm">
+                    <div class="form-grid">
+                        <!-- १. व्यक्तिगत विवरण -->
+                        <div class="section-title">१. व्यक्तिगत विवरण</div>
+                        <div class="field-group"><span class="field-label">प्रदेश:<span class="required-asterisk">*</span></span><select name="pradesh"
+                                id="pradesh" required>
+                                <option value="">प्रदेश छान्नुहोस्</option>
+                            </select></div>
+                        <div class="field-group"><span class="field-label">जिल्ला:<span class="required-asterisk">*</span></span><select name="jilla" id="jilla"
+                                required>
+                                <option value="">जिल्ला छान्नुहोस्</option>
+                            </select></div>
+                        <div class="field-group"><span class="field-label">स्थानीय तह:<span class="required-asterisk">*</span></span><select
+                                name="sthaaniya_taha" id="sthaaniya_taha" required>
+                                <option value="">स्थानीय तह छान्नुहोस्</option>
+                            </select></div>
+                        <div class="field-group"><span class="field-label">लिङ्ग:<span class="required-asterisk">*</span></span>
+                            <div class="radio-group"><label><input type="radio" name="gender" value="पुरुष" required>
+                                    पुरुष</label><label><input type="radio" name="gender" value="महिला" required>
+                                    महिला</label><label><input type="radio" name="gender" value="अन्य" required> अन्य</label>
+                            </div>
+                        </div>
+
+                        <div class="section-title">२. सेवा लिएका कार्यालयहरू (पछिल्लो १ वर्षमा)</div>
+                        <div class="field-group"><span class="field-label">कार्यालय १:</span>
+                            <div class="voice-input-wrapper">
+                                <input type="text" id="karyalay_1" name="karyalay_1" placeholder="कार्यालयको नाम">
+                                <button type="button" class="voice-btn" onclick="startVoiceTyping(event, 'karyalay_1')">🎤 <span class="btn-text">आवाज टाइप</span></button>
+                                <button type="button" class="clear-btn" onclick="clearInput('karyalay_1')">🗑️ <span class="btn-text">मेटाउनुहोस्</span></button>
+                            </div>
+                        </div>
+                        <div class="field-group"><span class="field-label">कार्यालय २:</span>
+                            <div class="voice-input-wrapper">
+                                <input type="text" id="karyalay_2" name="karyalay_2" placeholder="कार्यालयको नाम">
+                                <button type="button" class="voice-btn" onclick="startVoiceTyping(event, 'karyalay_2')">🎤 <span class="btn-text">आवाज टाइप</span></button>
+                                <button type="button" class="clear-btn" onclick="clearInput('karyalay_2')">🗑️ <span class="btn-text">मेटाउनुहोस्</span></button>
+                            </div>
+                        </div>
+                        <div class="field-group"><span class="field-label">कार्यालय ३:</span>
+                            <div class="voice-input-wrapper">
+                                <input type="text" id="karyalay_3" name="karyalay_3" placeholder="कार्यालयको नाम">
+                                <button type="button" class="voice-btn" onclick="startVoiceTyping(event, 'karyalay_3')">🎤 <span class="btn-text">आवाज टाइप</span></button>
+                                <button type="button" class="clear-btn" onclick="clearInput('karyalay_3')">🗑️ <span class="btn-text">मेटाउनुहोस्</span></button>
+                            </div>
+                        </div>
+                        <div class="field-group"><span class="field-label">३. विवरण दिन चाहेको कार्यालयको नाम:<span class="required-asterisk">*</span></span>
+                            <div class="voice-input-wrapper">
+                                <input type="text" id="mukhya_karyalay" name="mukhya_karyalay" placeholder="विवरण दिन चाहेको कार्यालय" required>
+                                <button type="button" class="voice-btn" onclick="startVoiceTyping(event, 'mukhya_karyalay')">🎤 <span class="btn-text">आवाज टाइप</span></button>
+                                <button type="button" class="clear-btn" onclick="clearInput('mukhya_karyalay')">🗑️ <span class="btn-text">मेटाउनुहोस्</span></button>
+                            </div>
+                        </div>
+
+                        <div class="section-title">४. नागरिक वडापत्र तथा सेवा सम्बन्धी</div>
+                        <div class="field-group"><span class="field-label">४.१ नागरिक वडापत्रको बारेमा जानकारी छ ?</span>
+                            <div class="radio-group"><label><input type="radio" name="janakari_chha" value="छ">
+                                    छ</label><label><input type="radio" name="janakari_chha" value="छैन"> छैन</label>
+                            </div>
+                        </div>
+                        <div class="field-group"><span class="field-label">४.२ सेवाको लागि लाग्ने समय र दस्तूरको जानकारी
+                                छ
+                                ?</span>
+                            <div class="radio-group"><label><input type="radio" name="samay_janakari" value="छ">
+                                    छ</label><label><input type="radio" name="samay_janakari" value="छैन"> छैन</label>
+                            </div>
+                        </div>
+                        <div class="field-group"><span class="field-label">४.३ तोकिएको समयमा काम भयो ?</span>
+                            <div class="radio-group"><label><input type="radio" name="kaam_bhayeko" value="भयो">
+                                    भयो</label><label><input type="radio" name="kaam_bhayeko" value="भएन"> भएन</label>
+                            </div>
+                        </div>
+                        <div class="field-group"><span class="field-label">४.४ भएन भने कारण (धेरै भए चिन्ह):</span>
+                            <div class="checkbox-group"><label><input type="checkbox" name="karan_kagajat"
+                                        value="तोकिएको कागजात पेश नगरेकोले"> तोकिएको कागजात पेश
+                                    नगरेकोले</label><label><input type="checkbox" name="karan_karmachari"
+                                        value="कर्मचारी नभएकोले">सम्बन्धित कर्मचारी नभएकोले</label><label><input
+                                        type="checkbox" name="karan_na" value="कर्मचारी भएपनि काम नगरेकोले"> कर्मचारी
+                                    भएपनि काम नगरेकोले</label><label><input type="checkbox" name="karan_ghus"
+                                        value="अतिरिक्त रकम नदिएकोले"> अतिरिक्त रकम नदिएकोले</label></div>
+                        </div>
+
+                        <div class="section-title">५. बाहिरी व्यक्तिको सहयोग</div>
+                        <div class="field-group"><span class="field-label">सेवा प्राप्त गर्न बाहिरी व्यक्तिको सहयोग
+                                लिनुपर्‍यो ?</span>
+                            <div class="radio-group"><label><input type="radio" name="sahayog_parera" value="पर्‍यो">
+                                    पर्‍यो</label><label><input type="radio" name="sahayog_parera" value="परेन">
+                                    परेन</label></div>
+                        </div>
+                        <div class="field-group"><span class="field-label">५.१ लिनु परेको भए कसको सहयोग लिनुभयो ?</span>
+                            <div class="checkbox-group"><label><input type="checkbox" name="helper_type"
+                                        value="लेखापढी व्यवसायी"> लेखापढी व्यवसायी</label><label><input type="checkbox"
+                                        name="helper_type" value="कानुन व्यवसायी"> कानुन व्यवसायी</label><label><input
+                                        type="checkbox" name="helper_type" value="राजनीतिक दलका कार्यकर्ता"> राजनीतिक
+                                    दलका कार्यकर्ता</label><label><input type="checkbox" name="helper_type"
+                                        value="चिनजानका कर्मचारी"> चिनजानका कर्मचारी</label><label><input
+                                        type="checkbox" name="helper_type" value="अन्य"> अन्य</label></div>
+                        </div>
+
+                        <div class="section-title">६. अतिरिक्त रकम (घुस) सम्बन्धी</div>
+                        <div class="field-group"><span class="field-label">अतिरिक्त रकम (घुस) दिनुपर्‍यो ?</span>
+                            <div class="radio-group"><label><input type="radio" name="ghus_parera" value="पर्‍यो">
+                                    पर्‍यो</label><label><input type="radio" name="ghus_parera" value="परेन">
+                                    परेन</label></div>
+                        </div>
+                        <div class="field-group"><span class="field-label">६.१ दिनु परेको भए कसलाई दिनुभयो ?</span>
+                            <div class="checkbox-group"><label><input type="checkbox" name="ghus_diye_kaslai"
+                                        value="सम्बन्धित कर्मचारीलाई सोझै"> सम्बन्धित कर्मचारीलाई
+                                    सोझै</label><label><input type="checkbox" name="ghus_diye_kaslai"
+                                        value="लेखापढी व्यवसायी मार्फत"> लेखापढी व्यवसायी मार्फत</label><label><input
+                                        type="checkbox" name="ghus_diye_kaslai" value="अन्य मध्यस्थकर्ता मार्फत"> अन्य
+                                    मध्यस्थकर्ता मार्फत</label></div>
+                        </div>
+
+                        <div class="section-title">७. सेवा सन्तुष्टि र गुणस्तर (धेरै चिन्ह लगाउन सकिने)</div>
+                        <div class="field-group">
+                            <div class="radio-group">
+                                <label><input type="radio" name="main_satisfaction" value="सन्तुष्ट" required> <strong>सन्तुष्ट</strong></label>
+                                <label><input type="radio" name="main_satisfaction" value="असन्तुष्ट" required> <strong>असन्तुष्ट</strong></label>
+                            </div>
+                        </div>
+
+                        <div class="field-group">
+                            <span class="field-label">सन्तुष्ट भए कारण:</span>
+                            <div class="checkbox-group">
+                                <label><input type="checkbox" name="santushti_positive" value="समयमै काम भएको"> समयमै काम भएको</label>
+                                <label><input type="checkbox" name="santushti_positive" value="सेवा शुल्क उचित भएको"> सेवा शुल्क उचित भएको</label>
+                                <label><input type="checkbox" name="santushti_positive" value="सेवा गुणस्तरीय भएको"> सेवा गुणस्तरीय भएको</label>
+                                <label><input type="checkbox" name="santushti_positive" value="प्रक्रिया सहज भएको"> प्रक्रिया सहज भएको</label>
+                                <label><input type="checkbox" name="santushti_positive" value="कर्मचारीको व्यवहार राम्रो रहेको"> कर्मचारीको व्यवहार राम्रो रहेको</label>
+                            </div>
+                        </div>
+
+                        <div class="field-group">
+                            <span class="field-label">असन्तुष्ट भए कारण:</span>
+                            <div class="checkbox-group">
+                                <label><input type="checkbox" name="santushti_negative" value="समयमा काम नभएको"> समयमा काम नभएको</label>
+                                <label><input type="checkbox" name="santushti_negative" value="सेवा शुल्क बढी भएको"> सेवा शुल्क बढी भएको</label>
+                                <label><input type="checkbox" name="santushti_negative" value="सेवा गुणस्तरीय नभएको"> सेवा गुणस्तरीय नभएको</label>
+                                <label><input type="checkbox" name="santushti_negative" value="प्रक्रिया झन्झटिलो भएको"> प्रक्रिया झन्झटिलो भएको</label>
+                                <label><input type="checkbox" name="santushti_negative" value="कर्मचारीको व्यवहार राम्रो नरहेको"> कर्मचारीको व्यवहार राम्रो नरहेको</label>
+                                <label><input type="checkbox" name="santushti_negative" value="अतिरिक्त रकम दिनुपरेकोले"> अतिरिक्त रकम दिनुपरेकोले</label>
+                            </div>
+                        </div>
+
+                        <div class="field-group"><span class="field-label">८. सेवा प्रवाहमा सुधारका लागि सुझाव:</span>
+                            <div class="voice-input-wrapper">
+                                <textarea id="sujhaw" name="sujhaw" rows="2" placeholder="सेवा प्रवाहमा सुधारका लागि सुझाव दिनुहोस्..."></textarea>
+                                <button type="button" class="voice-btn" onclick="startVoiceTyping(event, 'sujhaw')">🎤 <span class="btn-text">आवाज टाइप</span></button>
+                                <button type="button" class="clear-btn" onclick="clearInput('sujhaw')">🗑️ <span class="btn-text">मेटाउनुहोस्</span></button>
+                            </div>
+                        </div>
+                        <div class="field-group"><span class="field-label">९. राम्रो सेवा प्रवाह गर्ने कार्यालय(हरु):</span>
+                            <div class="voice-input-wrapper">
+                                <input type="text" id="ramro_karyalay" name="ramro_karyalay" placeholder="राम्रो सेवा प्रवाह गर्ने कार्यालय(हरु)">
+                                <button type="button" class="voice-btn" onclick="startVoiceTyping(event, 'ramro_karyalay')">🎤 <span class="btn-text">आवाज टाइप</span></button>
+                                <button type="button" class="clear-btn" onclick="clearInput('ramro_karyalay')">🗑️ <span class="btn-text">मेटाउनुहोस्</span></button>
+                            </div>
+                        </div>
+                        <div class="field-group"><span class="field-label">१०. सेवा प्रवाह कमजोर/अनियमित रहेका कार्यालय(हरु):</span>
+                            <div class="voice-input-wrapper">
+                                <input type="text" id="weak_karyalay" name="weak_karyalay" placeholder="सेवा प्रवाह कमजोर/अनियमित रहेका कार्यालय">
+                                <button type="button" class="voice-btn" onclick="startVoiceTyping(event, 'weak_karyalay')">🎤 <span class="btn-text">आवाज टाइप</span></button>
+                                <button type="button" class="clear-btn" onclick="clearInput('weak_karyalay')">🗑️ <span class="btn-text">मेटाउनुहोस्</span></button>
+                            </div>
+                        </div>
+
+                        <div class="section-title">११. सूचनाको हक सम्बन्धमा जानकारी</div>
+                        <div class="field-group"><span class="field-label">सूचनाको हक सम्बन्धमा जानकारी छ ?</span>
+                            <div class="radio-group"><label><input type="radio" name="suchana_hak" value="छ">
+                                    छ</label><label><input type="radio" name="suchana_hak" value="छैन"> छैन</label>
+                            </div>
+                        </div>
+
+                        <div class="section-title">१२. तोकिएको समयमा सेवा नपाउँदा गुनासो/उजुरी गर्ने गरे/नगरेको</div>
+                        <div class="field-group"><span class="field-label">गुनासो वा उजुरी गर्नुभएको छ ?</span>
+                            <div class="radio-group"><label><input type="radio" name="ujuri_gareko" value="गरेको छु">
+                                    गरेको छु</label><label><input type="radio" name="ujuri_gareko" value="गरेको छैन">
+                                    गरेको छैन</label></div>
+                        </div>
+
+                        <div class="section-title">१३. सार्वजनिक सुनुवाईमा सहभागिता</div>
+                        <div class="field-group"><span class="field-label">सार्वजनिक सुनुवाईमा सहभागी हुनुभएको छ
+                                ?</span>
+                            <div class="radio-group"><label><input type="radio" name="sunuwai_sahabhagi" value="छ">
+                                    छ</label><label><input type="radio" name="sunuwai_sahabhagi" value="छैन">
+                                    छैन</label></div>
+                        </div>
+
+                        <div class="section-title">१४. टोल/गाउँ/नगरमा विकासको कामको जानकारी</div>
+                        <div class="field-group"><span class="field-label">तपाईंको टोल/गाउँ/नगरमा विकासको काम (बाटो,
+                                पुल, भवन, खानेपानी) भएको/भइरहेको जानकारी छ ?</span>
+                            <div class="radio-group"><label><input type="radio" name="bikas_janakari" value="छ">
+                                    छ</label><label><input type="radio" name="bikas_janakari" value="छैन"> छैन</label>
+                            </div>
+                        </div>
+
+                        <div class="section-title">१५. विकास निर्माण कार्यमा सहभागिता</div>
+                        <div class="field-group"><span class="field-label">तपाईंको गाउँ/टोलमा भएका विकास निर्माणका
+                                कार्यमा सहभागी हुनुभएको छ ?</span>
+                            <div class="radio-group"><label><input type="radio" name="bikas_sahabhagi" value="भएको छु">
+                                    भएको छु</label><label><input type="radio" name="bikas_sahabhagi" value="भएको छैन">
+                                    भएको छैन</label></div>
+                        </div>
+                        <div class="section-title">१६. विकास निर्माणको गुणस्तर सम्बन्धी धारणा</div>
+                        <div class="field-group"><span class="field-label">तपाईंको गाउँ/टोलमा भएका विकास निर्माणका कामको
+                                गुणस्तर कस्तो लाग्छ ?</span>
+                            <div class="radio-group"><label><input type="radio" name="gunastar" value="राम्रो">
+                                    राम्रो</label><label><input type="radio" name="gunastar" value="मध्यम">
+                                    मध्यम</label><label><input type="radio" name="gunastar" value="कमजोर"> कमजोर</label>
+                            </div>
+                        </div>
+
+                        <div class="section-title">१७. आयोजनास्थलमा सूचना पाटी</div>
+                        <div class="field-group"><span class="field-label">विकास निर्माण आयोजनास्थलमा जानकारी दिने
+                                विवरणसहितको सूचना पाटी राखिएको छ ?</span>
+                            <div class="radio-group"><label><input type="radio" name="suchana_pati" value="छ">
+                                    छ</label><label><input type="radio" name="suchana_pati" value="छैन">
+                                    छैन</label><label><input type="radio" name="suchana_pati"
+                                        value="हेरेको छैन अब हेर्छु"> हेरेको छैन अब हेर्छु</label></div>
+                        </div>
+
+                        <div class="section-title">१८. योजनाबाट सन्तुष्टि</div>
+                        <div class="field-group"><span class="field-label">सो योजना/विकास कार्यबाट सन्तुष्ट वा असन्तुष्ट
+                                ?</span>
+                            <div class="radio-group"><label><input type="radio" name="yojana_santushti"
+                                        value="सन्तुष्ट"> सन्तुष्ट</label><label><input type="radio"
+                                        name="yojana_santushti" value="असन्तुष्ट"> असन्तुष्ट</label></div>
+                        </div>
+
+                        <div class="section-title">१९. असन्तुष्टिको कारण (यदि असन्तुष्ट हुनुहुन्छ भने)</div>
+                        <div class="field-group">
+                            <div class="checkbox-group"><label><input type="checkbox" name="asantushti_karan_yojana"
+                                        value="तोकिएको समयमा योजना सम्पन्न नभएकोले"> तोकिएको समयमा योजना सम्पन्न
+                                    नभएकोले</label><label><input type="checkbox" name="asantushti_karan_yojana"
+                                        value="गुणस्तर कमजोर भएकोले"> गुणस्तर कमजोर भएकोले</label><label><input
+                                        type="checkbox" name="asantushti_karan_yojana" value="मापदण्ड विपरीत भएकोले">
+                                    मापदण्ड विपरीत भएकोले</label><label><input type="checkbox"
+                                        name="asantushti_karan_yojana" value="अन्य (लेख्नुहोस्)"> अन्य</label></div>
+                            <input type="text" name="asantushti_karan_other" placeholder="अन्य कारण भए यहाँ लेख्नुहोस्"
+                                style="margin-top:8px;">
+                        </div>
+
+                        <div class="field-group"><span class="field-label">सर्वेक्षण मिति :<span class="required-asterisk">*</span></span><input type="text"
+                                name="survey_date" id="survey_date" class="nepali-datepicker" placeholder="नेपाली मिति छान्नुहोस्" 
+                                readonly required></div>
+                    </div>
+                    <button type="button" class="submit-btn" id="submitSurvey">✅ सर्वेक्षण सेभ गर्नुहोस् (Google
+                        Sheet/local storage मा सेभ)</button>
+                    <div id="formStatus" class="status-msg"></div>
+                </form>
+            </div>
+        </div>
+
+        <!-- DASHBOARD PANEL -->
+        <div id="dashboard-tab" class="panel">
+            <div class="dashboard-card">
+                <div class="filter-bar">
+                    <div class="filter-item"><label>मिति सुरु</label><input type="text" id="filterDateFrom" class="nepali-datepicker"
+                            placeholder="मिति छान्नुहोस्" readonly></div>
+                    <div class="filter-item"><label>मिति अन्त्य</label><input type="text" id="filterDateTo" class="nepali-datepicker"
+                            placeholder="मिति छान्नुहोस्" readonly></div>
+                    <div class="filter-item"><label>प्रदेश</label><select id="filterPradesh">
+                            <option value="">सबै</option>
+                        </select></div>
+                    <div class="filter-item"><label>जिल्ला</label><select id="filterDistrict">
+                            <option value="">सबै</option>
+                        </select></div>
+                    <div class="filter-item"><label>स्थानीय तह</label><select id="filterSthaaniya">
+                            <option value="">सबै</option>
+                        </select></div>
+                    <div class="filter-item"><label>कार्यालय/निकाय</label><input type="text" id="filterOffice"
+                            placeholder="कार्यालयको नाम"></div>
+                    <div class="filter-item"><label>लिङ्ग</label><select id="filterGender">
+                            <option value="">सबै</option>
+                            <option>पुरुष</option>
+                            <option>महिला</option>
+                            <option>अन्य</option>
+                        </select></div>
+                    <button id="applyFilter"
+                        style="background:#003893; border:none; border-radius:6px; padding:8px 20px; color:white; cursor:pointer; font-weight:600; font-family:'Kalimati', sans-serif;">फिल्टर
+                        लागू गर्नुहोस्</button>
+                    <button id="resetFilter"
+                        style="background:#de3053; border:none; border-radius:6px; padding:8px 20px; color:white; cursor:pointer; font-weight:600; font-family:'Kalimati', sans-serif;">रिसेट</button>
+                </div>
+
+                <!-- विशिष्ट प्रश्न विश्लेषण खण्ड -->
+                <div style="margin-bottom: 30px; padding: 20px; background: #f0f4f8; border-radius: 10px; border: 1px solid #d1d9e6;">
+                    <!-- <h3 style="font-family:'Kalimati', sans-serif; color: #306a95; margin-bottom: 15px; border-bottom: 2px solid #306a95; display: inline-block;">विशिष्ट प्रश्न विश्लेषण</h3> -->
+                    <div class="filter-item" style="max-width: 500px; margin-bottom: 20px;">
+                        <label style="font-weight: 700;">कुनै एक क्षेत्र/प्रश्न छान्नुहोस्:</label>
+                        <select id="dynamicFieldSelector" style="width: 100%; border: 2px solid #306a95; padding: 10px; border-radius: 6px;">
+                            <option value="">-- प्रश्न छान्नुहोस् --</option>
+                            <option value="pradesh">प्रदेश</option>
+                            <option value="jilla">जिल्ला</option>
+                            <option value="gender">लिङ्ग</option>
+                            <option value="janakari_chha">नागरिक वडापत्रको जानकारी</option>
+                            <option value="samay_janakari">समय र दस्तूरको जानकारी</option>
+                            <option value="kaam_bhayeko">तोकिएको समयमा काम भएको</option>
+                            <option value="sahayog_parera">बाहिरी व्यक्तिको सहयोग</option>
+                            <option value="ghus_parera">अतिरिक्त रकम (घुस)</option>
+                            <option value="main_satisfaction">मुख्य सन्तुष्टि</option>
+                            <option value="suchana_hak">सूचनाको हक जानकारी</option>
+                            <option value="ujuri_gareko">गुनासो/उजुरी गरेको</option>
+                            <option value="sunuwai_sahabhagi">सार्वजनिक सुनुवाईमा सहभागिता</option>
+                            <option value="bikas_janakari">विकास निर्माणको जानकारी</option>
+                            <option value="bikas_sahabhagi">विकास निर्माणमा सहभागिता</option>
+                            <option value="gunastar">विकास निर्माणको गुणस्तर</option>
+                            <option value="suchana_pati">सूचना पाटी राखिएको</option>
+                            <option value="yojana_santushti">योजनाबाट सन्तुष्टि</option>
+                        </select>
+                    </div>
+                    <div class="stats-row" id="dynamicStatRow" style="display: none;"></div>
+                    <div class="chart-row" id="dynamicChartRow" style="display: none; justify-content: center;">
+                        <div class="chart-box" style="flex: 0 1 450px;">
+                            <canvas id="dynamicChart"></canvas>
+                            <p class="small-note" id="dynamicChartLabel" style="font-weight: 600; color: #306a95; margin-top: 10px;"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stats-row" id="statCardsContainer"></div>
+                <div class="chart-row">
+                    <div class="chart-box"><canvas id="genderChart" width="400" height="200"></canvas>
+                        <p class="small-note">लिङ्ग अनुपात</p>
+                    </div>
+                    <div class="chart-box"><canvas id="satisfactionChart" width="400" height="200"></canvas>
+                        <p class="small-note">सेवा सन्तुष्टि (सन्तुष्ट असन्तुष्ट)</p>
+                    </div>
+                    <div class="chart-box"><canvas id="ghusChart" width="400" height="200"></canvas>
+                        <p class="small-note">अतिरिक्त रकम अनुभव</p>
+                    </div>
+                    <div class="chart-box"><canvas id="developmentChart" width="400" height="200"></canvas>
+                        <p class="small-note">विकासको जानकारी (छ/छैन)</p>
+                    </div>
+                </div>
+                <div class="table-wrapper">
+                    <table id="dataTable">
+                        <thead>
+                            <tr>
+                                <th>मिति</th>
+                                <th>जिल्ला</th>
+                                <th>लिङ्ग</th>
+                                <th>कार्यालय</th>
+                                <th>अतिरिक्त रकम दिनु पर्‍यो?</th>
+                                <th>सहयोग</th>
+                                <th>सन्तुष्टि</th>
+                                <th>विकास सम्बन्धी जानकारी भएको</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <div class="loading-text">डाटा सुरक्षित हुँदैछ, कृपया केही समय पर्खनुहोस्...</div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

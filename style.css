@@ -1,0 +1,790 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Mukta', sans-serif;
+}
+
+body {
+    background: #eef2f5;
+    padding: 20px;
+    color: #333;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    background: #ffffff;
+    padding: 24px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Header styling */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #306a95 0%, #1e4d73 100%);
+    color: white;
+    border-radius: 8px;
+    border-bottom: 3px solid #003893;
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.coa-logo {
+    width: 75px;
+    height: auto;
+    object-fit: contain;
+}
+
+.header-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.gov-text {
+    color: white;
+    font-family: 'Kalimati', sans-serif;
+    font-size: 1.2rem;
+    margin-bottom: 2px;
+    font-weight: 700;
+}
+
+.ministry-text {
+    color: white;
+    font-family: 'Kalimati', sans-serif;
+    font-size: 1.1rem;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+.header-text h1 {
+    color: white;
+    font-family: 'Kalimati', sans-serif;
+    font-size: 1.5rem;
+    margin-bottom: 6px;
+    font-weight: 700;
+}
+
+.header-text p {
+    color: white;
+    font-family: 'Kalimati', sans-serif;
+    font-size: 1.05rem;
+    margin-bottom: 0;
+    font-weight: 500;
+}
+
+.flag-container {
+    display: flex;
+    align-items: center;
+}
+
+.nepal-flag {
+    height: 60px;
+    width: auto;
+}
+
+/* tabs */
+.tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 25px;
+    border-bottom: 2px solid #e0e6ed;
+    padding-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.tab-btn {
+    background: #f8f9fa;
+    border: 1px solid #e0e6ed;
+    padding: 10px 24px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: #555;
+}
+
+.tab-btn:hover {
+    background: #e9ecef;
+}
+
+.tab-btn.active {
+    background: #538be7;
+    color: white;
+    border-color: #5c8ad4;
+    box-shadow: 0 2px 8px rgba(66, 103, 164, 0.3);
+}
+
+.panel {
+    display: none;
+    animation: fade 0.25s ease;
+}
+
+.panel.active-panel {
+    display: block;
+}
+
+@keyframes fade {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* form style */
+.survey-card,
+.dashboard-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    padding: 24px;
+    margin-bottom: 24px;
+    border: 1px solid #e8ecf1;
+}
+
+.form-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.field-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 3px; 
+}
+
+.field-label {
+    font-weight: 600;
+    min-width: 220px;
+    color: #2c3e50;
+    font-size: 0.95rem;
+    font-family: 'Kalimati', sans-serif;
+}
+
+.required-asterisk {
+    color: #e74c3c; 
+    margin-left: 4px;
+}
+
+input,
+select,
+textarea {
+    background: #f8f9fa;
+    border: 1px solid #dfe4ea;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 0.9rem;
+    flex: 1;
+    min-width: 200px;
+    transition: border-color 0.3s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: #387ae6;
+    background: #fff;
+    box-shadow: 0 0 8px rgba(56, 122, 230, 0.2);
+}
+
+.radio-group,
+.checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+}
+
+.radio-group label,
+.checkbox-group label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: normal;
+    color: #555;
+    font-family: 'Kalimati', sans-serif;
+}
+
+/* Checkbox styling */
+input[type="checkbox"] {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    accent-color: #3063b7;
+    cursor: pointer;
+    border: 2px solid #dfe4ea;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+input[type="checkbox"]:hover {
+    border-color: #2861bd;
+}
+
+input[type="checkbox"]:checked {
+    background-color: #2458ab;
+    border-color: #285cb0;
+}
+
+/* Radio button styling */
+input[type="radio"] {
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    accent-color: #2660bf;
+    cursor: pointer;
+}
+
+hr {
+    margin: 12px 0;
+    border-color: #e8ecf1;
+}
+
+.section-title {
+    background: linear-gradient(135deg, #306a95 0%, #1e4d73 100%);
+    border-left: 5px solid #d65d75;
+    padding: 10px 18px;
+    border-radius: 4px;
+    font-weight: 700;
+    color: white;
+    margin-top: 8px;
+    font-size: 0.95rem;
+    font-family: 'Kalimati', sans-serif;
+}
+
+button.submit-btn {
+    background: #387ae6;
+    border: none;
+    color: white;
+    padding: 7px 32px;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.3s ease;
+    margin-top: 6px;
+    box-shadow: 0 4px 12px rgba(18, 88, 202, 0.2);
+    font-family: 'Kalimati', sans-serif;
+}
+
+button.submit-btn:hover {
+    background: #326ac4;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(59, 117, 210, 0.4);
+}
+
+.status-msg {
+    margin-top: 15px;
+    text-align: center;
+    font-weight: 500;
+    padding: 12px;
+    border-radius: 6px;
+}
+
+/* dashboard filters */
+.filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    background: #f8f9fa;
+    padding: 16px 20px;
+    border-radius: 8px;
+    margin-bottom: 24px;
+    align-items: flex-end;
+    border: 1px solid #e8ecf1;
+    gap: 16px;
+}
+
+.filter-item {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 180px;
+}
+
+.filter-bar>button {
+    padding: 6px 16px; /* Reduced padding for buttons */
+    white-space: nowrap;
+}
+
+.filter-bar>button:last-child {
+    margin-right: 0;
+}
+
+.filter-item label {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #555;
+    margin-bottom: 6px;
+}
+
+.stats-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 8px;
+    padding: 16px 24px;
+    flex: 1;
+    min-width: 160px;
+    box-shadow: 0 2px 8px rgba(54, 53, 53, 0.06);
+    border-top: 1.6px solid #e35f7a;
+    text-align: center;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 16px rgba(56, 54, 54, 0.1);
+}
+
+.stat-number {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 6px;
+}
+
+.stat-card div:last-child {
+    font-size: 0.75rem;
+    color: #666;
+    font-weight: 500;
+}
+
+.chart-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    margin-bottom: 30px;
+}
+
+.chart-box {
+    flex: 1;
+    min-width: 210px;
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    border: 1px solid #e8ecf1;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.chart-box:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+}
+
+canvas {
+    max-height: 210px;
+}
+
+.table-wrapper {
+    overflow-x: auto;
+    background: white;
+    border-radius: 10px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    border: 1px solid #e8ecf1;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+th,
+td {
+    border-bottom: 1px solid #e8ecf1;
+    padding: 12px 10px;
+    text-align: left;
+}
+
+th {
+    background: #3872cf;
+    color: white;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+}
+
+tr:hover {
+    background: #f8f9fa;
+}
+
+.small-note {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 12px;
+    text-align: center;
+}
+
+@media (max-width: 760px) {
+    body {
+        padding: 2px;
+        font-size: 0.9em; 
+    }
+
+    .container {
+        padding: 4px;
+    }
+
+    .header {
+        padding: 4px 6px;
+        gap: 10px; /* लोगो/टेक्स्ट र झण्डा बीचको नियन्त्रित दुरी */
+        justify-content: center; /* सामग्रीहरूलाई बीचमा ल्याएर दुरी मिलाइएको */
+        align-items: center;
+        overflow: hidden; /* सामग्रीहरू बाहिर जान नदिन */
+    }
+
+    .header-content {
+        gap: 6px; /* लोगो र हेडलाइन बीचको ग्याप कम गरिएको */
+    }
+
+    .coa-logo {
+        width: 38px; /* साइज थोरै घटाइएको */
+    }
+
+    .flag-container {
+        flex-shrink: 0; /* झण्डाको कन्टेनरलाई खुम्चिन नदिने */
+    }
+
+    .nepal-flag {
+        height: 32px; /* उचाइ घटाएर हेडरभित्रै अट्ने बनाइएको */
+    }
+
+    .gov-text {
+        font-size: 0.8rem;
+    }
+
+    .header-text h1 {
+        font-size: 1rem;
+        margin-bottom: 2px;
+    }
+
+    .header-text p {
+        font-size: 0.6rem; /* टेक्स्ट थोरै सानो बनाउँदा सबै सामग्री अट्छन् */
+        white-space: nowrap;
+    }
+
+    .tabs {
+        gap: 4px; /* बटनहरूको बिचको ग्याप ८px बाट घटाएर ४px बनाइएको */
+        margin-bottom: 10px;
+        padding-bottom: 4px;
+    }
+
+    .tab-btn {
+        padding: 6px 12px;
+        font-size: 0.85rem;
+    }
+
+    .survey-card,
+    .dashboard-card {
+        padding: 6px;
+    }
+
+    .form-grid {
+        gap: 10px; /* साविक २०px बाट ५०% कम गरिएको */
+    }
+
+    .section-title {
+        padding: 4px 12px; /* ठाडो प्याडिङ ५०% ले थप घटाइएको */
+        margin-top: 3px; /* माथिल्लो मार्जिन ५०% ले थप घटाइएको */
+        font-size: 0.85rem; /* फन्ट साइज घटाइएको */
+    }
+
+    .field-group {
+        gap: 0px; /* लेबल र इनपुट बीचको दूरी न्यूनतम बनाइएको */
+    }
+
+    .field-label {
+        font-size: 0.85rem; /* फन्ट साइज घटाइएको */
+        line-height: 1.2; /* भर्टिकल ग्याप कम गर्न लाइन हाइट मिलाइएको */
+        min-width: unset; /* मोबाइलमा min-width हटाइएको */
+        width: 100%; /* लेबललाई पूरा चौडाइ दिइएको */
+    }
+
+    .radio-group,
+    .checkbox-group {
+        gap: 8px; /* ग्याप घटाइएको */
+    }
+    .field-label {
+        min-width: 100%;
+    }
+
+    input,
+    select,
+    textarea {
+        padding: 4px 10px;
+    }
+
+    .voice-input-wrapper {
+        flex-wrap: nowrap;
+        gap: 3px; 
+    }
+
+    .voice-input-wrapper input,
+    .voice-input-wrapper textarea {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .voice-btn, .clear-btn {
+        flex: 0 0 auto;
+        padding: 3px 4px; 
+        font-size: 0.7rem; 
+    }
+
+    .btn-text {
+        display: none;
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+        font-size: 0.8rem; 
+    }
+
+    .stats-row,
+    .chart-row {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .stat-card,
+    .chart-box {
+        width: 100%;
+        min-width: 100%;
+        margin-right: 0;
+    }
+
+    /* Responsive Table to Cards */
+    #dataTable, 
+    #dataTable thead, 
+    #dataTable tbody, 
+    #dataTable th, 
+    #dataTable td, 
+    #dataTable tr {
+        display: block;
+    }
+
+    #dataTable thead tr {
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+    }
+
+    #dataTable tr {
+        margin-bottom: 15px;
+        border: 1px solid #e8ecf1;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        background: #fff;
+    }
+
+    #dataTable tr.status-satisfied {
+        border-left: 5px solid #27ae60; 
+    }
+
+    #dataTable tr.status-unsatisfied {
+        border-left: 5px solid #e74c3c; 
+    }
+
+    #dataTable tr.status-mixed {
+        border-left: 5px solid #f1c40f; 
+    }
+
+    #dataTable td {
+        border: none;
+        border-bottom: 1px solid #f1f1f1;
+        position: relative;
+        padding-left: 50%;
+        text-align: right;
+        min-height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+    }
+
+    #dataTable td::before {
+        position: absolute;
+        left: 12px;
+        width: 45%;
+        content: attr(data-label);
+        font-weight: 700;
+        text-align: left;
+        color: #3872cf;
+    }
+
+    #dataTable td:last-child {
+        border-bottom: 0;
+    }
+
+    button.submit-btn {
+        padding: 5px 20px;
+        font-size: 0.9rem;
+    }
+}
+
+/* Nepali Date Picker Overlay Styles */
+.nepali-picker-overlay {
+    width: 320px;
+    background: #ffffff;
+    border: 1px solid #dfe4ea;
+    border-radius: 14px;
+    padding: 14px;
+    box-shadow: 0 14px 36px rgba(0,0,0,0.16);
+    font-family: 'Mukta', sans-serif;
+}
+
+.nepali-picker-select-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+    align-items: center;
+    flex-wrap: wrap; /* Allow items to wrap on smaller screens */
+}
+
+.nepali-picker-select-group select {
+    flex: 1; /* Default flex behavior */
+    padding: 10px;
+    border: 1px solid #dfe4ea;
+    border-radius: 10px;
+    background: #f7f9fc;
+    min-width: 80px; /* Ensure a minimum width */
+}
+
+@media (max-width: 400px) { /* Adjust breakpoint as needed for mobile */
+    .nepali-picker-overlay {
+        width: 100%; /* Take full width on very small screens */
+        max-width: 320px; /* Keep max width for larger small screens */
+    }
+    .nepali-picker-select-group {
+        flex-direction: column; /* Stack year, month, day vertically */
+        gap: 8px; /* Reduce gap when stacked */
+    }
+    .nepali-picker-select-group select {
+        width: 100%; /* Take full width when stacked */
+        flex: none; /* Remove flex grow/shrink */
+    }
+}
+
+/* Voice Typing Styles */
+.voice-input-wrapper {
+    display: flex;
+    flex: 1;
+    gap: 8px;
+    align-items: center;
+}
+
+.voice-btn {
+    background: #4a90e2;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+    font-family: 'Kalimati', sans-serif;
+}
+
+.voice-btn:hover {
+    background: #357abd;
+}
+
+.clear-btn {
+    background: #95a5a6;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+    font-family: 'Kalimati', sans-serif;
+}
+
+.clear-btn:hover {
+    background: #7f8c8d;
+}
+
+.voice-btn.recording {
+    background: #e74c3c;
+    animation: voice-pulse 1.5s infinite;
+}
+
+@keyframes voice-pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+/* Loading Overlay Styles */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.85);
+    display: none; 
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 99999;
+}
+
+.spinner {
+    width: 60px;
+    height: 60px;
+    border: 6px solid #f3f3f3;
+    border-top: 6px solid #387ae6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+    font-family: 'Kalimati', sans-serif;
+    font-weight: 600;
+    color: #1e4d73;
+    font-size: 1.2rem;
+}
+
+/* फारम प्रमाणीकरण (Validation) स्टाइल */
+.was-validated input:invalid,
+.was-validated select:invalid,
+.was-validated textarea:invalid {
+    border-color: #e74c3c !important;
+    box-shadow: 0 0 5px rgba(231, 76, 60, 0.2) !important;
+}
