@@ -3,6 +3,7 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzG60h4pAfcXvecnnDj2
 let allSubmissions = [];
 
 // Province, District, and Municipality Data
+let topOfficesChartObj;
 const PROVINCE = {
     1: 'कोशी प्रदेश',
     2: 'मधेश प्रदेश',
@@ -115,6 +116,11 @@ const MUNICIPALITIES = {
         "कञ्चनपुर": ["बेदकोट", "बेलौरी", "बेलडाँडी", "भीमदत्त", "कृष्णपुर", "लालझण्डी", "महाकाली", "पुनर्वास", "शुक्लाफाँटा"]
     }
 };
+
+// शब्द गणना गर्ने फङ्सन
+function countWords(str) {
+    return str.trim().split(/\s+/).filter(word => word.length > 0).length;
+}
 
 const NEPALI_DIGITS = ['०','१','२','३','४','५','६','७','८','९'];
 const BS_MONTHS = ["बैशाख", "जेठ", "असार", "श्रावण", "भाद्र", "आश्विन", "कार्तिक", "मंसिर", "पौष", "माघ", "फाल्गुन", "चैत्र"];
@@ -428,9 +434,160 @@ document.addEventListener("DOMContentLoaded", function () {
         field.addEventListener('click', () => showNepaliDatePicker(field));
     });
 
-    // पेज लोड हुँदा आजको नेपाली मिति सधैं भर्ने
     setTodayNepaliDate();
+    // सन्तुष्टि वा असन्तुष्टि छान्दा सम्बन्धित कारणहरू मात्र देखाउने (Conditional Display)
+const satisfactionInputs = document.querySelectorAll('[name="main_satisfaction"]');
+    satisfactionInputs.forEach(input => {
+        input.addEventListener("change", updateSatisfactionVisibility);
+    });
+    
+    // सुरुमा दुबै सेक्सन लुकाउन वा अवस्था अनुसार देखाउन
+    updateSatisfactionVisibility();
+ // 'अन्य' विकल्पको लागि इभेन्ट लिसनर
+    document.getElementById("pos_other_cb")?.addEventListener("change", function() { toggleOtherReason("pos_other_cb", "pos_other_text"); });
+    document.getElementById("neg_other_cb")?.addEventListener("change", function() { toggleOtherReason("neg_other_cb", "neg_other_text"); });
+    document.getElementById("yojana_other_cb")?.addEventListener("change", function() { toggleOtherReason("yojana_other_cb", "yojana_other_text"); });
+   
+    // वर्ड काउन्टरहरू सेटअप
+    const countersToSetup = [
+        { inputId: "pos_other_text", counterId: "pos_other_counter", limit: 20 },
+        { inputId: "neg_other_text", counterId: "neg_other_counter", limit: 20 },
+        { inputId: "yojana_other_text", counterId: "yojana_other_counter", limit: 20 },
+        { inputId: "sujhaw", counterId: "sujhaw_counter", limit: 100 }
+    ];
+
+    countersToSetup.forEach(item => {
+        const el = document.getElementById(item.inputId);
+        if (el) {
+            el.addEventListener('input', () => updateWordCountDisplay(el, item.counterId, item.limit));
+        }
+    });
 });
+
+function updateWordCountDisplay(inputEl, counterId, limit) {
+    const counterEl = document.getElementById(counterId);
+    if (!counterEl) return;
+    const count = countWords(inputEl.value);
+    counterEl.textContent = `${toNepaliDigits(count)} / ${toNepaliDigits(limit)} शब्द`;
+    counterEl.style.color = count > limit ? "#de3053" : "#666"; // सीमा नाघेमा रातो बनाउने
+}
+
+function updateSatisfactionVisibility() {
+    const selected = document.querySelector('[name="main_satisfaction"]:checked')?.value;
+    
+    const posDiv = document.getElementById("positive-reasons-section");
+    const negDiv = document.getElementById("negative-reasons-section");
+
+    if (posDiv) {
+        const isVisible = selected === "सन्तुष्ट";
+        posDiv.style.display = isVisible ? "block" : "none";
+        const counterEl = document.getElementById("pos_other_counter");
+        if (counterEl) counterEl.style.display = (isVisible && document.getElementById("pos_other_cb")?.checked) ? "block" : "none";
+        // लुकेको बेला भित्रका इनपुटहरू र 'अन्य' टेक्स्ट बक्स रिसेट गर्ने
+        if (!isVisible) {
+            posDiv.querySelectorAll('input').forEach(i => {
+                if (i.type === 'checkbox') i.checked = false;
+                if (i.type === 'text') { i.value = ''; i.style.display = 'none'; i.dispatchEvent(new Event('input')); }
+            });
+        }
+    }
+
+    if (negDiv) {
+        const isVisible = selected === "असन्तुष्ट";
+        negDiv.style.display = isVisible ? "block" : "none";
+        const counterEl = document.getElementById("neg_other_counter");
+        if (counterEl) counterEl.style.display = (isVisible && document.getElementById("neg_other_cb")?.checked) ? "block" : "none";
+        // लुकेको बेला भित्रका इनपुटहरू र 'अन्य' टेक्स्ट बक्स रिसेट गर्ने
+        if (!isVisible) {
+            negDiv.querySelectorAll('input').forEach(i => {
+                if (i.type === 'checkbox') i.checked = false;
+                if (i.type === 'text') { i.value = ''; i.style.display = 'none'; i.dispatchEvent(new Event('input')); }
+            });
+        }
+    }
+}
+
+function toggleOtherReason(checkboxId, textInputId) {
+    const cb = document.getElementById(checkboxId);
+    const txt = document.getElementById(textInputId);
+    const counterId = textInputId.replace("_text", "_counter");
+    const counter = document.getElementById(counterId);
+
+    if (cb && txt) {
+        txt.style.display = cb.checked ? "block" : "none";
+        if (counter) counter.style.display = cb.checked ? "block" : "none";
+        if (!cb.checked) { 
+            txt.value = ""; 
+            txt.dispatchEvent(new Event('input')); // काउन्टर रिसेट गर्न
+        }
+    }
+}
+
+function renderTopUnsatisfiedOffices(data) {
+    const container = document.getElementById("topUnsatisfiedContainer");
+    const list = document.getElementById("topUnsatisfiedList");
+    if (!container || !list) return;
+
+    if (topOfficesChartObj) topOfficesChartObj.destroy();
+
+    // असन्तुष्ट भएका डाटाहरू मात्र फिल्टर गर्ने
+    const unsatisfiedData = data.filter(d => d.satisfaction_flag === "असन्तुष्ट" && d.mukhya_karyalay);
+
+    if (unsatisfiedData.length === 0) {
+        container.style.display = "none";
+        return;
+    }
+
+    // कार्यालय अनुसार गणना गर्ने
+    const officeCounts = {};
+    unsatisfiedData.forEach(d => {
+        const office = d.mukhya_karyalay.trim();
+        officeCounts[office] = (officeCounts[office] || 0) + 1;
+    });
+
+    // संख्याको आधारमा ठूलोबाट सानो मिलाउने र शीर्ष ३ लिने
+    const top3 = Object.entries(officeCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3);
+
+    list.innerHTML = top3.map(([office, count], index) => {
+        const colors = ['#de3053', '#e67e22', '#f1c40f'];
+        return `
+        <div class="stat-card" style="border-left: 5px solid ${colors[index]}; margin-bottom: 10px; text-align: left; background: white; padding: 10px 15px;">
+            <div style="font-size: 1.1em; font-weight: bold; color: #de3053; margin-bottom: 5px;">
+                ${toNepaliDigits(index + 1)}. ${office}
+            </div>
+            <div style="font-size: 0.95em;">असन्तुष्टि संख्या: <strong>${toNepaliDigits(count)}</strong></div>
+        </div>
+    `}).join('');
+
+    // Render Chart
+    const ctx = document.getElementById("topOfficesChart").getContext('2d');
+    topOfficesChartObj = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: top3.map(x => x[0]),
+            datasets: [{
+                label: 'असन्तुष्टि संख्या',
+                data: top3.map(x => x[1]),
+                backgroundColor: ['#de3053', '#f19086', '#ffb366'],
+                borderRadius: 5
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { beginAtZero: true, ticks: { stepSize: 1, callback: (v) => toNepaliDigits(v) } },
+                y: { ticks: { font: { family: 'Kalimati' } } }
+            }
+        }
+    });
+
+    container.style.display = "block";
+}
 
 async function loadData() {
     if (typeof SCRIPT_URL !== "undefined" && SCRIPT_URL && SCRIPT_URL.trim() !== "") {
@@ -481,6 +638,57 @@ document.getElementById("submitSurvey").addEventListener("click", async function
         return;
     }
 
+    // 'अन्य' विकल्प छानिएको खण्डमा टेक्स्ट बक्स खाली भए सबमिट हुन नदिने (Validation)
+    const posOtherCb = document.getElementById("pos_other_cb");
+    const posOtherTxt = document.getElementById("pos_other_text");
+    if (posOtherCb?.checked && !posOtherTxt?.value.trim()) {
+        Swal.fire({ icon: 'warning', title: 'थप विवरण आवश्यक', text: 'कृपया सन्तुष्टिको "अन्य" कारण लेख्नुहोस्।', confirmButtonColor: '#387ae6' });
+        posOtherTxt.focus();
+        return;
+    }
+
+    const negOtherCb = document.getElementById("neg_other_cb");
+    const negOtherTxt = document.getElementById("neg_other_text");
+    if (negOtherCb?.checked && !negOtherTxt?.value.trim()) {
+        Swal.fire({ icon: 'warning', title: 'थप विवरण आवश्यक', text: 'कृपया असन्तुष्टिको "अन्य" कारण लेख्नुहोस्।', confirmButtonColor: '#387ae6' });
+        negOtherTxt.focus();
+        return;
+    }
+
+    // योजना सम्बन्धी असन्तुष्टिको 'अन्य' विकल्प जाँच
+    const yojanaOtherCb = document.querySelector('input[name="asantushti_karan_yojana"][value="अन्य (लेख्नुहोस्)"]');
+    const yojanaOtherTxt = document.querySelector('input[name="asantushti_karan_other"]');
+    if (yojanaOtherCb?.checked && !yojanaOtherTxt?.value.trim()) {
+        Swal.fire({ icon: 'warning', title: 'थप विवरण आवश्यक', text: 'कृपया योजना असन्तुष्टिको "अन्य" कारण लेख्नुहोस्।', confirmButtonColor: '#387ae6' });
+        yojanaOtherTxt.focus();
+        return;
+    }
+
+    // शब्द सीमा जाँच (Word Limit Validation)
+    const wordLimits = [
+        { id: "pos_other_text", limit: 20, name: "सन्तुष्टिको अन्य कारण" },
+        { id: "neg_other_text", limit: 20, name: "असन्तुष्टिको अन्य कारण" },
+        { id: "yojana_other_text", limit: 20, name: "योजना असन्तुष्टिको अन्य कारण" },
+        { id: "sujhaw", limit: 100, name: "सुझाव" }
+    ];
+
+    for (let item of wordLimits) {
+        const el = document.getElementById(item.id);
+        if (el && el.value.trim()) {
+            const count = countWords(el.value);
+            if (count > item.limit) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'शब्द सीमा नाघ्यो',
+                    text: `${item.name} बढीमा ${item.limit} शब्दको हुनुपर्छ। (हाल: ${count} शब्द)`,
+                    confirmButtonColor: '#387ae6'
+                });
+                el.focus();
+                return;
+            }
+        }
+    }
+
     const formData = new FormData(form);
     let payload = {};
     for (let [key, val] of formData.entries()) {
@@ -506,6 +714,30 @@ document.getElementById("submitSurvey").addEventListener("click", async function
     payload.gender = payload.gender || "";
     payload.ghus_parera = payload.ghus_parera || "";
     payload.sahayog_parera = payload.sahayog_parera || "";
+
+    // 'अन्य' विकल्प र त्यसमा लेखिएको विवरणलाई एउटै महल (Column) मा मिलाउने
+    const mergeOther = (mainField, otherField, searchVal) => {
+        if (payload[mainField]) {
+            let vals = Array.isArray(payload[mainField]) ? payload[mainField] : [payload[mainField]];
+            if (vals.includes(searchVal) && payload[otherField]) {
+                // 'अन्य' लाई 'अन्य: [विवरण]' मा बदल्ने
+                vals = vals.map(v => v === searchVal ? `${searchVal}: ${payload[otherField]}` : v);
+            }
+            payload[mainField] = vals;
+        }
+        delete payload[otherField]; // छुट्टै 'अन्य' फिल्डलाई हटाउने ताकि डेटाबेस सफा होस्
+    };
+
+    mergeOther('santushti_positive', 'santushti_positive_other_val', 'अन्य');
+    mergeOther('santushti_negative', 'santushti_negative_other_val', 'अन्य');
+    mergeOther('asantushti_karan_yojana', 'asantushti_karan_other', 'अन्य (लेख्नुहोस्)');
+
+    // सबै चेकबक्सका एरेहरूलाई स्ट्रिङमा बदल्ने (Google Sheets मा एउटै सेलमा राख्न)
+    Object.keys(payload).forEach(key => {
+        if (Array.isArray(payload[key])) {
+            payload[key] = payload[key].join(", ");
+        }
+    });
 
     // सन्तुष्टि स्थिति गणना (Consolidated Logic)
     const hasPos = (payload.santushti_positive && payload.santushti_positive.length > 0) || payload.main_satisfaction === "सन्तुष्ट";
@@ -548,6 +780,9 @@ document.getElementById("submitSurvey").addEventListener("click", async function
     
     // फारम रिसेट भएपछि फेरि आजको मिति सेट गर्ने
     setTodayNepaliDate();
+
+    // रिसेट पछि कारणहरू भएका सेक्सनहरू पनि लुकाउने
+    updateSatisfactionVisibility();
 
     // सर्वेक्षण सफल भएको पप-अप मेसेज देखाउने
     Swal.fire({
@@ -606,6 +841,7 @@ function refreshDashboard() {
         return true;
     });
     renderStats(filtered);
+    renderTopUnsatisfiedOffices(filtered);
     updateCharts(filtered);
     renderTable(filtered);
     updateDynamicAnalysis(filtered);
@@ -795,13 +1031,33 @@ function updateDynamicAnalysis(data) {
     statContainer.style.display = "flex";
     chartContainer.style.display = "flex";
 
+    // बहु-विकल्प (Checkboxes) भएका फिल्डहरूको सूची
+    const multiSelectFields = ['santushti_positive', 'santushti_negative', 'asantushti_karan_yojana', 'helper_type', 'ghus_diye_kaslai'];
+
     let counts = {};
     data.forEach(item => {
         let val = item[field];
         if (Array.isArray(val)) {
-            val.forEach(v => counts[v] = (counts[v] || 0) + 1);
-        } else if (val) {
-            counts[val] = (counts[val] || 0) + 1;
+            val.forEach(v => { 
+                if (v) {
+                    // "अन्य: विवरण" लाई "अन्य" मा गाभ्ने
+                    let processed = v.startsWith("अन्य:") ? "अन्य" : 
+                                   (v.startsWith("अन्य (लेख्नुहोस्):") ? "अन्य (लेख्नुहोस्)" : v);
+                    counts[processed] = (counts[processed] || 0) + 1; 
+                }
+            });
+        } else if (val && typeof val === 'string') {
+            if (multiSelectFields.includes(field)) {
+                // कमाले जोडिएका स्ट्रिङलाई टुक्राएर प्रत्येक विकल्प गणना गर्ने
+                val.split(',').map(s => s.trim()).filter(s => s).forEach(p => {
+                    // "अन्य: विवरण" लाई "अन्य" मा गाभ्ने
+                    let processed = p.startsWith("अन्य:") ? "अन्य" : 
+                                   (p.startsWith("अन्य (लेख्नुहोस्):") ? "अन्य (लेख्नुहोस्)" : p);
+                    counts[processed] = (counts[processed] || 0) + 1;
+                });
+            } else {
+                counts[val] = (counts[val] || 0) + 1;
+            }
         }
     });
 
@@ -871,10 +1127,81 @@ function updateDynamicAnalysis(data) {
                         }
                     }
                 }
-            } 
+            },
+            onClick: (event, elements) => {
+                if (elements.length > 0) {
+                    const clickedIndex = elements[0].index;
+                    const clickedLabel = labels[clickedIndex];
+                    // Pass the original filtered data to the detailed table renderer
+                    renderDetailedTable(field, clickedLabel, data);
+                }
+            }
         }
     });
     document.getElementById("dynamicChartLabel").textContent = document.querySelector(`#dynamicFieldSelector option[value="${field}"]`).textContent + " को विश्लेषण";
+}
+
+function renderDetailedTable(field, clickedLabel, originalFilteredData) {
+    const detailTableContainer = document.getElementById("dynamicDetailTableContainer");
+    const detailTableTitle = document.getElementById("detailTableTitle");
+    const detailTableBody = document.querySelector("#dynamicDetailTable tbody");
+
+    detailTableBody.innerHTML = ""; // Clear previous data
+    detailTableTitle.textContent = `"${clickedLabel}"`; // Set title
+
+    const multiSelectFields = ['santushti_positive', 'santushti_negative', 'asantushti_karan_yojana', 'helper_type', 'ghus_diye_kaslai'];
+
+    const filteredDetails = originalFilteredData.filter(item => {
+        let val = item[field];
+        if (!val) return false;
+
+        if (Array.isArray(val)) {
+            return val.some(v => {
+                let processed = v.startsWith("अन्य:") ? "अन्य" : 
+                               (v.startsWith("अन्य (लेख्नुहोस्):") ? "अन्य (लेख्नुहोस्)" : v);
+                return processed === clickedLabel;
+            });
+        } else if (typeof val === 'string') {
+            if (multiSelectFields.includes(field)) {
+                return val.split(',').map(s => s.trim()).filter(s => s).some(p => {
+                    let processed = p.startsWith("अन्य:") ? "अन्य" : 
+                                   (p.startsWith("अन्य (लेख्नुहोस्):") ? "अन्य (लेख्नुहोस्)" : p);
+                    return processed === clickedLabel;
+                });
+            } else {
+                return val === clickedLabel;
+            }
+        }
+        return false;
+    });
+
+    filteredDetails.forEach(r => {
+        let statusClass = "";
+        if (r.satisfaction_flag === "सन्तुष्ट") statusClass = "status-satisfied";
+        else if (r.satisfaction_flag === "असन्तुष्ट") statusClass = "status-unsatisfied";
+        else if (r.satisfaction_flag === "मिश्रित") statusClass = "status-mixed";
+
+        let specificReason = r[field]; // Default to the field value
+        if (multiSelectFields.includes(field) && typeof r[field] === 'string') {
+            // For multi-select, show the full string of reasons
+            specificReason = r[field];
+        }
+
+        let row = `<tr class="${statusClass}">
+            <td data-label="मिति">${r.survey_date || ""}</td>
+            <td data-label="जिल्ला">${r.jilla || ""}</td>
+            <td data-label="लिङ्ग">${r.gender || ""}</td>
+            <td data-label="कार्यालय">${r.mukhya_karyalay || ""}</td>
+            <td data-label="सन्तुष्टि">${r.satisfaction_flag || ""}</td>
+            <td data-label="चुनिएको कारण">${specificReason || ""}</td>
+        </tr>`;
+        detailTableBody.insertAdjacentHTML("beforeend", row);
+    });
+
+    detailTableContainer.style.display = "block";
+    document.getElementById("closeDetailTable").onclick = () => {
+        detailTableContainer.style.display = "none";
+    };
 }
 
 function renderTable(data) {
@@ -983,6 +1310,8 @@ function startVoiceTyping(event, targetId) {
         if (targetInput) {
             const space = baseValue && (finalTranscript || interimTranscript) ? " " : "";
             targetInput.value = baseValue + space + finalTranscript + interimTranscript;
+            // म्यानुअल रूपमा input इभेन्ट ट्रिगर गर्ने ताकि काउन्टर अपडेट होस्
+            targetInput.dispatchEvent(new Event('input'));
         }
     };
 
