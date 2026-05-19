@@ -1,10 +1,17 @@
 // Google Apps Script Web App URL (Replace with actual deployed URL)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzG60h4pAfcXvecnnDj2BrM12zPTfZl55TD7C0MmQOFFyORgOQQ8Wc3cvBnur2v04Zp/exec";  // यहाँ तपाईंको Google Apps Script Web App URL राख्नुहोस्, example: "https://script.google.com/macros/s/XXXX/exec"
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzr1sNmaj_490-7H4yfGNIFNJcz5RT4yLwxarDhlQTLxU1AvPIwsQTbrgIDM8-ZAWls/exec";  // यहाँ तपाईंको Google Apps Script Web App URL राख्नुहोस्, example: "https://script.google.com/macros/s/XXXX/exec"
 let allSubmissions = [];
+let allMonitorings = []; // अनुगमन डाटाको लागि
+let currentFilteredMonitorings = []; // डाउनलोडका लागि हाल फिल्टर गरिएको डाटा राख्न
+let currentDashboardView = 'survey'; // 'survey' वा 'monitoring'
+
+// चार्ट अब्जेक्टहरूलाई ग्लोबल रूपमा डिक्लेयर गरिएको (ReferenceError हटाउन)
+let genderChartObj = null, satisfactionChartObj = null, ghusChartObj = null, devChartObj = null, dynamicChartObj = null, topUnsatisfiedChartObj = null, topSatisfiedChartObj = null;
+let charterClarityChartObj = null, attendanceChartObj = null, brokerChartObj = null, facilitiesChartObj = null, staffingChartObj = null, vacantByProvinceChartObj = null, provStaffingComparisonChartObj = null;
+// नयाँ अनुगमन चार्ट अब्जेक्टहरू
+let websiteChartObj = null, disclosureChartObj = null, autoInfoChartObj = null, workroomChartObj = null, infoBoardChartObj = null, cleaningChartObj = null;
 
 // Province, District, and Municipality Data
-let topUnsatisfiedChartObj, topSatisfiedChartObj;
-
 const PROVINCE = {
     1: 'कोशी प्रदेश',
     2: 'मधेश प्रदेश',
@@ -24,6 +31,37 @@ const DISTRICTS = {
     6: ["कालिकोट", "दैलेख", "जाजरकोट", "डोल्पा", "हुम्ला", "जुम्ला", "मुगु", "रुकुम (पश्चिम)", "सल्यान", "सुर्खेत"],
     7: ["कैलाली", "अछाम", "डोटी", "बझाङ", "बाजुरा", "दार्चुला", "डडेल्धुरा", "बैतडी", "कञ्चनपुर"]
 };
+
+/**
+ * डाटा अब्जेक्टबाट सही भ्यालू (Value) खोज्ने फङ्सन (Smart Mapping)
+ * गुगल सीटका हेडरहरू र कोडका की (Key) हरू नमिल्दा यो प्रयोग गरिन्छ।
+ */
+function getVal(obj, field, label) {
+    if (!obj) return "";
+    // १. सिधै की (key) बाट खोज्ने
+    if (obj[field] !== undefined && obj[field] !== null && obj[field] !== "") return obj[field];
+    // २. लेबल (label) बाट खोज्ने
+    if (obj[label] !== undefined && obj[label] !== null && obj[label] !== "") return obj[label];
+    
+    const keys = Object.keys(obj);
+    // ३. अनावश्यक चिन्हहरू हटाएर तुलना गर्ने (Resilient Matching)
+    const clean = (s) => String(s || "").replace(/[\s.०-९?？।()\/\\-]|बारेमा|सम्बन्धमा|सम्बन्धी/g, '').toLowerCase();
+    const cleanLabel = clean(label);
+    const cleanField = clean(field);
+
+    let found = keys.find(k => {
+        const ck = clean(k);
+        if (cleanField && ck.includes(cleanField)) return true;
+        if (!cleanLabel) return false;
+        // मुख्य शब्दहरू (Start/End) भिडाउने ताकि बीचमा थप शब्द भए पनि मिलोस्
+        if (cleanLabel.length > 8) {
+            return ck.includes(cleanLabel.substring(0, 5)) && ck.includes(cleanLabel.substring(cleanLabel.length - 4));
+        }
+        return ck.includes(cleanLabel) || cleanLabel.includes(ck);
+    });
+    
+    return found ? obj[found] : "";
+}
 
 const MUNICIPALITIES = {
     1: {
@@ -334,7 +372,7 @@ function handleNepaliPickerOutsideClick(event) {
 }
 
 function populateProvinces() {
-    const pradeshSelects = [document.getElementById("pradesh"), document.getElementById("filterPradesh")];
+    const pradeshSelects = [document.getElementById("pradesh"), document.getElementById("filterPradesh"), document.getElementById("m_pradesh")];
     pradeshSelects.forEach(sel => {
         if (!sel) return;
         for (const [id, name] of Object.entries(PROVINCE)) {
@@ -347,10 +385,10 @@ function populateProvinces() {
 }
 
 // Update Districts based on Province
-function updateDistricts() {
-    const pradeshId = document.getElementById("pradesh").value;
-    const jillaSelect = document.getElementById("jilla");
-    const sthaaniyaSelect = document.getElementById("sthaaniya_taha");
+function updateDistricts(pId, jId, sId) {
+    const pradeshId = document.getElementById(pId).value;
+    const jillaSelect = document.getElementById(jId);
+    const sthaaniyaSelect = document.getElementById(sId);
 
     jillaSelect.innerHTML = '<option value="">जिल्ला छान्नुहोस्</option>';
     sthaaniyaSelect.innerHTML = '<option value="">स्थानीय तह छान्नुहोस्</option>';
@@ -366,10 +404,10 @@ function updateDistricts() {
 }
 
 // Update Municipalities based on District
-function updateMunicipalities() {
-    const pradeshId = document.getElementById("pradesh").value;
-    const district = document.getElementById("jilla").value;
-    const sthaaniyaSelect = document.getElementById("sthaaniya_taha");
+function updateMunicipalities(pId, jId, sId) {
+    const pradeshId = document.getElementById(pId).value;
+    const district = document.getElementById(jId).value;
+    const sthaaniyaSelect = document.getElementById(sId);
 
     sthaaniyaSelect.innerHTML = '<option value="">स्थानीय तह छान्नुहोस्</option>';
 
@@ -423,8 +461,16 @@ function updateFilterMunicipalities() {
 // Initialize dropdowns and datepicker
 document.addEventListener("DOMContentLoaded", function () {
     populateProvinces();
-    document.getElementById("pradesh").addEventListener("change", updateDistricts);
-    document.getElementById("jilla").addEventListener("change", updateMunicipalities);
+    document.getElementById("pradesh").addEventListener("change", () => updateDistricts("pradesh", "jilla", "sthaaniya_taha"));
+    document.getElementById("jilla").addEventListener("change", () => updateMunicipalities("pradesh", "jilla", "sthaaniya_taha"));
+    
+    // Monitoring dropdowns
+    document.getElementById("m_pradesh")?.addEventListener("change", () => updateDistricts("m_pradesh", "m_jilla", "m_sthaaniya"));
+    document.getElementById("m_jilla")?.addEventListener("change", () => updateMunicipalities("m_pradesh", "m_jilla", "m_sthaaniya"));
+
+    // विशिष्ट प्रश्न विश्लेषण (Dynamic Analysis) छनोट गर्दा ड्यासबोर्ड रिफ्रेस गर्ने
+    document.getElementById("dynamicFieldSelector")?.addEventListener("change", refreshDashboard);
+
     document.getElementById("filterPradesh")?.addEventListener("change", updateFilterDistricts);
     document.getElementById("filterDistrict")?.addEventListener("change", updateFilterMunicipalities);
 
@@ -454,7 +500,12 @@ const satisfactionInputs = document.querySelectorAll('[name="main_satisfaction"]
         { inputId: "pos_other_text", counterId: "pos_other_counter", limit: 20 },
         { inputId: "neg_other_text", counterId: "neg_other_counter", limit: 20 },
         { inputId: "yojana_other_text", counterId: "yojana_other_counter", limit: 20 },
-        { inputId: "sujhaw", counterId: "sujhaw_counter", limit: 100 }
+        { inputId: "sujhaw", counterId: "sujhaw_counter", limit: 100 },
+        { inputId: "m_office", counterId: "m_office_counter", limit: 20 },
+        { inputId: "m_main_services", counterId: "m_main_services_counter", limit: 100 },
+        { inputId: "m_problems", counterId: "m_problems_counter", limit: 100 },
+        { inputId: "m_measures", counterId: "m_measures_counter", limit: 100 },
+        { inputId: "m_comment", counterId: "m_comment_counter", limit: 150 }
     ];
 
     countersToSetup.forEach(item => {
@@ -462,6 +513,19 @@ const satisfactionInputs = document.querySelectorAll('[name="main_satisfaction"]
         if (el) {
             el.addEventListener('input', () => updateWordCountDisplay(el, item.counterId, item.limit));
         }
+    });
+
+    // Add event listeners for chart type cycle buttons
+    document.querySelectorAll('.chart-type-cycle-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const chartId = this.dataset.chartId;
+            const currentType = chartTypes[chartId];
+            const cycle = CHART_TYPE_CYCLES[chartId];
+            const currentIndex = cycle.indexOf(currentType);
+            const nextIndex = (currentIndex + 1) % cycle.length;
+            chartTypes[chartId] = cycle[nextIndex];
+            refreshDashboard(); // This will redraw all charts, including the one whose type changed
+        });
     });
 });
 
@@ -576,13 +640,13 @@ function renderTopUnsatisfiedOffices(data) {
         .slice(0, 3);
 
     list.innerHTML = top3.map(([office, count], index) => {
-        const colors = ['#e63946', '#f4a261', '#e9c46a']; // नयाँ रङ योजना
+        const colors = ['#ef4444', '#f97316', '#f59e0b']; 
         return `
-        <div class="stat-card" style="border-left: 3px solid ${colors[index]}; margin-bottom: 5px; text-align: left; background: white; padding: 6px 10px;">
+        <div class="stat-card" style="border-left: 4px solid ${colors[index]}; margin-bottom: 6px; text-align: left; background: white; padding: 8px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
             <div style="font-size: 0.95rem; font-weight: bold; color: #de3053; margin-bottom: 2px;">
                 ${toNepaliDigits(index + 1)}. ${office}
             </div>
-            <div style="font-size: 0.85rem;">असन्तुष्टि संख्या: <strong>${toNepaliDigits(count)}</strong></div>
+            <div style="font-size: 0.85rem; color: #4a5568;">असन्तुष्टि संख्या: <strong style="color: #ef4444;">${toNepaliDigits(count)}</strong></div>
         </div>
     `}).join('');
 
@@ -595,11 +659,14 @@ function renderTopUnsatisfiedOffices(data) {
             datasets: [{
                 label: 'असन्तुष्टि संख्या',
                 data: top3.map(x => x[1]),
-                backgroundColor: ['#de3053', '#f19086', '#ffb366'],
-                borderRadius: 5
+                backgroundColor: ['#ef4444cc', '#f97316cc', '#f59e0bcc'],
+                borderColor: ['#ef4444', '#f97316', '#f59e0b'],
+                borderWidth: 1,
+                borderRadius: 4
             }]
         },
         options: {
+            animation: { duration: 2500, easing: 'easeInOutQuart' },
             indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
@@ -640,13 +707,13 @@ function renderTopSatisfiedOffices(data) {
     const top3 = Object.entries(officeCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
 
     list.innerHTML = top3.map(([office, count], index) => {
-        const colors = ['#27ae60', '#2ecc71', '#a1f0c0'];
+        const colors = ['#10b981', '#34d399', '#6ee7b7'];
         return `
-        <div class="stat-card" style="border-left: 3px solid ${colors[index]}; margin-bottom: 5px; text-align: left; background: white; padding: 6px 10px;">
+        <div class="stat-card" style="border-left: 4px solid ${colors[index]}; margin-bottom: 6px; text-align: left; background: white; padding: 8px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
             <div style="font-size: 0.95rem; font-weight: bold; color: #27ae60; margin-bottom: 2px;">
                 ${toNepaliDigits(index + 1)}. ${office}
             </div>
-            <div style="font-size: 0.85rem;">सन्तुष्टि संख्या: <strong>${toNepaliDigits(count)}</strong></div>
+            <div style="font-size: 0.85rem; color: #4a5568;">सन्तुष्टि संख्या: <strong style="color: #10b981;">${toNepaliDigits(count)}</strong></div>
         </div>
     `}).join('');
 
@@ -658,11 +725,13 @@ function renderTopSatisfiedOffices(data) {
             datasets: [{
                 label: 'सन्तुष्टि संख्या',
                 data: top3.map(x => x[1]),
-                backgroundColor: ['#27ae60', '#2ecc71', '#5cd68d'],
-                borderRadius: 5
+                backgroundColor: ['#10b981cc', '#34d399cc', '#6ee7b7cc'],
+                borderColor: ['#10b981', '#34d399', '#6ee7b7'],
+                borderWidth: 1,
+                borderRadius: 4
             }]
         },
-        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1, callback: (v) => toNepaliDigits(v) } }, y: { ticks: { font: { family: 'Kalimati' } } } } }
+        options: { animation: { duration: 2500, easing: 'easeInOutQuart' }, indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1, callback: (v) => toNepaliDigits(v) } }, y: { ticks: { font: { family: 'Kalimati' } } } } }
     });
 
     container.style.display = "block";
@@ -689,10 +758,14 @@ async function loadData() {
         try {
             const response = await fetch(SCRIPT_URL);
             if (response.ok) {
-                const sheetData = await response.json();
-                if(Array.isArray(sheetData)) {
-                    allSubmissions = sheetData.reverse(); // Reverse so latest comes first
+                const result = await response.json();
+                if (result.survey) {
+                    allSubmissions = result.survey.reverse();
                     localStorage.setItem("surveyData_nsc_full", JSON.stringify(allSubmissions));
+                }
+                if (result.monitoring) {
+                    allMonitorings = result.monitoring.reverse();
+                    localStorage.setItem("monitoringData_nsc", JSON.stringify(allMonitorings));
                 }
             }
         } catch (e) {
@@ -904,8 +977,83 @@ document.getElementById("submitSurvey").addEventListener("click", async function
     setTimeout(() => document.getElementById("formStatus").innerHTML = "", 3500);
 });
 
+// अनुगमन फारम सबमिट गर्ने लजिक
+document.getElementById("submitMonitoring")?.addEventListener("click", async function() {
+    const form = document.getElementById("monitoringForm");
+    if (!form.checkValidity()) { form.reportValidity(); return; }
+
+    // शब्द सीमा जाँच (Word Limit Validation for Monitoring Fields)
+    const wordLimits = [
+        { id: "m_office", limit: 20, name: "कार्यालयको नाम" },
+        { id: "m_main_services", limit: 100, name: "मुख्य सेवाहरू" },
+        { id: "m_problems", limit: 100, name: "मूलभूत समस्या/अनियमितता" },
+        { id: "m_measures", limit: 100, name: "अपनाएका सुधारका उपायहरू" },
+        { id: "m_comment", limit: 150, name: "अनुगमनकर्ताको टिप्पणी" }
+    ];
+
+    for (let item of wordLimits) {
+        const el = document.getElementById(item.id);
+        if (el && el.value.trim()) {
+            const count = countWords(el.value);
+            if (count > item.limit) {
+                Swal.fire({ icon: 'warning', title: 'शब्द सीमा नाघ्यो', text: `${item.name} बढीमा ${toNepaliDigits(item.limit)} शब्दको हुनुपर्छ। (हाल: ${toNepaliDigits(count)} शब्द)`, confirmButtonColor: '#387ae6' });
+                el.focus();
+                return;
+            }
+        }
+    }
+
+    const formData = new FormData(form);
+    let payload = { 
+        type: 'monitoring', 
+        timestamp: new Date().toISOString() 
+    };
+    
+    for (let [key, val] of formData.entries()) {
+        if (payload[key]) {
+            if (!Array.isArray(payload[key])) payload[key] = [payload[key]];
+            payload[key].push(val);
+        } else {
+            payload[key] = val;
+        }
+    }
+    
+    // Province/District mapping
+    payload.m_pradesh = PROVINCE[payload.m_pradesh] || payload.m_pradesh;
+
+    const loadingOverlay = document.getElementById("loadingOverlay");
+    if (loadingOverlay) loadingOverlay.style.display = "flex";
+
+    try {
+        // Local storage मा सेभ गर्ने
+        allMonitorings.unshift(payload);
+        localStorage.setItem("monitoringData_nsc", JSON.stringify(allMonitorings));
+
+        if (SCRIPT_URL) {
+            await fetch(SCRIPT_URL, { 
+                method: "POST", 
+                mode: 'no-cors', // CORS समस्या समाधान गर्न
+                body: JSON.stringify(payload) 
+            });
+        }
+        
+        Swal.fire({ icon: 'success', title: 'सफल!', text: 'कार्यालय अनुगमन फारम सुरक्षित भयो।', confirmButtonColor: '#387ae6' });
+        form.reset();
+    } catch (e) {
+        console.error(e);
+        Swal.fire({ icon: 'info', title: 'नोट', text: 'डाटा स्थानीय भण्डारणमा सेभ भयो।' });
+    } finally {
+        if (loadingOverlay) loadingOverlay.style.display = "none";
+    }
+});
+
 // Dashboard rendering
 function refreshDashboard() {
+    if (currentDashboardView === 'monitoring') {
+        refreshMonitoringDashboard();
+        return;
+    }
+    // साविकको सर्वेक्षण ड्यासबोर्ड लजिक
     const pradeshFilter = document.getElementById("filterPradesh")?.value || "";
     const districtFilter = document.getElementById("filterDistrict")?.value || "";
     const sthaaniyaFilter = document.getElementById("filterSthaaniya")?.value || "";
@@ -928,14 +1076,25 @@ function refreshDashboard() {
     });
 
     let filtered = processedData.filter(r => {
-        if (pradeshFilter && r.pradesh !== PROVINCE[pradeshFilter]) return false;
-        if (districtFilter && r.jilla !== districtFilter) return false;
-        if (sthaaniyaFilter && r.sthaaniya_taha !== sthaaniyaFilter) return false;
-        if (officeFilter && !(r.mukhya_karyalay || "").toLowerCase().includes(officeFilter)) return false;
-        if (genderF && r.gender !== genderF) return false;
+        // स्मार्ट म्यापिङ प्रयोग गरेर फिल्टरका लागि डाटा तान्ने
+        const rPradesh = getVal(r, 'pradesh', 'प्रदेश');
+        const rJilla = getVal(r, 'jilla', 'जिल्ला');
+        const rSthaaniya = getVal(r, 'sthaaniya_taha', 'स्थानीय तह');
+        const rOffice = getVal(r, 'mukhya_karyalay', 'कार्यालय');
+        const rGender = getVal(r, 'gender', 'लिङ्ग');
+
+        if (pradeshFilter) {
+            const provinceName = PROVINCE[pradeshFilter];
+            if (rPradesh != pradeshFilter && rPradesh !== provinceName) return false;
+        }
+        if (districtFilter && rJilla !== districtFilter) return false;
+        if (sthaaniyaFilter && rSthaaniya !== sthaaniyaFilter) return false;
+        if (officeFilter && !(rOffice || "").toLowerCase().includes(officeFilter)) return false;
+        if (genderF && rGender !== genderF) return false;
         
         // फिल्टरको लागि वर्णनात्मक मितिलाई मानक (YYYY-MM-DD) मा बदलेर तुलना गर्ने
-        let recDate = getStandardDate(r.survey_date || "");
+        const rDate = getVal(r, 'survey_date', 'मिति');
+        let recDate = getStandardDate(rDate || "");
         if (fromDate && recDate < fromDate) return false;
         if (toDate && recDate > toDate) return false;
         return true;
@@ -948,367 +1107,458 @@ function refreshDashboard() {
     updateDynamicAnalysis(filtered);
 }
 
+function refreshMonitoringDashboard() {
+    const pradeshFilter = document.getElementById("filterPradesh")?.value || "";
+    const districtFilter = document.getElementById("filterDistrict")?.value || "";
+    const officeFilter = document.getElementById("filterOffice")?.value.toLowerCase() || "";
+
+    let filtered = allMonitorings.filter(r => {
+        if (pradeshFilter && r.m_pradesh !== PROVINCE[pradeshFilter]) return false;
+        if (districtFilter && r.m_jilla !== districtFilter) return false;
+        if (officeFilter && !(r.m_office || "").toLowerCase().includes(officeFilter)) return false;
+        return true;
+    });
+    currentFilteredMonitorings = filtered; // डाउनलोडका लागि डाटा अपडेट गर्ने
+
+    // Stats rendering for Monitoring
+    const total = filtered.length;
+    const brokerSeen = filtered.filter(d => d.m_q5 === "देखियो").length;
+    const digitalCharter = filtered.filter(d => d.m_q1 === "स्पष्ट बुझिने").length;
+
+    document.getElementById("statCardsContainer").innerHTML = `
+        <div class="stat-card"><div class="stat-number">${total}</div><div>जम्मा अनुगमन</div></div>        
+        <div class="stat-card"><div class="stat-number">${brokerSeen}</div><div>बिचौलिया देखिएको</div></div>
+        <div class="stat-card"><div class="stat-number">${digitalCharter}</div><div>डिजिटल बडापत्र स्पष्ट</div></div>
+    `;
+
+    // Table rendering for Monitoring
+    renderMonitoringTable(filtered);
+    // अनुगमन ड्यासबोर्डका लागि चार्टहरू अपडेट गर्ने
+    updateMonitoringCharts(filtered);
+    // अलर्ट सेक्सन अपडेट गर्ने (रिक्त पदको आधारमा)
+    updateMonitoringAlerts(filtered);
+    // विवरणात्मक विवरणहरू अपडेट गर्ने
+    updateMonitoringDetails(filtered);
+}
+
+function updateMonitoringAlerts(data) {
+    const alertsSection = document.getElementById("monitoringAlertsSection");
+    const alertsList = document.getElementById("alertsList");
+    if (!alertsSection || !alertsList) return;
+
+    // ३०% भन्दा बढी रिक्तता दर (Vacancy Rate) भएका कार्यालयहरू फिल्टर गर्ने
+    const highVacancyOffices = data.filter(d => {
+        const total = Number(d.d_total || 0);
+        const vacant = Number(d.d_vacant || 0);
+        if (total <= 0) return false; // शून्य दरबन्दी भएका कार्यालयलाई नदेखाउने
+        const rate = (vacant / total) * 100;
+        return rate > 30;
+    });
+
+    if (highVacancyOffices.length === 0) {
+        alertsSection.style.display = "none";
+        return;
+    }
+
+    alertsSection.style.display = "block";
+    alertsList.innerHTML = highVacancyOffices.map(d => {
+        const total = Number(d.d_total || 0);
+        const vacant = Number(d.d_vacant || 0);
+        const rate = ((vacant / total) * 100).toFixed(1); // १ दशमलव स्थानसम्म
+        
+        return `
+            <div class="stat-card" style="border-top: 4px solid #de3053; border-left: 1px solid #ffa39e; border-right: 1px solid #ffa39e; border-bottom: 1px solid #ffa39e; flex: 1 1 250px; text-align: left; padding: 12px; background: white; box-shadow: 0 2px 8px rgba(222, 48, 83, 0.1);">
+                <div style="font-weight: 700; color: #de3053; margin-bottom: 5px; font-size: 1.05rem;">${d.m_office || 'अज्ञात कार्यालय'}</div>
+                <div style="font-size: 1rem; color: #2d3748;">रिक्तता दर: <span style="font-weight: 800; color: #de3053;">${toNepaliDigits(rate)}%</span></div>
+                <div style="font-size: 0.85rem; color: #666; margin-top: 4px;">रिक्त संख्या: ${toNepaliDigits(vacant)} / कुल दरबन्दी: ${toNepaliDigits(total)}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function updateMonitoringDetails(data) {
+    const detailsSection = document.getElementById("monitoringDetailsSection");
+    const detailsList = document.getElementById("monitoringDetailsList");
+    if (!detailsSection || !detailsList) return;
+
+    if (data.length === 0) {
+        detailsSection.style.display = "none";
+        return;
+    }
+
+    detailsSection.style.display = "block";
+    detailsList.innerHTML = data.map(d => `
+        <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-left: 4px solid #306a95; margin-bottom: 15px;">
+            <h5 style="font-weight: 700; color: #306a95; margin-bottom: 8px;">${d.m_office || 'अज्ञात कार्यालय'} (${d.m_jilla || ''}) - ${d.m_date || ''}</h5>
+            ${d.m_main_services ? `<p style="margin-bottom: 5px;"><strong style="color: #4a5568;">मुख्य सेवाहरू:</strong> ${d.m_main_services}</p>` : ''}
+            ${d.m_problems ? `<p style="margin-bottom: 5px;"><strong style="color: #4a5568;">समस्या/अनियमितता:</strong> <span style="color: #de3053;">${d.m_problems}</span></p>` : ''}
+            ${d.m_measures ? `<p style="margin-bottom: 5px;"><strong style="color: #4a5568;">सुधारका उपायहरू:</strong> ${d.m_measures}</p>` : ''}
+            ${d.m_comment ? `<p style="margin-bottom: 0;"><strong style="color: #4a5568;">अनुगमनकर्ताको टिप्पणी:</strong> ${d.m_comment}</p>` : ''}
+            ${d.monitor_name ? `<p style="margin-top: 10px; font-size: 0.85rem; text-align: right; color: #718096;">अनुगमनकर्ता: ${d.monitor_name} (${d.monitor_rank || ''})</p>` : ''}
+        </div>
+    `).join('');
+}
+
+/**
+ * अनुगमन चार्टहरू अपडेट गर्ने
+ */
+function updateMonitoringCharts(data) {
+    const colorPalette = ['#3b82f6cc', '#10b981cc', '#f59e0bcc', '#ef4444cc', '#8b5cf6cc'];
+    const chartAnimation = { duration: 2500, easing: 'easeInOutQuart' };
+
+    // सहयोगी फङ्सन: रिक्वेन्सी म्यापिङ र चार्ट सिर्जना गर्न
+    const createMonChart = (ctxId, fieldName, currentObj, chartType = 'bar') => {
+        let counts = {};
+        data.forEach(d => { if (d[fieldName]) counts[d[fieldName]] = (counts[d[fieldName]] || 0) + 1; });
+        if (currentObj) currentObj.destroy();
+        return new Chart(document.getElementById(ctxId).getContext('2d'), {
+            type: chartType,
+            data: {
+                labels: Object.keys(counts),
+                datasets: [{ label: 'संख्या', data: Object.values(counts), backgroundColor: colorPalette, borderRadius: 5 }]
+            },
+            options: { animation: chartAnimation, responsive: true, plugins: { legend: { display: chartType !== 'bar', position: 'bottom' } } }
+        });
+    };
+
+    // १. नागरिक बडापत्रको स्पष्टता (m_q1)
+    charterClarityChartObj = createMonChart("charterClarityChart", "m_q1", charterClarityChartObj);
+    
+    // नयाँ चार्टहरू (Q6, Q7, Q8, Q9, Q10, Q11, Q12)
+    websiteChartObj = createMonChart("websiteChart", "m_q6", websiteChartObj, 'pie');
+    disclosureChartObj = createMonChart("disclosureChart", "m_q7", disclosureChartObj, 'doughnut');
+    autoInfoChartObj = createMonChart("autoInfoChart", "m_q8", autoInfoChartObj, 'pie');
+    attendanceChartObj = createMonChart("attendanceChart", "m_q9", attendanceChartObj, 'doughnut');
+    workroomChartObj = createMonChart("workroomChart", "m_q10", workroomChartObj, 'bar');
+    infoBoardChartObj = createMonChart("infoBoardChart", "m_q11", infoBoardChartObj, 'pie');
+    cleaningChartObj = createMonChart("cleaningChart", "m_q12", cleaningChartObj, 'bar');
+    brokerChartObj = createMonChart("brokerChart", "m_q5", brokerChartObj, 'doughnut');
+
+    // ३.४ प्रदेश अनुसार रिक्त पद (Vacant Posts by Province)
+    let provVacMap = {};
+    Object.values(PROVINCE).forEach(p => provVacMap[p] = 0);
+    data.forEach(d => {
+        if (d.m_pradesh) provVacMap[d.m_pradesh] += Number(d.d_vacant || 0);
+    });
+
+    if (vacantByProvinceChartObj) vacantByProvinceChartObj.destroy();
+    vacantByProvinceChartObj = new Chart(document.getElementById("vacantByProvinceChart").getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: Object.keys(provVacMap),
+            datasets: [{
+                label: 'रिक्त पद संख्या',
+                data: Object.values(provVacMap),
+                backgroundColor: '#e67e22',
+                borderRadius: 5
+            }]
+        },
+        options: {
+            animation: { duration: 2500, easing: 'easeInOutQuart' },
+            responsive: true,
+            scales: {
+                y: { 
+                    beginAtZero: true, 
+                    ticks: { callback: (v) => toNepaliDigits(v) } 
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: (ctx) => ` रिक्त संख्या: ${toNepaliDigits(ctx.raw)}` } }
+            }
+        }
+    });
+
+    // ३.६ प्रदेश अनुसार कार्यरत र रिक्त तुलना (Grouped Bar Chart)
+    let provCompMap = {};
+    Object.values(PROVINCE).forEach(p => provCompMap[p] = { working: 0, vacant: 0 });
+    data.forEach(d => {
+        if (d.m_pradesh && provCompMap[d.m_pradesh]) {
+            provCompMap[d.m_pradesh].working += Number(d.d_working || 0);
+            provCompMap[d.m_pradesh].vacant += Number(d.d_vacant || 0);
+        }
+    });
+
+    if (provStaffingComparisonChartObj) provStaffingComparisonChartObj.destroy();
+    provStaffingComparisonChartObj = new Chart(document.getElementById("provStaffingComparisonChart").getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: Object.keys(provCompMap),
+            datasets: [
+                {
+                    label: 'कार्यरत संख्या',
+                    data: Object.values(provCompMap).map(v => v.working),
+                    backgroundColor: '#167e2acf',
+                    borderRadius: 5
+                },
+                {
+                    label: ' रिक्त पद संख्या',
+                    data: Object.values(provCompMap).map(v => v.vacant),
+                    backgroundColor: '#e74d3ca4',
+                    borderRadius: 5
+                }
+            ]
+        },
+        options: {
+            animation: { duration: 2500, easing: 'easeInOutQuart' },
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { 
+                    beginAtZero: true, 
+                    ticks: { callback: (v) => toNepaliDigits(v) } 
+                }
+            },
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: { 
+                    callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${toNepaliDigits(ctx.raw)}` } 
+                }
+            }
+        }
+    });
+
+    if (staffingChartObj) staffingChartObj.destroy();
+    
+    let staffingLabels = [];
+    let staffingDatasets = [];
+
+    if (data.length === 1) {
+        // एउटा मात्र कार्यालय छान्दा त्यसको सबै विस्तृत विवरण (रिक्त, रमाना आदि) देखाउने
+        const d = data[0];
+        staffingLabels = ['कुल दरबन्दी', 'कार्यरत संख्या', 'रिक्त पद', 'रमाना लिन बाँकी', 'पद भन्दा बढी'];
+        staffingDatasets = [{
+            label: d.m_office || 'कार्यालय विवरण',
+            data: [
+                Number(d.d_total || 0),
+                Number(d.d_working || 0),
+                Number(d.d_vacant || 0),
+                Number(d.d_pending || 0),
+                Number(d.d_excess || 0)
+            ],
+            backgroundColor: ['#137cc2', '#14a450cc', '#e74c3c', '#c4a012', '#9b59b6'],
+            borderRadius: 5
+        }];
+    } else {
+        // धेरै कार्यालय हुँदा कुल योगफल तुलना गर्ने
+        let totalPositions = 0;
+        let totalWorking = 0;
+        data.forEach(d => {
+            totalPositions += Number(d.d_total || 0);
+            totalWorking += Number(d.d_working || 0);
+        });
+
+        staffingLabels = ['कुल दरबन्दी र कार्यरत संख्या (योगफल)'];
+        staffingDatasets = [
+            {
+                label: 'कुल दरबन्दी',
+                data: [totalPositions],
+                backgroundColor: '#2286c9',
+                borderRadius: 5
+            },
+            {
+                label: 'कार्यरत संख्या',
+                data: [totalWorking],
+                backgroundColor: '#1b964e',
+                borderRadius: 5
+            }
+        ];
+    }
+
+    staffingChartObj = new Chart(document.getElementById("staffingChart").getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: staffingLabels,
+            datasets: staffingDatasets
+        },
+        options: {
+            animation: { duration: 2500, easing: 'easeInOutQuart' },
+            indexAxis: 'y', // तेर्सो बार चार्ट
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { beginAtZero: true, ticks: { callback: (v) => toNepaliDigits(v) } }
+            },
+            plugins: {
+                legend: { position: 'bottom', display: data.length !== 1 },
+                tooltip: { 
+                    callbacks: { 
+                        label: (ctx) => {
+                            const label = data.length === 1 ? ctx.label : ctx.dataset.label;
+                            return ` ${label}: ${toNepaliDigits(ctx.raw)}`;
+                        }
+                    } 
+                }
+            }
+        }
+    });
+
+    // ४. कार्यालयका सुविधाहरू (प्रश्न १३: f_1 देखि f_10)
+    const facilityLabels = [
+        "सहायता कक्ष", "अपाङ्गमैत्री", "प्रतिक्षालय", "शौचालय", "खानेपानी",
+        "स्तनपान कक्ष", "धुम्रपान निषेध", "चमेना गृह", "उजुरी पेटिका", "वेवसाइट/सञ्जाल"
+    ];
+    
+    let yesCounts = new Array(10).fill(0);
+    let normalCounts = new Array(10).fill(0);
+    let noCounts = new Array(10).fill(0);
+
+    data.forEach(d => {
+        for (let i = 1; i <= 10; i++) {
+            let val = d[`f_${i}`];
+            if (val === "छ" || val === "अध्यावधिक") yesCounts[i-1]++;
+            else if (val === "सामान्य") normalCounts[i-1]++;
+            else if (val === "छैन") noCounts[i-1]++;
+        }
+    });
+
+    if (facilitiesChartObj) facilitiesChartObj.destroy();
+    facilitiesChartObj = new Chart(document.getElementById("facilitiesChart").getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: facilityLabels,
+            datasets: [
+                {
+                    label: 'छ / अध्यावधिक',
+                    data: yesCounts,
+                    backgroundColor: '#27ae60'
+                },
+                {
+                    label: 'सामान्य',
+                    data: normalCounts,
+                    backgroundColor: '#f1c40f'
+                },
+                {
+                    label: 'छैन',
+                    data: noCounts,
+                    backgroundColor: '#e74c3c'
+                }
+            ]
+        },
+        options: {
+            animation: { duration: 2500, easing: 'easeInOutQuart' },
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1 } },
+                x: { ticks: { font: { size: 11 } } }
+            },
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+}
+
+/**
+ * सर्वेक्षण ड्यासबोर्डका लागि तथ्याङ्क कार्डहरू रेन्डर गर्ने
+ */
 function renderStats(data) {
     const total = data.length;
     const ghusCount = data.filter(d => (d.ghus_parera || "").trim() === "पर्‍यो").length;
     const femaleCount = data.filter(d => d.gender === "महिला").length;
     const maleCount = data.filter(d => d.gender === "पुरुष").length;
-    const devInfo = data.filter(d => (d.bikas_janakari || "").trim() === "छ").length;
-    const satCount = data.filter(d => (d.satisfaction_flag || "").trim() === "सन्तुष्ट" || (d.satisfaction_flag || "").trim() === "मिश्रित").length;
+    const satCount = data.filter(d => (d.satisfaction_flag || "").trim() === "सन्तुष्ट").length;
 
-    document.getElementById("statCardsContainer").innerHTML = `
-        <div class="stat-card"><div class="stat-number">${total}</div><div>जम्मा प्रतिक्रिया</div></div>        
-        <div class="stat-card"><div class="stat-number">${femaleCount}</div><div>महिला सेवाग्राही</div></div>
-        <div class="stat-card"><div class="stat-number">${maleCount}</div><div>पुरुष सेवाग्राही</div></div>
-        <div class="stat-card"><div class="stat-number">${satCount}</div><div>सन्तुष्ट सेवाग्राही</div></div>
-        <div class="stat-card"><div class="stat-number">${ghusCount}</div><div>अतिरिक्त रकम दिनु परेको</div></div>
-        <div class="stat-card"><div class="stat-number">${devInfo}</div><div>विकास सम्बन्धी जानकारी भएको</div></div>
+    const container = document.getElementById("statCardsContainer");
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="stat-card"><div class="stat-number">${toNepaliDigits(total)}</div><div>जम्मा प्रतिक्रिया</div></div>        
+        <div class="stat-card"><div class="stat-number">${toNepaliDigits(femaleCount)}</div><div>महिला सेवाग्राही</div></div>
+        <div class="stat-card"><div class="stat-number">${toNepaliDigits(maleCount)}</div><div>पुरुष सेवाग्राही</div></div>
+        <div class="stat-card"><div class="stat-number">${toNepaliDigits(satCount)}</div><div>सन्तुष्ट सेवाग्राही</div></div>
+        <div class="stat-card"><div class="stat-number">${toNepaliDigits(ghusCount)}</div><div>अतिरिक्त रकम तिर्नु परेको</div></div>
     `;
 }
 
-let genderChartObj, satisfactionChartObj, ghusChartObj, devChartObj;
+/**
+ * सर्वेक्षण ड्यासबोर्डका लागि मुख्य चार्टहरू अपडेट गर्ने
+ */
 function updateCharts(data) {
+    // लिङ्ग चार्ट
     let genderMap = { पुरुष: 0, महिला: 0, अन्य: 0 };
     data.forEach(d => { if (d.gender) genderMap[d.gender] = (genderMap[d.gender] || 0) + 1; });
     if (genderChartObj) genderChartObj.destroy();
-    
-    // Create gradients for Gender Chart
-    const genderCtx = document.getElementById("genderChart").getContext('2d'); // Moved inside to ensure context is fresh
-    const blueGrad = genderCtx.createLinearGradient(0, 0, 0, 200);
-    blueGrad.addColorStop(0, '#457b9d'); blueGrad.addColorStop(1, '#a8dadc'); // नयाँ ग्रेडिएन्ट
-    const redGrad = genderCtx.createLinearGradient(0, 0, 0, 200);
-    redGrad.addColorStop(0, '#e63946'); redGrad.addColorStop(1, '#f1faee');
-    const yellowGrad = genderCtx.createLinearGradient(0, 0, 0, 200);
-    yellowGrad.addColorStop(0, '#f4a261'); yellowGrad.addColorStop(1, '#e9c46a');
-
-    genderChartObj = new Chart(genderCtx, {
-        type: chartTypes.genderChart, // Use dynamic type
+    genderChartObj = new Chart(document.getElementById("genderChart").getContext('2d'), {
+        type: chartTypes.genderChart,
         data: {
             labels: ["पुरुष", "महिला", "अन्य"],
             datasets: [{
-                label: "संख्या",
                 data: [genderMap.पुरुष, genderMap.महिला, genderMap.अन्य],
-                backgroundColor: [blueGrad, redGrad, yellowGrad],
-                borderRadius: 6,
-                borderWidth: 0
+                backgroundColor: ['#3b82f6cc', '#ec4899cc', '#f59e0bcc'],
+                borderColor: ['#3b82f6', '#ec4899', '#f59e0b'],
+                borderWidth: 1,
+                borderRadius: 5
             }]
         },
-        options: {
-            responsive: true,
-            animation: {
-                duration: 1500,
-                easing: 'easeOutQuart'
-            },
-            plugins: {
-                legend: { display: false }
-            },
-            scales: {
-                y: { beginAtZero: true, grid: { color: '#e8ecf1' } },
-                x: { grid: { display: false } }
-            }
-        }
+        options: { animation: { duration: 2500, easing: 'easeInOutQuart' }, responsive: true, plugins: { legend: { display: true, position: 'bottom' } } }
     });
 
-    let ghusData = { पर्‍यो: data.filter(d => d.ghus_parera === "पर्‍यो").length, परेन: data.filter(d => d.ghus_parera === "परेन").length };
-    if (ghusChartObj) ghusChartObj.destroy();
-
-    const ghusCtx = document.getElementById("ghusChart").getContext('2d');
-    const ghusRedGrad = ghusCtx.createLinearGradient(0, 0, 0, 200); // Moved inside
-    ghusRedGrad.addColorStop(0, '#d65e51'); ghusRedGrad.addColorStop(1, '#f19086');
-    const ghusGreenGrad = ghusCtx.createLinearGradient(0, 0, 0, 200);
-    ghusGreenGrad.addColorStop(0, '#27ae60'); ghusGreenGrad.addColorStop(1, '#5cd68d');
-
-    ghusChartObj = new Chart(ghusCtx, {
-        type: chartTypes.ghusChart,
-        data: {
-            labels: ["पर्‍यो", "परेन"], // Simplified labels for better chart display
-            datasets: [{
-                data: [ghusData.पर्‍यो, ghusData.परेन],
-                backgroundColor: [ghusRedGrad, ghusGreenGrad],
-                borderWidth: 2,
-                borderColor: "#fff"
-            }]
-        },
-        options: {
-            responsive: true,
-            animation: {
-                duration: 1500,
-                easing: 'easeOutCirc'
-            },
-            plugins: {
-                legend: { position: 'bottom', labels: { padding: 15, usePointStyle: true } }
-            }
-        }
-    });
-
+    // सन्तुष्टि चार्ट
     let satis = data.filter(d => d.satisfaction_flag === "सन्तुष्ट").length;
     let disSatis = data.filter(d => d.satisfaction_flag === "असन्तुष्ट").length;
     let mixedSatis = data.filter(d => d.satisfaction_flag === "मिश्रित").length;
-
     if (satisfactionChartObj) satisfactionChartObj.destroy();
-
-    const satCtx = document.getElementById("satisfactionChart").getContext('2d');
-    const satGreenGrad = satCtx.createLinearGradient(0, 0, 0, 200); // Moved inside
-    satGreenGrad.addColorStop(0, '#27ae60'); satGreenGrad.addColorStop(1, '#5cd68d');
-    const satOrangeGrad = satCtx.createLinearGradient(0, 0, 0, 200);
-    satOrangeGrad.addColorStop(0, '#e67e22'); satOrangeGrad.addColorStop(1, '#ffb366');
-    const satYellowGrad = satCtx.createLinearGradient(0, 0, 0, 200);
-    satYellowGrad.addColorStop(0, '#f1c40f'); satYellowGrad.addColorStop(1, '#f9e79f');
-
-    satisfactionChartObj = new Chart(satCtx, {
+    satisfactionChartObj = new Chart(document.getElementById("satisfactionChart").getContext('2d'), {
         type: chartTypes.satisfactionChart,
         data: {
             labels: ["सन्तुष्ट", "असन्तुष्ट", "मिश्रित"],
             datasets: [{
                 data: [satis, disSatis, mixedSatis],
-                backgroundColor: [satGreenGrad, satOrangeGrad, satYellowGrad],
-                borderWidth: 2,
-                borderColor: "#fff"
+                backgroundColor: ['#10b981cc', '#ef4444cc', '#f59e0bcc'],
+                borderColor: ['#10b981', '#ef4444', '#f59e0b'],
+                borderWidth: 1,
+                hoverOffset: 10
             }]
         },
-        options: {
-            responsive: true,
-            animation: {
-                duration: 1500,
-                easing: 'easeOutBack'
-            },
-            plugins: {
-                legend: { position: 'bottom', labels: { padding: 15, usePointStyle: true } }
-            }
-        }
+        options: { animation: { duration: 2500, easing: 'easeInOutQuart' }, responsive: true, plugins: { legend: { position: 'bottom' } } }
     });
 
+    // घुस/अतिरिक्त रकम चार्ट
+    let ghusData = { पर्‍यो: data.filter(d => d.ghus_parera === "पर्‍यो").length, परेन: data.filter(d => d.ghus_parera === "परेन").length };
+    if (ghusChartObj) ghusChartObj.destroy();
+    ghusChartObj = new Chart(document.getElementById("ghusChart").getContext('2d'), {
+        type: chartTypes.ghusChart,
+        data: {
+            labels: ["पर्‍यो", "परेन"],
+            datasets: [{
+                data: [ghusData.पर्‍यो, ghusData.परेन],
+                backgroundColor: ['#ef4444cc', '#10b981cc'],
+                borderColor: ['#ef4444', '#10b981'],
+                borderWidth: 1,
+                hoverOffset: 10
+            }]
+        },
+        options: { animation: { duration: 2500, easing: 'easeInOutQuart' }, responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+
+    // विकास जानकारी चार्ट
     let devKnown = data.filter(d => d.bikas_janakari === "छ").length;
     let devUnknown = data.filter(d => d.bikas_janakari === "छैन").length;
     if (devChartObj) devChartObj.destroy();
-
-    const devCtx = document.getElementById("developmentChart").getContext('2d');
-    const devBlueGrad = devCtx.createLinearGradient(0, 0, 0, 200); // Moved inside
-    devBlueGrad.addColorStop(0, '#3498db'); devBlueGrad.addColorStop(1, '#85c1e9');
-    const devGreyGrad = devCtx.createLinearGradient(0, 0, 0, 200);
-    devGreyGrad.addColorStop(0, '#95a5a6'); devGreyGrad.addColorStop(1, '#bdc3c7');
-
-    devChartObj = new Chart(devCtx, {
+    devChartObj = new Chart(document.getElementById("developmentChart").getContext('2d'), {
         type: chartTypes.developmentChart,
         data: {
-            labels: ["छ", "छैन"], // Simplified labels
+            labels: ["छ", "छैन"],
             datasets: [{
-                label: "विकास योजना जानकारी",
                 data: [devKnown, devUnknown],
-                backgroundColor: [devBlueGrad, devGreyGrad],
-                borderRadius: 6,
-                borderWidth: 0
+                backgroundColor: ['#3b82f6cc', '#94a3b8cc'],
+                borderColor: ['#3b82f6', '#94a3b8'],
+                borderWidth: 1,
+                borderRadius: 5
             }]
         },
-        options: {
-            responsive: true,
-            animation: {
-                duration: 1500,
-                easing: 'easeOutQuart'
-            },
-            plugins: {
-                legend: { display: false }
-            },
-            scales: {
-                y: { beginAtZero: true, grid: { color: '#e8ecf1' } },
-                x: { grid: { display: false } }
-            }
-        }
+        options: { animation: { duration: 2500, easing: 'easeInOutQuart' }, responsive: true, plugins: { legend: { display: false } } }
     });
 }
 
-let dynamicChartObj;
-function updateDynamicAnalysis(data) {
-    const field = document.getElementById("dynamicFieldSelector")?.value;
-    const statContainer = document.getElementById("dynamicStatRow");
-    const chartContainer = document.getElementById("dynamicChartRow");
-
-    if (!field || data.length === 0) {
-        if (statContainer) statContainer.style.display = "none";
-        if (chartContainer) chartContainer.style.display = "none";
-        return;
-    }
-
-    statContainer.style.display = "flex";
-    chartContainer.style.display = "flex";
-
-    // बहु-विकल्प (Checkboxes) भएका फिल्डहरूको सूची
-    const multiSelectFields = ['santushti_positive', 'santushti_negative', 'asantushti_karan_yojana', 'helper_type', 'ghus_diye_kaslai'];
-
-    let counts = {};
-    data.forEach(item => {
-        let val = item[field];
-        if (Array.isArray(val)) {
-            val.forEach(v => { 
-                if (v) {
-                    // "अन्य: विवरण" लाई "अन्य" मा गाभ्ने
-                    let processed = v.startsWith("अन्य:") ? "अन्य" : 
-                                   (v.startsWith("अन्य (लेख्नुहोस्):") ? "अन्य (लेख्नुहोस्)" : v);
-                    counts[processed] = (counts[processed] || 0) + 1; 
-                }
-            });
-        } else if (val && typeof val === 'string') {
-            if (multiSelectFields.includes(field)) {
-                // कमाले जोडिएका स्ट्रिङलाई टुक्राएर प्रत्येक विकल्प गणना गर्ने
-                val.split(',').map(s => s.trim()).filter(s => s).forEach(p => {
-                    // "अन्य: विवरण" लाई "अन्य" मा गाभ्ने
-                    let processed = p.startsWith("अन्य:") ? "अन्य" : 
-                                   (p.startsWith("अन्य (लेख्नुहोस्):") ? "अन्य (लेख्नुहोस्)" : p);
-                    counts[processed] = (counts[processed] || 0) + 1;
-                });
-            } else {
-                counts[val] = (counts[val] || 0) + 1;
-            }
-        }
-    });
-
-    const labels = Object.keys(counts);
-    const values = Object.values(counts);
-    const totalSum = values.reduce((a, b) => a + b, 0);
-    const percentages = values.map(v => ((v / totalSum) * 100).toFixed(1));
-
-    let maxVal = 0;
-    let topLabel = "छैन";
-    labels.forEach(l => {
-        if (counts[l] > maxVal) {
-            maxVal = counts[l];
-            topLabel = l;
-        }
-    });
-    const maxPercentage = totalSum > 0 ? ((maxVal / totalSum) * 100).toFixed(1) : 0;
-
-    statContainer.innerHTML = `
-        <div class="stat-card">
-            <div class="stat-number">${maxVal} (${maxPercentage}%)</div>
-            <div>सबैभन्दा धेरै चुनिएको: <strong>${topLabel}</strong></div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-number">${data.length}</div>
-            <div>विश्लेषण गरिएको जम्मा प्रतिक्रिया संख्या</div>
-        </div>
-    `;
-
-    if (dynamicChartObj) dynamicChartObj.destroy();
-    const ctx = document.getElementById("dynamicChart").getContext('2d');
-
-    const colorPairs = [
-        ['#264653', '#2a9d8f'], ['#e9c46a', '#f4a261'], ['#e76f51', '#f4a261'], // Updated color pairs
-        ['#606c38', '#283618'], ['#bc6c25', '#dda15e'], ['#00b4d8', '#90e0ef'],
-        ['#3d5a80', '#98c1d9'], ['#ee6c4d', '#293241'] // डाइनामिक चार्टका लागि नयाँ रङहरू
-    ];
-    const dynamicGradients = colorPairs.map(pair => {
-        const g = ctx.createLinearGradient(0, 0, 0, 400);
-        g.addColorStop(0, pair[0]); g.addColorStop(1, pair[1]);
-        return g;
-    });
-
-    dynamicChartObj = new Chart(ctx, {
-        type: chartTypes.dynamicChart, // Use dynamic type
-        data: {
-            labels: labels,
-            datasets: [{ 
-                label: 'प्रतिशत (%)', 
-                data: percentages, 
-                backgroundColor: dynamicGradients 
-            }]
-        },
-        options: { 
-            responsive: true, 
-            animation: {
-                duration: 1200,
-                easing: 'easeInOutQuart'
-            },
-            plugins: { 
-                legend: { position: labels.length > 5 ? 'top' : 'bottom' },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const val = values[context.dataIndex];
-                            return ` ${context.label}: ${context.raw}% (संख्या: ${val})`;
-                        }
-                    }
-                }
-            },
-            onClick: (event, elements) => {
-                if (elements.length > 0) {
-                    const clickedIndex = elements[0].index;
-                    const clickedLabel = labels[clickedIndex];
-                    // Pass the original filtered data to the detailed table renderer
-                    renderDetailedTable(field, clickedLabel, data);
-                }
-            }
-        }
-    });
-    document.getElementById("dynamicChartLabel").textContent = document.querySelector(`#dynamicFieldSelector option[value="${field}"]`).textContent + " को विश्लेषण";
-}
-
-function renderDetailedTable(field, clickedLabel, originalFilteredData) {
-    const detailTableContainer = document.getElementById("dynamicDetailTableContainer");
-    const detailTableTitle = document.getElementById("detailTableTitle");
-    const detailTableBody = document.querySelector("#dynamicDetailTable tbody");
-
-    detailTableBody.innerHTML = ""; // Clear previous data
-    detailTableTitle.textContent = `"${clickedLabel}"`; // Set title
-
-    const multiSelectFields = ['santushti_positive', 'santushti_negative', 'asantushti_karan_yojana', 'helper_type', 'ghus_diye_kaslai'];
-
-    const filteredDetails = originalFilteredData.filter(item => {
-        let val = item[field];
-        if (!val) return false;
-
-        if (Array.isArray(val)) {
-            return val.some(v => {
-                let processed = v.startsWith("अन्य:") ? "अन्य" : 
-                               (v.startsWith("अन्य (लेख्नुहोस्):") ? "अन्य (लेख्नुहोस्)" : v);
-                return processed === clickedLabel;
-            });
-        } else if (typeof val === 'string') {
-            if (multiSelectFields.includes(field)) {
-                return val.split(',').map(s => s.trim()).filter(s => s).some(p => {
-                    let processed = p.startsWith("अन्य:") ? "अन्य" : 
-                                   (p.startsWith("अन्य (लेख्नुहोस्):") ? "अन्य (लेख्नुहोस्)" : p);
-                    return processed === clickedLabel;
-                });
-            } else {
-                return val === clickedLabel;
-            }
-        }
-        return false;
-    });
-
-    filteredDetails.forEach(r => {
-        let statusClass = "";
-        if (r.satisfaction_flag === "सन्तुष्ट") statusClass = "status-satisfied";
-        else if (r.satisfaction_flag === "असन्तुष्ट") statusClass = "status-unsatisfied";
-        else if (r.satisfaction_flag === "मिश्रित") statusClass = "status-mixed";
-
-        let specificReason = r[field]; // Default to the field value
-        if (multiSelectFields.includes(field) && typeof r[field] === 'string') {
-            // For multi-select, show the full string of reasons
-            specificReason = r[field];
-        }
-
-        let row = `<tr class="${statusClass}">
-            <td data-label="मिति">${r.survey_date || ""}</td>
-            <td data-label="जिल्ला">${r.jilla || ""}</td>
-            <td data-label="लिङ्ग">${r.gender || ""}</td>
-            <td data-label="कार्यालय">${r.mukhya_karyalay || ""}</td>
-            <td data-label="सन्तुष्टि">${r.satisfaction_flag || ""}</td>
-            <td data-label="चुनिएको कारण">${specificReason || ""}</td>
-        </tr>`;
-        detailTableBody.insertAdjacentHTML("beforeend", row);
-    });
-
-    detailTableContainer.style.display = "block";
-    document.getElementById("closeDetailTable").onclick = () => {
-        detailTableContainer.style.display = "none";
-    };
-}
-
+/**
+ * सर्वेक्षण ड्यासबोर्डका लागि मुख्य तालिका रेन्डर गर्ने
+ */
 function renderTable(data) {
-    let tbody = document.querySelector("#dataTable tbody");
+    const tbody = document.querySelector("#dataTable tbody");
+    if (!tbody) return;
     tbody.innerHTML = "";
-    data.slice(0, 60).forEach(r => {
+    data.slice(0, 50).forEach(r => {
         let statusClass = "";
         if (r.satisfaction_flag === "सन्तुष्ट") statusClass = "status-satisfied";
         else if (r.satisfaction_flag === "असन्तुष्ट") statusClass = "status-unsatisfied";
@@ -1328,143 +1578,285 @@ function renderTable(data) {
     });
 }
 
-document.getElementById("applyFilter")?.addEventListener("click", () => {
-    const loadingOverlay = document.getElementById("loadingOverlay");
-    const loadingText = loadingOverlay?.querySelector(".loading-text");
-    
-    if (loadingOverlay) {
-        if (loadingText) loadingText.textContent = "फिल्टर लागू हुँदैछ, कृपया पर्खनुहोस्...";
-        loadingOverlay.style.display = "flex";
+/**
+ * अनुगमन डाटाका लागि तालिका रेन्डर गर्ने
+ */
+function renderMonitoringTable(data) {
+    const tbody = document.querySelector("#dataTable tbody");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+    data.forEach(r => {
+        let row = `<tr>
+            <td data-label="मिति">${r.m_date || ""}</td>
+            <td data-label="जिल्ला">${r.m_jilla || ""}</td>
+            <td data-label="कार्यालय">${r.m_office || ""}</td>
+            <td data-label="नागरिक बडापत्र">${r.m_q1 || "अज्ञात"}</td>
+            <td data-label="वेबसाइट अपडेट">${r.m_q6 || "अज्ञात"}</td>
+            <td data-label="उपस्थिति">${r.m_q10 || "अज्ञात"}</td>
+            <td data-label="सरसफाइ">${r.m_q12 || "अज्ञात"}</td>
+            <td data-label="रिक्त">${toNepaliDigits(r.d_vacant || 0)}</td>
+        </tr>`;
+        tbody.insertAdjacentHTML("beforeend", row);
+    });
+}
+
+/**
+ * विशिष्ट प्रश्न विश्लेषण (Dynamic Analysis) अपडेट गर्ने
+ */
+function updateDynamicAnalysis(data) {
+    const selector = document.getElementById("dynamicFieldSelector");
+    if (!selector) return;
+    const field = selector.value;
+    const statRow = document.getElementById("dynamicStatRow");
+    const chartRow = document.getElementById("dynamicChartRow");
+    const labelEl = document.getElementById("dynamicChartLabel");
+
+    if (!field) {
+        if (statRow) statRow.style.display = "none";
+        if (chartRow) chartRow.style.display = "none";
+        return;
     }
 
-    // ब्राउजरलाई स्पिनर देखाउन समय दिन र सहज अनुभवको लागि थोरै ढिलाइ (400ms) राखिएको
-    setTimeout(() => {
-        refreshDashboard();
-        if (loadingOverlay) loadingOverlay.style.display = "none";
-    }, 400);
-});
+    if (statRow) statRow.style.display = "flex";
+    if (chartRow) chartRow.style.display = "flex";
 
-document.getElementById("resetFilter")?.addEventListener("click", () => {
-    if (document.getElementById("filterPradesh")) document.getElementById("filterPradesh").value = "";
-    updateFilterDistricts();
-    if (document.getElementById("filterOffice")) document.getElementById("filterOffice").value = "";
-    if (document.getElementById("filterGender")) document.getElementById("filterGender").value = "";
-    if (document.getElementById("filterDateFrom")) document.getElementById("filterDateFrom").value = "";
-    if (document.getElementById("filterDateTo")) document.getElementById("filterDateTo").value = "";
+    const selectedOption = selector.options[selector.selectedIndex];
+    const fieldLabel = selectedOption.text;
+
+    let counts = {};
+    data.forEach(item => {
+        let val = getVal(item, field, fieldLabel);
+        if (val !== undefined && val !== null && val !== "" && val !== "undefined") {
+            let parts = String(val).split(",").map(s => s.trim()).filter(s => s.length > 0);
+            parts.forEach(p => {
+                counts[p] = (counts[p] || 0) + 1;
+            });
+        }
+    });
+
+    const labels = Object.keys(counts);
+    const values = Object.values(counts);
+
+    // यदि छानिएको फिल्डमा कुनै डाटा भेटिएन भने
+    if (labels.length === 0) {
+        if (statRow) statRow.innerHTML = '<div style="padding:25px; color:#666; width:100%; text-align:center; font-size:1rem; background:#f9fafb; border-radius:10px;">यो प्रश्न वा फिल्टरको लागि हाल कुनै तथ्याङ्क उपलब्ध छैन।</div>';
+        if (dynamicChartObj) dynamicChartObj.destroy();
+        if (labelEl) labelEl.textContent = `विश्लेषण: ${selector.options[selector.selectedIndex].text} (डाटा छैन)`;
+        return;
+    }
+
+    // आकर्षक रङ्गीन थिम (Color Palette)
+    const colorPalette = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#6366f1', '#14b8a6', '#f97316'];
+    const backgroundColors = labels.map((_, i) => colorPalette[i % colorPalette.length] + 'cc'); // 80% opacity
+    const borderColors = labels.map((_, i) => colorPalette[i % colorPalette.length]);
+
+    // पुरानो चार्ट नष्ट गर्ने
+    if (dynamicChartObj) dynamicChartObj.destroy();
+    
+    const ctx = document.getElementById("dynamicChart").getContext('2d');
+    dynamicChartObj = new Chart(ctx, {
+        type: chartTypes.dynamicChart || 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'संख्या',
+                data: values,
+                backgroundColor: backgroundColors,
+                borderColor: borderColors,
+                borderWidth: 1,
+                borderRadius: 5
+            }]
+        },
+        options: {
+            animation: { duration: 2500, easing: 'easeInOutQuart' },
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: (chartTypes.dynamicChart === 'pie' || chartTypes.dynamicChart === 'doughnut') ? {} : {
+                y: { beginAtZero: true, ticks: { stepSize: 1, callback: (v) => toNepaliDigits(v) } },
+                x: { ticks: { font: { family: 'Kalimati', size: 12 } } }
+            },
+            plugins: { 
+                legend: { display: (chartTypes.dynamicChart === 'pie' || chartTypes.dynamicChart === 'doughnut'), position: 'bottom' },
+                tooltip: { callbacks: { label: (ctx) => ` संख्या: ${toNepaliDigits(ctx.raw)}` } }
+            }
+        }
+    });
+
+    const fieldName = selector.options[selector.selectedIndex].text;
+    if (labelEl) labelEl.textContent = `विश्लेषण: ${fieldName}`;
+
+    // तथ्याङ्क कार्डहरू अपडेट गर्ने - Colorful stat cards
+    if (statRow) {
+        statRow.innerHTML = labels.map((l, i) => `
+            <div class="stat-card" style="min-width: 140px; padding: 12px; flex: 1; border-top: 5px solid ${colorPalette[i % colorPalette.length]}; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); background: white;">
+                <div class="stat-number" style="font-size: 1.6rem; color: ${colorPalette[i % colorPalette.length]}; margin-bottom: 5px;">${toNepaliDigits(counts[l])}</div>
+                <div style="font-size: 0.9rem; font-weight: 600; color: #4a5568; line-height: 1.3;">${l}</div>
+            </div>
+        `).join('');
+    }
+}
+
+/**
+ * ड्यासबोर्ड भ्यू स्विच (सर्वेक्षण VS अनुगमन)
+ */
+function switchDashboardView(view) {
+    currentDashboardView = view;
+    
+    const surveyBtn = document.getElementById("showSurveyView");
+    const monitoringBtn = document.getElementById("showMonitoringView");
+    
+    const tableHead = document.querySelector("#dataTable thead");
+
+    if (view === 'survey') {
+        surveyBtn?.classList.add("active");
+        monitoringBtn?.classList.remove("active");
+        
+        document.getElementById("surveyChartsRow")?.style.setProperty('display', 'flex', 'important');
+        document.getElementById("surveyDynamicAnalysis")?.style.setProperty('display', 'block', 'important');
+        document.getElementById("topOfficesRow")?.style.setProperty('display', 'flex', 'important');
+        document.getElementById("monitoringChartsRow")?.style.setProperty('display', 'none', 'important');
+        document.getElementById("monitoringAlertsSection")?.style.setProperty('display', 'none', 'important');
+        document.getElementById("monitoringDetailsSection")?.style.setProperty('display', 'none', 'important');
+
+        if (tableHead) {
+            tableHead.innerHTML = `<tr>
+                <th>मिति</th>
+                <th>जिल्ला</th>
+                <th>लिङ्ग</th>
+                <th>कार्यालय</th>
+                <th>अतिरिक्त रकम दिनु पर्‍यो?</th>
+                <th>सहयोग</th>
+                <th>सन्तुष्टि</th>
+                <th>विकास सम्बन्धी जानकारी भएको</th>
+            </tr>`;
+        }
+        
+        const genderFilter = document.getElementById("filterGender")?.closest('.filter-item');
+        if (genderFilter) genderFilter.style.display = "flex";
+    } else {
+        monitoringBtn?.classList.add("active");
+        surveyBtn?.classList.remove("active");
+        
+        document.getElementById("surveyChartsRow")?.style.setProperty('display', 'none', 'important');
+        document.getElementById("surveyDynamicAnalysis")?.style.setProperty('display', 'none', 'important');
+        document.getElementById("topOfficesRow")?.style.setProperty('display', 'none', 'important');
+        document.getElementById("monitoringChartsRow")?.style.setProperty('display', 'flex', 'important');
+        document.getElementById("monitoringAlertsSection")?.style.setProperty('display', 'block', 'important');
+        document.getElementById("monitoringDetailsSection")?.style.setProperty('display', 'block', 'important');
+
+        if (tableHead) {
+            tableHead.innerHTML = `<tr>
+                <th>मिति</th>
+                <th>जिल्ला</th>
+                <th>कार्यालय</th>
+                <th>नागरिक बडापत्र (डिजिटल/अडियो)</th>
+                <th>मध्यस्तकर्ताको प्रवेश</th>
+                <th>हाजिरीको अवस्था</th>
+                <th>कुल दरबन्दी</th>
+                <th>रिक्त</th>
+            </tr>`;
+        }
+        
+        const genderFilter = document.getElementById("filterGender")?.closest('.filter-item');
+        if (genderFilter) genderFilter.style.display = "none";
+
+        const stored = localStorage.getItem("monitoringData_nsc");
+        if (stored) allMonitorings = JSON.parse(stored);
+    }
     refreshDashboard();
-});
-document.getElementById("dynamicFieldSelector")?.addEventListener("change", () => refreshDashboard());
+}
+
+// इभेन्ट लिसनरहरू (बटनहरूले काम गर्ने बनाउन)
+document.getElementById("showSurveyView")?.addEventListener("click", () => switchDashboardView('survey'));
+document.getElementById("showMonitoringView")?.addEventListener("click", () => switchDashboardView('monitoring'));
+
 document.querySelectorAll(".tab-btn").forEach(btn => {
     btn.addEventListener("click", () => {
+        const targetTab = btn.dataset.tab;
+        if (!targetTab) return;
+
         document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
+
         document.querySelectorAll(".panel").forEach(p => p.classList.remove("active-panel"));
-        document.getElementById(btn.dataset.tab).classList.add("active-panel");
-        if (btn.dataset.tab === "dashboard-tab") {
+        const targetPanel = document.getElementById(targetTab);
+        if (targetPanel) {
+            targetPanel.classList.add("active-panel");
+        }
+
+        if (targetTab === "dashboard-tab") {
             refreshDashboard();
-            if(SCRIPT_URL) loadData(); // Reload latest data from Google Sheets when dashboard opens
         }
     });
 });
 
-// Event listener for chart type cycle buttons
-document.addEventListener("DOMContentLoaded", function() {
-    // ... existing DOMContentLoaded code ...
-
-    document.querySelectorAll(".chart-type-cycle-btn").forEach(button => {
-        button.addEventListener("click", function() {
-            const chartId = this.dataset.chartId;
-            const currentType = chartTypes[chartId];
-            const cycle = CHART_TYPE_CYCLES[chartId];
-            if (!cycle) return;
-
-            const currentIndex = cycle.indexOf(currentType);
-            const nextIndex = (currentIndex + 1) % cycle.length;
-            const nextType = cycle[nextIndex];
-
-            chartTypes[chartId] = nextType;
-            refreshDashboard(); // Re-render all charts with new type
-        });
-    });
+document.getElementById("applyFilter")?.addEventListener("click", refreshDashboard);
+document.getElementById("resetFilter")?.addEventListener("click", () => {
+    document.getElementById("filterPradesh").value = "";
+    document.getElementById("filterDistrict").innerHTML = '<option value="">सबै</option>';
+    document.getElementById("filterOffice").value = "";
+    document.getElementById("filterGender").value = "";
+    refreshDashboard();
 });
 
-// Function to clear input field
-function clearInput(targetId) {
-    document.getElementById(targetId).value = "";
-}
 
-// Voice Typing Functionality
+/**
+ * आवाज टाइप (Voice Typing) सुरु गर्ने फङ्सन
+ */
 function startVoiceTyping(event, targetId) {
     const btn = event.currentTarget;
+    const target = document.getElementById(targetId);
     
-    // यदि पहिले नै रेकर्डिङ भइरहेको छ भने यसलाई रोक्ने
-    if (btn.classList.contains('recording') && btn._recognition) {
-        btn._recognition.stop();
+    if (!('webkitSpeechRecognition' in window) && !('speechRecognition' in window)) {
+        Swal.fire({
+            icon: 'error',
+            title: 'सुविधा उपलब्ध छैन',
+            text: 'तपाईंको ब्राउजरमा आवाज टाइप गर्ने सुविधा छैन। कृपया Chrome ब्राउजर प्रयोग गर्नुहोस्।',
+            confirmButtonColor: '#387ae6'
+        });
         return;
     }
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
-    if (!SpeechRecognition) {
-        Swal.fire({
-            title: 'सुविधा उपलब्ध छैन',
-            text: 'तपाईंको ब्राउजरले आवाज टाइप गर्ने सुविधा समर्थन गर्दैन। कृपया Google Chrome प्रयोग गर्नुहोस्।',
-            icon: 'warning',
-            confirmButtonText: 'ठीक छ'
-        });
-        return;
-    }
-
-    const targetInput = document.getElementById(targetId);
     const recognition = new SpeechRecognition();
-    btn._recognition = recognition; // रेकर्डिङ इन्स्टन्स सेभ गर्ने
-    
-    recognition.lang = 'ne-NP';
-    recognition.interimResults = true;
-    recognition.continuous = true;
 
-    if (!btn.dataset.originalText) {
-        btn.dataset.originalText = btn.innerHTML;
-    }
+    recognition.lang = 'ne-NP'; // नेपाली भाषा सेट गरिएको
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
 
-    btn.innerHTML = '🛑 <span class="btn-text">रोक्नुहोस्</span>';
-    btn.classList.add('recording');
-
-    const baseValue = targetInput.value;
+    recognition.onstart = () => {
+        btn.classList.add('recording');
+        const textSpan = btn.querySelector('.btn-text');
+        if (textSpan) textSpan.textContent = "सुन्दैछ...";
+    };
 
     recognition.onresult = (e) => {
-        let finalTranscript = '';
-        let interimTranscript = '';
-
-        for (let i = 0; i < e.results.length; i++) {
-            if (e.results[i].isFinal) {
-                finalTranscript += e.results[i][0].transcript;
-            } else {
-                interimTranscript += e.results[i][0].transcript;
-            }
-        }
-
-        if (targetInput) {
-            const space = baseValue && (finalTranscript || interimTranscript) ? " " : "";
-            targetInput.value = baseValue + space + finalTranscript + interimTranscript;
-            // म्यानुअल रूपमा input इभेन्ट ट्रिगर गर्ने ताकि काउन्टर अपडेट होस्
-            targetInput.dispatchEvent(new Event('input'));
-        }
+        const transcript = e.results[0][0].transcript;
+        // पुरानो टेक्स्टमा नयाँ आवाज टाइप गरिएको टेक्स्ट थप्ने
+        target.value = (target.value ? target.value.trim() + ' ' : '') + transcript;
+        target.dispatchEvent(new Event('input')); // वर्ड काउन्टर वा अन्य इभेन्ट अपडेट गर्न
     };
 
-    recognition.onend = () => {
-        btn.innerHTML = btn.dataset.originalText;
-        btn.classList.remove('recording');
-        delete btn._recognition;
-    };
+    recognition.onerror = () => stopRecording(btn);
+    recognition.onend = () => stopRecording(btn);
 
-    recognition.onerror = () => {
-        btn.innerHTML = btn.dataset.originalText;
-        btn.classList.remove('recording');
-        delete btn._recognition;
-    };
+    function stopRecording(button) {
+        button.classList.remove('recording');
+        const textSpan = button.querySelector('.btn-text');
+        if (textSpan) textSpan.textContent = "आवाज टाइप";
+    }
 
     recognition.start();
 }
 
+/**
+ * इन्पुट फिल्ड खाली (Clear) गर्ने फङ्सन
+ */
+function clearInput(targetId) {
+    const target = document.getElementById(targetId);
+    if (target) {
+        target.value = '';
+        target.dispatchEvent(new Event('input'));
+    }
+}
 loadData();

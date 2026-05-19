@@ -32,6 +32,7 @@
         </div>
         <div class="tabs">
             <button class="tab-btn active" data-tab="form-tab"> सर्वेक्षण फारम</button>
+            <button class="tab-btn" data-tab="monitoring-tab"> अनुगमन फारम</button>
             <button class="tab-btn" data-tab="dashboard-tab"> ड्यासबोर्ड / तथ्याङ्क</button>
         </div>
 
@@ -299,10 +300,201 @@
             </div>
         </div>
 
+        <!-- MONITORING FORM PANEL -->
+        <div id="monitoring-tab" class="panel">
+            <div class="survey-card">
+                <form id="monitoringForm">
+                    <div class="form-grid">
+                        <div class="section-title">कार्यालय अनुगमन फारम (नागरिक बडापत्र अनुगमन)</div>
+                        <div class="field-group"><span class="field-label">प्रदेश:<span class="required-asterisk">*</span></span><select name="m_pradesh" id="m_pradesh" required><option value="">प्रदेश छान्नुहोस्</option></select></div>
+                        <div class="field-group"><span class="field-label">जिल्ला:<span class="required-asterisk">*</span></span><select name="m_jilla" id="m_jilla" required><option value="">जिल्ला छान्नुहोस्</option></select></div>
+                        <div class="field-group"><span class="field-label">स्थानीय तह:<span class="required-asterisk">*</span></span><select name="m_sthaaniya" id="m_sthaaniya" required><option value="">स्थानीय तह छान्नुहोस्</option></select></div>
+                        <div class="field-group"><span class="field-label">कार्यालयको नाम:<span class="required-asterisk">*</span></span>
+                            <div class="voice-input-wrapper">
+                                <input type="text" id="m_office" name="m_office" placeholder="कार्यालयको नाम" required>
+                                <button type="button" class="voice-btn" onclick="startVoiceTyping(event, 'm_office')">🎤 <span class="btn-text">आवाज टाइप</span></button>
+                                <button type="button" class="clear-btn" onclick="clearInput('m_office')">🗑️ <span class="btn-text">मेटाउनुहोस्</span></button>
+                            </div>
+                            <div id="m_office_counter" class="word-counter" style="font-size: 0.85em; color: #666; text-align: right;">० / २० शब्द</div>
+                        </div>
+                        <div class="field-group"><span class="field-label">अनुगमन मिति :<span class="required-asterisk">*</span></span><input type="text" name="m_date" id="m_date" class="nepali-datepicker" readonly required></div>
+
+                        <div class="section-title">१. नागरिक बडापत्र तथा सेवा प्रवाहको अवस्था</div>
+                        <div class="field-group"><span class="field-label">१. नागरिक बडापत्र (डिजिटल/अडियो)</span>
+                            <div class="radio-group">
+                                <label><input type="radio" name="m_q1" value="स्पष्ट बुझिने"> क) स्पष्ट बुझिने</label>
+                                <label><input type="radio" name="m_q1" value="स्पष्ट नबुझिने"> ख) स्पष्ट नबुझिने</label>
+                                <label><input type="radio" name="m_q1" value="पढ्न झण्झटिलो"> ग) पढ्न झण्झटिलो</label>
+                                <label><input type="radio" name="m_q1" value="नभएको"> घ) नभएको</label>
+                            </div>
+                        </div>
+
+                        <div class="field-group"><span class="field-label">२. सेवा प्रक्रिया, कागजात, लागत र समय</span>
+                            <div class="radio-group">
+                                <label><input type="radio" name="m_q2" value="स्पष्ट उल्लेख भएको"> क) स्पष्ट उल्लेख भएको</label>
+                                <label><input type="radio" name="m_q2" value="उल्लेख नभएको"> ख) उल्लेख नभएको</label>
+                                <label><input type="radio" name="m_q2" value="आंशिक"> ग) आंशिक</label>
+                                <label><input type="radio" name="m_q2" value="नभएको"> घ) नभएको</label>
+                            </div>
+                        </div>
+
+                        <div class="field-group"><span class="field-label">३. शाखागत व्यवस्था, कोठा नं. र नामावली</span>
+                            <div class="radio-group">
+                                <label><input type="radio" name="m_q3" value="उल्लेख भएको"> क) उल्लेख भएको</label>
+                                <label><input type="radio" name="m_q3" value="उल्लेख नभएको"> ख) उल्लेख नभएको</label>
+                                <label><input type="radio" name="m_q3" value="आंशिक"> ग) आंशिक</label>
+                                <label><input type="radio" name="m_q3" value="नभएको"> घ) नभएको</label>
+                            </div>
+                        </div>
+
+                        <div class="field-group"><span class="field-label">४. नागरिक बडापत्रमा क्षतिपूर्ति व्यवस्था</span>
+                            <div class="radio-group">
+                                <label><input type="radio" name="m_q4" value="भएको"> क) भएको</label>
+                                <label><input type="radio" name="m_q4" value="नभएको"> ख) नभएको</label>
+                            </div>
+                        </div>
+
+                        <div class="field-group"><span class="field-label">५. मध्यस्थकर्ताको प्रवेश</span>
+                            <div class="radio-group">
+                                <label><input type="radio" name="m_q5" value="देखियो"> क) देखियो</label>
+                                <label><input type="radio" name="m_q5" value="देखिएन"> ख) देखिएन</label>
+                            </div>
+                        </div>
+
+                        <div class="field-group"><span class="field-label">६. नागरिक बडापत्र वेवसाईट (website) मा upload र update</span>
+                            <div class="radio-group">
+                                <label><input type="radio" name="m_q6" value="भएको"> क) भएको</label>
+                                <label><input type="radio" name="m_q6" value="नभएको"> ख) नभएको</label>
+                            </div>
+                        </div>
+
+                        <div class="field-group"><span class="field-label">७. सूचनाको हकसम्बन्धी व्यवस्था अनुसार कार्यालयको प्रगति, कार्यसम्पादन र स्वतः प्रकाशन (Automatic Disclosure) ३/३ महिनामा</span>
+                            <div class="radio-group">
+                                <label><input type="radio" name="m_q7" value="गरेको"> क) गरेको</label>
+                                <label><input type="radio" name="m_q7" value="नगरेको"> ख) नगरेको</label>
+                            </div>
+                        </div>
+
+                        <div class="field-group"><span class="field-label">८. कार्यालयको गतिविधि सेवाग्राहीले स्वतः जानकारी पाउने माध्यमको अवलम्बन</span>
+                            <div class="radio-group">
+                                <label><input type="radio" name="m_q8" value="भएको"> क) भएको</label>
+                                <label><input type="radio" name="m_q8" value="नभएको"> ख) नभएको</label>
+                            </div>
+                        </div>
+
+                        <div class="field-group"><span class="field-label">९. हाजिरीको अवस्था</span>
+                            <div class="radio-group">
+                                <label><input type="radio" name="m_q9" value="ई-हाजिरी"> क) ई-हाजिरी</label>
+                                <label><input type="radio" name="m_q9" value="रजिष्टर"> ख) रजिष्टर</label>
+                                <label><input type="radio" name="m_q9" value="दुवै"> ग) दुवै</label>
+                            </div>
+                        </div>
+
+                        <div class="field-group"><span class="field-label">१०. कर्मचारीहरु तोकिएको कार्यकक्षमा रहेको</span>
+                            <div class="radio-group">
+                                <label><input type="radio" name="m_q10" value="भेटियो"> क) भेटियो</label>
+                                <label><input type="radio" name="m_q10" value="भेटिएन"> ख) भेटिएन</label>
+                                <label><input type="radio" name="m_q10" value="आंशिक"> ग) आंशिक</label>
+                            </div>
+                        </div>
+
+                        <div class="field-group"><span class="field-label">११. सूचना पाटी</span>
+                            <div class="radio-group">
+                                <label><input type="radio" name="m_q11" value="भएको"> क) भएको</label>
+                                <label><input type="radio" name="m_q11" value="नभएको"> ख) नभएको</label>
+                            </div>
+                        </div>
+
+                        <div class="field-group"><span class="field-label">१२. कार्यालयको सरसफाइको अवस्था</span>
+                            <div class="radio-group">
+                                <label><input type="radio" name="m_q12" value="राम्रो"> क) राम्रो</label>
+                                <label><input type="radio" name="m_q12" value="नराम्रो"> ख) नराम्रो</label>
+                                <label><input type="radio" name="m_q12" value="ठीकै"> ग) ठीकै</label>
+                            </div>
+                        </div>
+
+                        <div class="section-title">१३. कार्यालयले सेवाग्राहीको सुविधाको लागि गरेका व्यवस्थाहरु</div>
+                        <div class="table-wrapper">
+                            <table style="font-size: 0.9rem;">
+                                <thead><tr><th>सुविधा</th><th>छ</th><th>छैन</th><th>सामान्य</th></tr></thead>
+                                <tbody>
+                                    <tr><td>क) सेवाग्राही सहायता कक्ष (Help Desk)</td><td><input type="radio" name="f_1" value="छ"></td><td><input type="radio" name="f_1" value="छैन"></td><td><input type="radio" name="f_1" value="सामान्य"></td></tr>
+                                    <tr><td>ख) अपाङ्गमैत्री कार्यस्थल</td><td><input type="radio" name="f_2" value="छ"></td><td><input type="radio" name="f_2" value="छैन"></td><td><input type="radio" name="f_2" value="सामान्य"></td></tr>
+                                    <tr><td>ग) प्रतिक्षालय</td><td><input type="radio" name="f_3" value="छ"></td><td><input type="radio" name="f_3" value="छैन"></td><td><input type="radio" name="f_3" value="सामान्य"></td></tr>
+                                    <tr><td>घ) शौचालय (महिला/पुरुष)</td><td><input type="radio" name="f_4" value="छ"></td><td><input type="radio" name="f_4" value="छैन"></td><td><input type="radio" name="f_4" value="सामान्य"></td></tr>
+                                    <tr><td>ङ) खानेपानीको उचित व्यवस्था</td><td><input type="radio" name="f_5" value="छ"></td><td><input type="radio" name="f_5" value="छैन"></td><td><input type="radio" name="f_5" value="सामान्य"></td></tr>
+                                    <tr><td>च) स्तनपान कक्ष/स्थान</td><td><input type="radio" name="f_6" value="छ"></td><td><input type="radio" name="f_6" value="छैन"></td><td><input type="radio" name="f_6" value="सामान्य"></td></tr>
+                                    <tr><td>छ) धुम्रपान निषेध संकेत</td><td><input type="radio" name="f_7" value="छ"></td><td><input type="radio" name="f_7" value="छैन"></td><td><input type="radio" name="f_7" value="सामान्य"></td></tr>
+                                    <tr><td>ज) चमेना गृह</td><td><input type="radio" name="f_8" value="छ"></td><td><input type="radio" name="f_8" value="छैन"></td><td><input type="radio" name="f_8" value="सामान्य"></td></tr>
+                                    <tr><td>झ) उजुरी पेटिका</td><td><input type="radio" name="f_9" value="छ"></td><td><input type="radio" name="f_9" value="छैन"></td><td><input type="radio" name="f_9" value="सामान्य"></td></tr>
+                                    <tr><td>ञ) Website, Social Media</td><td><input type="radio" name="f_10" value="अध्यावधिक"></td><td><input type="radio" name="f_10" value="छैन"></td><td><input type="radio" name="f_10" value="सामान्य"></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="section-title">२. अन्य विवरणात्मक जानकारी</div>
+                        <div class="field-group"><span class="field-label">१४. कार्यालयबाट प्रवाह हुने मुख्य सेवाहरू:</span>
+                            <div class="voice-input-wrapper">
+                                <textarea id="m_main_services" name="m_main_services" rows="2" placeholder="मुख्य सेवाहरू लेख्नुहोस्..."></textarea>
+                                <button type="button" class="voice-btn" onclick="startVoiceTyping(event, 'm_main_services')">🎤 <span class="btn-text">आवाज टाइप</span></button>
+                                <button type="button" class="clear-btn" onclick="clearInput('m_main_services')">🗑️ <span class="btn-text">मेटाउनुहोस्</span></button>
+                            </div>
+                            <div id="m_main_services_counter" class="word-counter" style="font-size: 0.85em; color: #666; text-align: right;">० / १०० शब्द</div>
+                        </div>
+                        <div class="field-group"><span class="field-label">१५. मूलभूत समस्या/अनियमितता:</span>
+                            <div class="voice-input-wrapper">
+                                <textarea id="m_problems" name="m_problems" rows="2" placeholder="समस्या वा अनियमितता उल्लेख गर्नुहोस्..."></textarea>
+                                <button type="button" class="voice-btn" onclick="startVoiceTyping(event, 'm_problems')">🎤 <span class="btn-text">आवाज टाइप</span></button>
+                                <button type="button" class="clear-btn" onclick="clearInput('m_problems')">🗑️ <span class="btn-text">मेटाउनुहोस्</span></button>
+                            </div>
+                            <div id="m_problems_counter" class="word-counter" style="font-size: 0.85em; color: #666; text-align: right;">० / १०० शब्द</div>
+                        </div>
+                        <div class="field-group"><span class="field-label">१६. अपनाएका सुधारका उपायहरू:</span>
+                            <div class="voice-input-wrapper">
+                                <textarea id="m_measures" name="m_measures" rows="2" placeholder="सुधारका उपायहरू लेख्नुहोस्..."></textarea>
+                                <button type="button" class="voice-btn" onclick="startVoiceTyping(event, 'm_measures')">🎤 <span class="btn-text">आवाज टाइप</span></button>
+                                <button type="button" class="clear-btn" onclick="clearInput('m_measures')">🗑️ <span class="btn-text">मेटाउनुहोस्</span></button>
+                            </div>
+                            <div id="m_measures_counter" class="word-counter" style="font-size: 0.85em; color: #666; text-align: right;">० / १०० शब्द</div>
+                        </div>
+
+                        <div class="section-title">१७. दरबन्दीको अवस्था</div>
+                        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                            <div class="field-item">कुल दरबन्दी: <input type="number" name="d_total" style="width: 80px;"></div>
+                            <div class="field-item">कार्यरत संख्या: <input type="number" name="d_working" style="width: 80px;"></div>
+                            <div class="field-item">रिक्त: <input type="number" name="d_vacant" style="width: 80px;"></div>
+                            <div class="field-item">रमाना लिन बाँकी: <input type="number" name="d_pending" style="width: 80px;"></div>
+                            <div class="field-item">पद भन्दा बढी कर्मचारी: <input type="number" name="d_excess" style="width: 80px;"></div>
+                        </div>
+
+                        <div class="field-group"><span class="field-label">१८. अनुगमनकर्ताको टिप्पणी:</span>
+                            <div class="voice-input-wrapper">
+                                <textarea id="m_comment" name="m_comment" rows="3" placeholder="अनुगमनकर्ताको विशेष टिप्पणी..."></textarea>
+                                <button type="button" class="voice-btn" onclick="startVoiceTyping(event, 'm_comment')">🎤 <span class="btn-text">आवाज टाइप</span></button>
+                                <button type="button" class="clear-btn" onclick="clearInput('m_comment')">🗑️ <span class="btn-text">मेटाउनुहोस्</span></button>
+                            </div>
+                            <div id="m_comment_counter" class="word-counter" style="font-size: 0.85em; color: #666; text-align: right;">० / १५० शब्द</div>
+                        </div>
+                        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                            <div class="field-group"><span class="field-label">अनुगमनकर्ताको नाम:</span><input type="text" name="monitor_name"></div>
+                            <div class="field-group"><span class="field-label">पद:</span><input type="text" name="monitor_rank"></div>
+                        </div>
+                    </div>
+                    <button type="button" class="submit-btn" id="submitMonitoring">✅ अनुगमन फारम सुरक्षित गर्नुहोस्</button>
+                </form>
+            </div>
+        </div>
+
         <!-- DASHBOARD PANEL -->
         <div id="dashboard-tab" class="panel">
             <div class="dashboard-card">
-                <div class="filter-bar">
+                <!-- View Toggles -->
+                <div style="display: flex; gap: 10px; margin-bottom: 20px; justify-content: center;">
+                    <button id="showSurveyView" class="tab-btn active" style="flex: 1; max-width: 300px; padding: 7px 20px;">सेवाग्राही सर्वेक्षण</button>
+                    <button id="showMonitoringView" class="tab-btn" style="flex: 1; max-width: 300px; padding: 7px 20px;">नागरिक बडापत्र अनुगमन</button>
+                </div>
+
+                <div class="filter-bar" style="margin-bottom: 15px;">
                     <div class="filter-item"><label>मिति सुरु</label><input type="text" id="filterDateFrom" class="nepali-datepicker"
                             placeholder="मिति छान्नुहोस्" readonly></div>
                     <div class="filter-item"><label>मिति अन्त्य</label><input type="text" id="filterDateTo" class="nepali-datepicker"
@@ -324,14 +516,14 @@
                             <option>महिला</option>
                             <option>अन्य</option>
                         </select></div>
-                    <button id="applyFilter" style="background:#003893; border:none; border-radius:6px; color:white; cursor:pointer;">फिल्टर लागू गर्नुहोस्</button>
-                    <button id="resetFilter" style="background:#de3053; border:none; border-radius:6px; color:white; cursor:pointer;">रिसेट</button>
+                    <button id="applyFilter" style="background:#0c3c89; border:none; border-radius:6px; color:white; cursor:pointer;">फिल्टर लागू गर्नुहोस्</button>
+                    <button id="resetFilter" style="background:#ba2845; border:none; border-radius:6px; color:white; cursor:pointer;">रिसेट</button>
                 </div>
 
                 <!-- विशिष्ट प्रश्न विश्लेषण खण्ड -->
-                <div style="margin-bottom: 30px; padding: 20px; background: #f0f4f8; border-radius: 10px; border: 1px solid #d1d9e6;">
+                <div id="surveyDynamicAnalysis" style="margin-bottom: 15px; padding: 12px; background: #f0f4f8; border-radius: 10px; border: 1px solid #d1d9e6;">
                     <!-- <h3 style="font-family:'Kalimati', sans-serif; color: #306a95; margin-bottom: 15px; border-bottom: 2px solid #306a95; display: inline-block;">विशिष्ट प्रश्न विश्लेषण</h3> -->
-                    <div class="filter-item" style="max-width: 500px; margin-bottom: 20px;">
+                    <div class="filter-item" style="max-width: 500px; margin-bottom: 12px;">
                         <label style="font-weight: 700;">कुनै एक क्षेत्र/प्रश्न छान्नुहोस्:</label>
                         <select id="dynamicFieldSelector" style="width: 100%; border: 2px solid #306a95; padding: 10px; border-radius: 6px;">
                             <option value="">-- प्रश्न छान्नुहोस् --</option>
@@ -364,12 +556,13 @@
                         <div class="chart-box" style="flex: 0 1 450px;">
                             <canvas id="dynamicChart"></canvas>
                             <p class="small-note" id="dynamicChartLabel" style="font-weight: 600; color: #306a95; margin-top: 10px;"></p>
+                            <button class="chart-type-cycle-btn" data-chart-id="dynamicChart">🔄</button>
                         </div>
                     </div>
                     <!-- New section for detailed table -->
                     <div id="dynamicDetailTableContainer" style="display: none; margin-top: 20px; padding: 15px; background: #fff; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-                        <h4 style="font-family:'Kalimati', sans-serif; color: #306a95; margin-bottom: 15px;">विस्तृत विवरण: <span id="detailTableTitle"></span></h4>
-                        <button type="button" id="closeDetailTable" style="float: right; background: #de3053; border: none; border-radius: 5px; padding: 5px 10px; color: white; cursor: pointer;">X बन्द गर्नुहोस्</button>
+                        <h4 style="font-family:'Kalimati', sans-serif; color: #2b72a9; margin-bottom: 15px;">विस्तृत विवरण: <span id="detailTableTitle"></span></h4>
+                        <button type="button" id="closeDetailTable" style="float: right; background: #ce2748; border: none; border-radius: 5px; padding: 5px 10px; color: white; cursor: pointer;">X बन्द गर्नुहोस्</button>
                         <div class="table-wrapper" style="clear: both;">
                             <table id="dynamicDetailTable">
                                 <thead>
@@ -389,9 +582,9 @@
                 </div>
 
                 <!-- शीर्ष ३ असन्तुष्ट र सन्तुष्ट कार्यालयहरू - एउटै रो मा -->
-                <div id="topOfficesRow" style="display: none; flex-wrap: wrap; gap: 15px; margin-bottom: 15px;">
+                <div id="topOfficesRow" style="display: none; flex-wrap: wrap; gap: 15px; margin-bottom: 10px;">
                     <div id="topUnsatisfiedContainer" style="flex: 1; min-width: 300px; padding: 10px; background: #fff1f0; border-radius: 8px; border: 1px solid #ffa39e;">
-                        <h4 style="font-family:'Kalimati', sans-serif; color: #de3053; margin-bottom: 8px; font-size: 1rem; border-bottom: 2px solid #de3053; display: inline-block;">असन्तुष्टि देखिएका शीर्ष ३ कार्यालयहरू</h4>
+                        <h4 style="font-family:'Kalimati', sans-serif; color: #cb2748; margin-bottom: 8px; font-size: 1rem; border-bottom: 2px solid #de3053; display: inline-block;">असन्तुष्टि देखिएका शीर्ष ३ कार्यालयहरू</h4>
                         <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
                             <div id="topUnsatisfiedList" style="flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 220px;"></div>
                             <div style="flex: 1; min-width: 250px; height: 150px;">
@@ -401,7 +594,7 @@
                     </div>
 
                     <div id="topSatisfiedContainer" style="flex: 1; min-width: 300px; padding: 10px; background: #f0fff4; border-radius: 8px; border: 1px solid #b7eb8f;">
-                        <h4 style="font-family:'Kalimati', sans-serif; color: #27ae60; margin-bottom: 8px; font-size: 1rem; border-bottom: 2px solid #27ae60; display: inline-block;">सन्तुष्टि देखिएका शीर्ष ३ कार्यालयहरू</h4>
+                        <h4 style="font-family:'Kalimati', sans-serif; color: #149530c1; margin-bottom: 8px; font-size: 1rem; border-bottom: 2px solid #27ae44a6; display: inline-block;">सन्तुष्टि देखिएका शीर्ष ३ कार्यालयहरू</h4>
                         <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
                             <div id="topSatisfiedList" style="flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 220px;"></div>
                             <div style="flex: 1; min-width: 250px; height: 150px;">
@@ -411,7 +604,7 @@
                     </div>
                 </div>
                 <div class="stats-row" id="statCardsContainer"></div>
-                <div class="chart-row">
+                <div class="chart-row" id="surveyChartsRow">
                     <div class="chart-box"><canvas id="genderChart" width="400" height="200"></canvas>
                         <p class="small-note">लिङ्ग अनुपात</p>
                         <button class="chart-type-cycle-btn" data-chart-id="genderChart">🔄</button>
@@ -429,6 +622,39 @@
                         <button class="chart-type-cycle-btn" data-chart-id="developmentChart">🔄</button>
                     </div>
                 </div>
+
+                <!-- अनुगमन अलर्ट सेक्सन (रिक्त पद धेरै भएका कार्यालयहरू) -->
+                <div id="monitoringAlertsSection" style="display: none; margin-bottom: 10px; padding: 12px; background: #fff1f0; border: 1px solid #ffa39e; border-radius: 10px;">
+                    <h4 style="font-family:'Kalimati', sans-serif; color: #c03e37; margin-bottom: 10px; border-bottom: 2px solid #de5030; display: inline-block;">⚠️ ध्यानाकर्षण: रिक्त पद धेरै भएका कार्यालयहरू</h4>
+                    <div id="alertsList" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
+                </div>
+
+                <!-- अनुगमन फारमका लागि चार्टहरू -->
+                <div class="chart-row" id="monitoringChartsRow" style="display: none;">
+                    <div class="chart-box"><canvas id="charterClarityChart" width="400" height="200"></canvas><p class="small-note">नागरिक बडापत्रको स्पष्टता</p></div>
+                    <div class="chart-box"><canvas id="websiteChart" width="400" height="200"></canvas><p class="small-note">वेबसाइटमा अपलोड/अपडेट</p></div>
+                    <div class="chart-box"><canvas id="disclosureChart" width="400" height="200"></canvas><p class="small-note">स्वतः प्रकाशन (३ महिनामा)</p></div>
+                    <div class="chart-box"><canvas id="autoInfoChart" width="400" height="200"></canvas><p class="small-note">जानकारी पाउने माध्यम अवलम्बन</p></div>
+                    <div class="chart-box"><canvas id="attendanceChart" width="400" height="200"></canvas><p class="small-note">हाजिरीको अवस्था</p></div>
+                    <div class="chart-box"><canvas id="workroomChart" width="400" height="200"></canvas><p class="small-note">कर्मचारी कार्यकक्षमा रहेको</p></div>
+                    <div class="chart-box"><canvas id="infoBoardChart" width="400" height="200"></canvas><p class="small-note">सूचना पाटीको व्यवस्था</p></div>
+                    <div class="chart-box"><canvas id="cleaningChart" width="400" height="200"></canvas><p class="small-note">कार्यालय सरसफाइको अवस्था</p></div>
+                    <div class="chart-box"><canvas id="brokerChart" width="400" height="200"></canvas><p class="small-note">बिचौलियाको उपस्थिति</p></div>
+                    <div class="chart-box"><canvas id="vacantByProvinceChart" width="400" height="200"></canvas><p class="small-note">प्रदेश अनुसार रिक्त पदको अवस्था</p></div>
+                    <div class="chart-box" style="flex: 1 1 100%;"><canvas id="provStaffingComparisonChart" height="150"></canvas><p class="small-note">प्रदेश अनुसार कार्यरत र रिक्त कर्मचारीको तुलनात्मक अवस्था</p></div>
+                    <div class="chart-box" style="flex: 1 1 100%;"><canvas id="staffingChart" height="120"></canvas><p class="small-note">कुल दरबन्दी र कार्यरत कर्मचारीको तुलनात्मक अवस्था</p></div>
+                    <div class="chart-box" style="flex: 1 1 100%;"><canvas id="facilitiesChart" height="120"></canvas><p class="small-note">कार्यालयका सुविधाहरूको विस्तृत अवस्था</p></div>
+                </div>
+                
+                <!-- अनुगमन फारमका विवरणात्मक टेक्स्ट फिल्डहरू -->
+                <div id="monitoringDetailsSection" style="display: none; margin-top: 10px; padding: 12px; background: #f8fafc; border: 1px solid #e8eef5; border-radius: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #306a95;">
+                        <h4 style="font-family:'Kalimati', sans-serif; color: #306995c3; margin-bottom: 0; display: inline-block;">अनुगमनका विस्तृत विवरणहरू</h4>
+                        <button id="downloadMonitoringReport" style="background: #27ae3d9f; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-family: 'Kalimati', sans-serif;">रिपोर्ट डाउनलोड गर्नुहोस्</button>
+                    </div>
+                    <div id="monitoringDetailsList" style="display: flex; flex-direction: column; gap: 15px;"></div>
+                </div>
+
                 <div class="table-wrapper">
                     <table id="dataTable">
                         <thead>
@@ -458,5 +684,4 @@
 
     <script src="script.js"></script>
 </body>
-
 </html>
