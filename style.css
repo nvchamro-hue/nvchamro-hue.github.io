@@ -6,8 +6,11 @@
 
 body, input, select, textarea, button, label {
     font-family: 'Kalimati', 'Mukta', sans-serif !important;
-    font-size: 1rem;
-    color: #2d3748;
+    font-size: 1.05rem; /* आकार थोरै बढाइएको */
+    color: #1a202c; /* अझ गाढा रङ्ग */
+    line-height: 1.6; /* हरफ बीचको ग्याप */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 body {
@@ -19,8 +22,7 @@ body {
 .container {
     max-width: 1400px;
     margin: 0 auto;
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
+    background: #ffffff; /* प्रष्ट सेतो ब्याकग्राउन्ड */
     padding: 20px;
     border-radius: 16px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);

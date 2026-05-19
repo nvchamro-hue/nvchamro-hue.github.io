@@ -1590,10 +1590,10 @@ function renderMonitoringTable(data) {
             <td data-label="मिति">${r.m_date || ""}</td>
             <td data-label="जिल्ला">${r.m_jilla || ""}</td>
             <td data-label="कार्यालय">${r.m_office || ""}</td>
-            <td data-label="नागरिक बडापत्र">${r.m_q1 || "अज्ञात"}</td>
-            <td data-label="वेबसाइट अपडेट">${r.m_q6 || "अज्ञात"}</td>
-            <td data-label="उपस्थिति">${r.m_q10 || "अज्ञात"}</td>
-            <td data-label="सरसफाइ">${r.m_q12 || "अज्ञात"}</td>
+            <td data-label="नागरिक बडापत्र (डिजिटल/अडियो)">${r.m_q1 || "अज्ञात"}</td>
+            <td data-label="मध्यस्तकर्ताको प्रवेश">${r.m_q5 || "अज्ञात"}</td>
+            <td data-label="हाजिरीको अवस्था">${r.m_q9 || "अज्ञात"}</td>
+            <td data-label="कुल दरबन्दी">${toNepaliDigits(r.d_total || 0)}</td>
             <td data-label="रिक्त">${toNepaliDigits(r.d_vacant || 0)}</td>
         </tr>`;
         tbody.insertAdjacentHTML("beforeend", row);
