@@ -3,7 +3,8 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzG60h4pAfcXvecnnDj2
 let allSubmissions = [];
 
 // Province, District, and Municipality Data
-let topOfficesChartObj;
+let topUnsatisfiedChartObj, topSatisfiedChartObj;
+
 const PROVINCE = {
     1: 'कोशी प्रदेश',
     2: 'मधेश प्रदेश',
@@ -464,6 +465,28 @@ const satisfactionInputs = document.querySelectorAll('[name="main_satisfaction"]
     });
 });
 
+// Global Chart Type Storage
+let chartTypes = {
+    genderChart: 'bar',
+    satisfactionChart: 'doughnut',
+    ghusChart: 'pie',
+    developmentChart: 'bar',
+    topUnsatisfiedChart: 'bar',
+    topSatisfiedChart: 'bar',
+    dynamicChart: 'bar' // Default for dynamic chart
+};
+
+// Define cycles for each chart
+const CHART_TYPE_CYCLES = {
+    genderChart: ['bar', 'pie', 'doughnut'],
+    satisfactionChart: ['doughnut', 'pie', 'bar'],
+    ghusChart: ['pie', 'doughnut', 'bar'],
+    developmentChart: ['bar', 'pie', 'doughnut'],
+    topUnsatisfiedChart: ['bar', 'pie', 'doughnut'],
+    topSatisfiedChart: ['bar', 'pie', 'doughnut'],
+    dynamicChart: ['bar', 'pie', 'doughnut', 'line'] // Added line for dynamic
+};
+
 function updateWordCountDisplay(inputEl, counterId, limit) {
     const counterEl = document.getElementById(counterId);
     if (!counterEl) return;
@@ -524,17 +547,19 @@ function toggleOtherReason(checkboxId, textInputId) {
 }
 
 function renderTopUnsatisfiedOffices(data) {
+    const row = document.getElementById("topOfficesRow");
     const container = document.getElementById("topUnsatisfiedContainer");
     const list = document.getElementById("topUnsatisfiedList");
     if (!container || !list) return;
 
-    if (topOfficesChartObj) topOfficesChartObj.destroy();
+    if (topUnsatisfiedChartObj) topUnsatisfiedChartObj.destroy();
 
     // असन्तुष्ट भएका डाटाहरू मात्र फिल्टर गर्ने
     const unsatisfiedData = data.filter(d => d.satisfaction_flag === "असन्तुष्ट" && d.mukhya_karyalay);
 
     if (unsatisfiedData.length === 0) {
         container.style.display = "none";
+        checkTopRowVisibility();
         return;
     }
 
@@ -551,20 +576,20 @@ function renderTopUnsatisfiedOffices(data) {
         .slice(0, 3);
 
     list.innerHTML = top3.map(([office, count], index) => {
-        const colors = ['#de3053', '#e67e22', '#f1c40f'];
+        const colors = ['#e63946', '#f4a261', '#e9c46a']; // नयाँ रङ योजना
         return `
-        <div class="stat-card" style="border-left: 5px solid ${colors[index]}; margin-bottom: 10px; text-align: left; background: white; padding: 10px 15px;">
-            <div style="font-size: 1.1em; font-weight: bold; color: #de3053; margin-bottom: 5px;">
+        <div class="stat-card" style="border-left: 3px solid ${colors[index]}; margin-bottom: 5px; text-align: left; background: white; padding: 6px 10px;">
+            <div style="font-size: 0.95rem; font-weight: bold; color: #de3053; margin-bottom: 2px;">
                 ${toNepaliDigits(index + 1)}. ${office}
             </div>
-            <div style="font-size: 0.95em;">असन्तुष्टि संख्या: <strong>${toNepaliDigits(count)}</strong></div>
+            <div style="font-size: 0.85rem;">असन्तुष्टि संख्या: <strong>${toNepaliDigits(count)}</strong></div>
         </div>
     `}).join('');
 
     // Render Chart
-    const ctx = document.getElementById("topOfficesChart").getContext('2d');
-    topOfficesChartObj = new Chart(ctx, {
-        type: 'bar',
+    const ctx = document.getElementById("topUnsatisfiedChart").getContext('2d');
+    topUnsatisfiedChartObj = new Chart(ctx, {
+        type: chartTypes.topUnsatisfiedChart, 
         data: {
             labels: top3.map(x => x[0]),
             datasets: [{
@@ -587,9 +612,79 @@ function renderTopUnsatisfiedOffices(data) {
     });
 
     container.style.display = "block";
+    if (row) row.style.display = "flex";
+}
+
+function renderTopSatisfiedOffices(data) {
+    const row = document.getElementById("topOfficesRow");
+    const container = document.getElementById("topSatisfiedContainer");
+    const list = document.getElementById("topSatisfiedList");
+    if (!container || !list) return;
+
+    if (topSatisfiedChartObj) topSatisfiedChartObj.destroy();
+
+    const satisfiedData = data.filter(d => d.satisfaction_flag === "सन्तुष्ट" && d.mukhya_karyalay);
+
+    if (satisfiedData.length === 0) {
+        container.style.display = "none";
+        checkTopRowVisibility();
+        return;
+    }
+
+    const officeCounts = {};
+    satisfiedData.forEach(d => {
+        const office = d.mukhya_karyalay.trim();
+        officeCounts[office] = (officeCounts[office] || 0) + 1;
+    });
+
+    const top3 = Object.entries(officeCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+
+    list.innerHTML = top3.map(([office, count], index) => {
+        const colors = ['#27ae60', '#2ecc71', '#a1f0c0'];
+        return `
+        <div class="stat-card" style="border-left: 3px solid ${colors[index]}; margin-bottom: 5px; text-align: left; background: white; padding: 6px 10px;">
+            <div style="font-size: 0.95rem; font-weight: bold; color: #27ae60; margin-bottom: 2px;">
+                ${toNepaliDigits(index + 1)}. ${office}
+            </div>
+            <div style="font-size: 0.85rem;">सन्तुष्टि संख्या: <strong>${toNepaliDigits(count)}</strong></div>
+        </div>
+    `}).join('');
+
+    const ctx = document.getElementById("topSatisfiedChart").getContext('2d');
+    topSatisfiedChartObj = new Chart(ctx, {
+        type: chartTypes.topSatisfiedChart,
+        data: {
+            labels: top3.map(x => x[0]),
+            datasets: [{
+                label: 'सन्तुष्टि संख्या',
+                data: top3.map(x => x[1]),
+                backgroundColor: ['#27ae60', '#2ecc71', '#5cd68d'],
+                borderRadius: 5
+            }]
+        },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1, callback: (v) => toNepaliDigits(v) } }, y: { ticks: { font: { family: 'Kalimati' } } } } }
+    });
+
+    container.style.display = "block";
+    if (row) row.style.display = "flex";
+}
+
+function checkTopRowVisibility() {
+    const u = document.getElementById("topUnsatisfiedContainer");
+    const s = document.getElementById("topSatisfiedContainer");
+    const r = document.getElementById("topOfficesRow");
+    if (u && s && r && u.style.display === "none" && s.style.display === "none") {
+        r.style.display = "none";
+    }
 }
 
 async function loadData() {
+    const loadingOverlay = document.getElementById("loadingOverlay");
+    const loadingText = loadingOverlay?.querySelector(".loading-text");
+    if (loadingOverlay) {
+        if (loadingText) loadingText.textContent = "डाटा लोड हुँदैछ, कृपया पर्खनुहोस्...";
+        loadingOverlay.style.display = "flex";
+    }
     if (typeof SCRIPT_URL !== "undefined" && SCRIPT_URL && SCRIPT_URL.trim() !== "") {
         try {
             const response = await fetch(SCRIPT_URL);
@@ -608,6 +703,7 @@ async function loadData() {
         loadLocalDataFallback();
     }
     refreshDashboard();
+    if (loadingOverlay) loadingOverlay.style.display = "none";
 }
 
 function loadLocalDataFallback() {
@@ -754,7 +850,11 @@ document.getElementById("submitSurvey").addEventListener("click", async function
     addSubmission(payload);
     
     const loadingOverlay = document.getElementById("loadingOverlay");
-    if (loadingOverlay) loadingOverlay.style.display = "flex";
+    const loadingText = loadingOverlay?.querySelector(".loading-text");
+    if (loadingOverlay) {
+        if (loadingText) loadingText.textContent = "डाटा सुरक्षित हुँदैछ, कृपया केही समय पर्खनुहोस्...";
+        loadingOverlay.style.display = "flex";
+    }
 
     if (SCRIPT_URL && SCRIPT_URL.trim() !== "") {
         try {
@@ -842,6 +942,7 @@ function refreshDashboard() {
     });
     renderStats(filtered);
     renderTopUnsatisfiedOffices(filtered);
+    renderTopSatisfiedOffices(filtered);
     updateCharts(filtered);
     renderTable(filtered);
     updateDynamicAnalysis(filtered);
@@ -872,16 +973,16 @@ function updateCharts(data) {
     if (genderChartObj) genderChartObj.destroy();
     
     // Create gradients for Gender Chart
-    const genderCtx = document.getElementById("genderChart").getContext('2d');
+    const genderCtx = document.getElementById("genderChart").getContext('2d'); // Moved inside to ensure context is fresh
     const blueGrad = genderCtx.createLinearGradient(0, 0, 0, 200);
-    blueGrad.addColorStop(0, '#387ae6'); blueGrad.addColorStop(1, '#8eb9ff');
+    blueGrad.addColorStop(0, '#457b9d'); blueGrad.addColorStop(1, '#a8dadc'); // नयाँ ग्रेडिएन्ट
     const redGrad = genderCtx.createLinearGradient(0, 0, 0, 200);
-    redGrad.addColorStop(0, '#d6594b'); redGrad.addColorStop(1, '#ff9a8d');
+    redGrad.addColorStop(0, '#e63946'); redGrad.addColorStop(1, '#f1faee');
     const yellowGrad = genderCtx.createLinearGradient(0, 0, 0, 200);
-    yellowGrad.addColorStop(0, '#d3932c'); yellowGrad.addColorStop(1, '#f7c978');
+    yellowGrad.addColorStop(0, '#f4a261'); yellowGrad.addColorStop(1, '#e9c46a');
 
     genderChartObj = new Chart(genderCtx, {
-        type: "bar",
+        type: chartTypes.genderChart, // Use dynamic type
         data: {
             labels: ["पुरुष", "महिला", "अन्य"],
             datasets: [{
@@ -912,15 +1013,15 @@ function updateCharts(data) {
     if (ghusChartObj) ghusChartObj.destroy();
 
     const ghusCtx = document.getElementById("ghusChart").getContext('2d');
-    const ghusRedGrad = ghusCtx.createLinearGradient(0, 0, 0, 200);
+    const ghusRedGrad = ghusCtx.createLinearGradient(0, 0, 0, 200); // Moved inside
     ghusRedGrad.addColorStop(0, '#d65e51'); ghusRedGrad.addColorStop(1, '#f19086');
     const ghusGreenGrad = ghusCtx.createLinearGradient(0, 0, 0, 200);
     ghusGreenGrad.addColorStop(0, '#27ae60'); ghusGreenGrad.addColorStop(1, '#5cd68d');
 
     ghusChartObj = new Chart(ghusCtx, {
-        type: "pie",
+        type: chartTypes.ghusChart,
         data: {
-            labels: ["अतिरिक्त रकम दिनु पर्‍यो", "परेन"],
+            labels: ["पर्‍यो", "परेन"], // Simplified labels for better chart display
             datasets: [{
                 data: [ghusData.पर्‍यो, ghusData.परेन],
                 backgroundColor: [ghusRedGrad, ghusGreenGrad],
@@ -947,7 +1048,7 @@ function updateCharts(data) {
     if (satisfactionChartObj) satisfactionChartObj.destroy();
 
     const satCtx = document.getElementById("satisfactionChart").getContext('2d');
-    const satGreenGrad = satCtx.createLinearGradient(0, 0, 0, 200);
+    const satGreenGrad = satCtx.createLinearGradient(0, 0, 0, 200); // Moved inside
     satGreenGrad.addColorStop(0, '#27ae60'); satGreenGrad.addColorStop(1, '#5cd68d');
     const satOrangeGrad = satCtx.createLinearGradient(0, 0, 0, 200);
     satOrangeGrad.addColorStop(0, '#e67e22'); satOrangeGrad.addColorStop(1, '#ffb366');
@@ -955,7 +1056,7 @@ function updateCharts(data) {
     satYellowGrad.addColorStop(0, '#f1c40f'); satYellowGrad.addColorStop(1, '#f9e79f');
 
     satisfactionChartObj = new Chart(satCtx, {
-        type: "doughnut",
+        type: chartTypes.satisfactionChart,
         data: {
             labels: ["सन्तुष्ट", "असन्तुष्ट", "मिश्रित"],
             datasets: [{
@@ -982,15 +1083,15 @@ function updateCharts(data) {
     if (devChartObj) devChartObj.destroy();
 
     const devCtx = document.getElementById("developmentChart").getContext('2d');
-    const devBlueGrad = devCtx.createLinearGradient(0, 0, 0, 200);
+    const devBlueGrad = devCtx.createLinearGradient(0, 0, 0, 200); // Moved inside
     devBlueGrad.addColorStop(0, '#3498db'); devBlueGrad.addColorStop(1, '#85c1e9');
     const devGreyGrad = devCtx.createLinearGradient(0, 0, 0, 200);
     devGreyGrad.addColorStop(0, '#95a5a6'); devGreyGrad.addColorStop(1, '#bdc3c7');
 
     devChartObj = new Chart(devCtx, {
-        type: "bar",
+        type: chartTypes.developmentChart,
         data: {
-            labels: ["जानकारी छ", "जानकारी छैन"],
+            labels: ["छ", "छैन"], // Simplified labels
             datasets: [{
                 label: "विकास योजना जानकारी",
                 data: [devKnown, devUnknown],
@@ -1091,9 +1192,9 @@ function updateDynamicAnalysis(data) {
     const ctx = document.getElementById("dynamicChart").getContext('2d');
 
     const colorPairs = [
-        ['#3498db', '#85c1e9'], ['#e74c3c', '#ff9a8d'], ['#2ecc71', '#a1f0c0'],
-        ['#f1c40f', '#fbd28e'], ['#9b59b6', '#d2b4de'], ['#1abc9c', '#76d7c4'],
-        ['#34495e', '#5d6d7e'], ['#d35400', '#eb984e']
+        ['#264653', '#2a9d8f'], ['#e9c46a', '#f4a261'], ['#e76f51', '#f4a261'], // Updated color pairs
+        ['#606c38', '#283618'], ['#bc6c25', '#dda15e'], ['#00b4d8', '#90e0ef'],
+        ['#3d5a80', '#98c1d9'], ['#ee6c4d', '#293241'] // डाइनामिक चार्टका लागि नयाँ रङहरू
     ];
     const dynamicGradients = colorPairs.map(pair => {
         const g = ctx.createLinearGradient(0, 0, 0, 400);
@@ -1102,7 +1203,7 @@ function updateDynamicAnalysis(data) {
     });
 
     dynamicChartObj = new Chart(ctx, {
-        type: labels.length > 5 ? 'bar' : 'pie',
+        type: chartTypes.dynamicChart, // Use dynamic type
         data: {
             labels: labels,
             datasets: [{ 
@@ -1227,7 +1328,22 @@ function renderTable(data) {
     });
 }
 
-document.getElementById("applyFilter")?.addEventListener("click", () => refreshDashboard());
+document.getElementById("applyFilter")?.addEventListener("click", () => {
+    const loadingOverlay = document.getElementById("loadingOverlay");
+    const loadingText = loadingOverlay?.querySelector(".loading-text");
+    
+    if (loadingOverlay) {
+        if (loadingText) loadingText.textContent = "फिल्टर लागू हुँदैछ, कृपया पर्खनुहोस्...";
+        loadingOverlay.style.display = "flex";
+    }
+
+    // ब्राउजरलाई स्पिनर देखाउन समय दिन र सहज अनुभवको लागि थोरै ढिलाइ (400ms) राखिएको
+    setTimeout(() => {
+        refreshDashboard();
+        if (loadingOverlay) loadingOverlay.style.display = "none";
+    }, 400);
+});
+
 document.getElementById("resetFilter")?.addEventListener("click", () => {
     if (document.getElementById("filterPradesh")) document.getElementById("filterPradesh").value = "";
     updateFilterDistricts();
@@ -1248,6 +1364,27 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
             refreshDashboard();
             if(SCRIPT_URL) loadData(); // Reload latest data from Google Sheets when dashboard opens
         }
+    });
+});
+
+// Event listener for chart type cycle buttons
+document.addEventListener("DOMContentLoaded", function() {
+    // ... existing DOMContentLoaded code ...
+
+    document.querySelectorAll(".chart-type-cycle-btn").forEach(button => {
+        button.addEventListener("click", function() {
+            const chartId = this.dataset.chartId;
+            const currentType = chartTypes[chartId];
+            const cycle = CHART_TYPE_CYCLES[chartId];
+            if (!cycle) return;
+
+            const currentIndex = cycle.indexOf(currentType);
+            const nextIndex = (currentIndex + 1) % cycle.length;
+            const nextType = cycle[nextIndex];
+
+            chartTypes[chartId] = nextType;
+            refreshDashboard(); // Re-render all charts with new type
+        });
     });
 });
 
