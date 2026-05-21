@@ -3,6 +3,8 @@ const SPREADSHEET_ID = '14ztu10pMGHsIVlxS8o3j-MfY2nBaUk_gV2t_InKmJkA';
 // २. आफ्नो Sheet को नाम यहाँ राख्नुहोस् (Example: 'Sheet1')
 const SHEET_NAME = 'Sheet1';
 const MONITORING_SHEET_NAME = 'Monitoring'; // अनुगमन फारमको लागि नयाँ सिट
+const ATTENDANCE_MAIN_SHEET = 'AttendanceMain'; // समय पालना मुख्य विवरण
+const ATTENDANCE_DETAIL_SHEET = 'AttendanceDetail'; // कर्मचारीगत विवरण
 
 function doPost(e) {
   try {
@@ -11,7 +13,8 @@ function doPost(e) {
     
     // बहु-विकल्प (Arrays) लाई मिलाउने (String बनाउने)
     Object.keys(data).forEach(function(key) {
-      if (Array.isArray(data[key])) {
+      // 'rows' लाई स्ट्रिङमा नबदल्ने ताकि कर्मचारी विवरणहरू सुरक्षित रहून्
+      if (key !== 'rows' && Array.isArray(data[key])) {
         data[key] = data[key].join(", ");
       }
     });
@@ -28,6 +31,23 @@ function doPost(e) {
         data.d_total, data.d_working, data.d_vacant, data.d_pending, data.d_excess,
         data.m_comment, data.monitor_name, data.monitor_rank
       ]);
+    } else if (data.type === 'attendance') {
+      // ३. समय पालना/पोशाक अनुगमन सुरक्षित गर्ने
+      var amSheet = ss.getSheetByName(ATTENDANCE_MAIN_SHEET) || ss.insertSheet(ATTENDANCE_MAIN_SHEET);
+      var adSheet = ss.getSheetByName(ATTENDANCE_DETAIL_SHEET) || ss.insertSheet(ATTENDANCE_DETAIL_SHEET);
+      
+      amSheet.appendRow([
+        data.timestamp, data.pradesh, data.jilla, data.sthaaniya,
+        data.office, data.total_staff, data.working_staff, data.vacant_staff, 
+        data.date, data.time, data.phone, data.monitor_name, data.monitor_rank, 
+        data.a_office_officer, data.a_office_rank
+      ]);
+      
+      if (data.rows && Array.isArray(data.rows)) {
+        data.rows.forEach(function(row) {
+          adSheet.appendRow([data.timestamp, row.category, row.rank, row.symbol, row.name, row.extra]);
+        });
+      }
     } else {
       // २. सेवाग्राही सर्वेक्षण सुरक्षित गर्ने
       var sheet = ss.getSheetByName(SHEET_NAME);
@@ -57,9 +77,13 @@ function doGet() {
   
   // सर्वेक्षण डाटा ल्याउने
   var sSheet = ss.getSheetByName(SHEET_NAME);
-  var sRows = sSheet.getDataRange().getValues();
   var surveyData = [];
+  if (sSheet && sSheet.getLastRow() > 1) {
+  var sRows = sSheet.getDataRange().getValues();
   for (var i = 1; i < sRows.length; i++) {
+    // यदि मिति वा कार्यालय खाली छ भने त्यस्तो रेकर्ड नलिने
+    if (!sRows[i][1] && !sRows[i][9]) continue;
+
     surveyData.push({
       timestamp: sRows[i][0],
       survey_date: sRows[i][1],
@@ -91,6 +115,7 @@ function doGet() {
       asantushti_karan_other: sRows[i][34]
     });
   }
+  }
 
   // अनुगमन डाटा ल्याउने
   var mSheet = ss.getSheetByName(MONITORING_SHEET_NAME);
@@ -112,8 +137,99 @@ function doGet() {
     }
   }
 
+  // समय पालना/पोशाक अनुगमन डाटा ल्याउने
+  var amSheet = ss.getSheetByName(ATTENDANCE_MAIN_SHEET);
+  var adSheet = ss.getSheetByName(ATTENDANCE_DETAIL_SHEET);
+  var attendanceData = [];
+  
+  if (amSheet && adSheet) {
+    var mRows = amSheet.getDataRange().getValues();
+    var dRows = adSheet.getDataRange().getValues();
+    
+    for (var k = 1; k < mRows.length; k++) {
+      var timestamp = mRows[k][0];
+      var details = [];
+      
+      // सम्बन्धित कर्मचारी विवरणहरू फिल्टर गर्ने
+      for (var l = 1; l < dRows.length; l++) {
+        if (dRows[l][0] === timestamp) {
+          details.push({
+            category: dRows[l][1], rank: dRows[l][2], symbol: dRows[l][3], name: dRows[l][4], extra: dRows[l][5]
+          });
+        }
+      }
+      
+      attendanceData.push({
+        timestamp: timestamp, office: mRows[k][4], total_staff: mRows[k][5], working_staff: mRows[k][6],
+        vacant_staff: mRows[k][7], date: mRows[k][8], time: mRows[k][9], phone: mRows[k][10],
+        monitor_name: mRows[k][11], rows: details
+      });
+    }
+  }
+
   return ContentService.createTextOutput(JSON.stringify({
     survey: surveyData,
-    monitoring: monitoringData
+    monitoring: monitoringData,
+    attendance: attendanceData
   })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * आवश्यक Google Sheets र तिनीहरूको हेडरहरू अटोमेटिक सेटअप गर्नका लागि यो फङ्सन एक पटक चलाउनुहोस्।
+ */
+function setupSheets() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+
+  // १. AttendanceMain Sheet सेटअप
+  let amSheet = ss.getSheetByName(ATTENDANCE_MAIN_SHEET);
+  if (!amSheet) {
+    amSheet = ss.insertSheet(ATTENDANCE_MAIN_SHEET);
+    amSheet.appendRow([
+      "Timestamp", "प्रदेश", "जिल्ला", "स्थानीय तह", "कार्यालयको नाम/ठेगाना", 
+      "कुल दरबन्दी संख्या", "हाल कार्यरत संख्या", "रिक्त संख्या", 
+      "अनुगमन गरेको मिति", "अनुगमन गरेको समय", "कार्यालयको फोन नं.", 
+      "अनुगमन टोली प्रमुखको नाम", "अनुगमन टोली प्रमुखको पद", 
+      "सम्बन्धित कार्यालयको अधिकृतको नाम", "सम्बन्धित कार्यालयको अधिकृतको पद"
+    ]);
+  }
+
+  // २. AttendanceDetails Sheet सेटअप
+  let adSheet = ss.getSheetByName(ATTENDANCE_DETAIL_SHEET);
+  if (!adSheet) {
+    adSheet = ss.insertSheet(ATTENDANCE_DETAIL_SHEET);
+    adSheet.appendRow([
+      "Timestamp", "विवरण प्रकार (Category)", "पद", "संकेत नं.", "कर्मचारीको नाम", "कैफियत/थप मिति"
+    ]);
+  }
+
+  // ३. Monitoring Sheet सेटअप
+  let mSheet = ss.getSheetByName(MONITORING_SHEET_NAME);
+  if (!mSheet) {
+    mSheet = ss.insertSheet(MONITORING_SHEET_NAME);
+    mSheet.appendRow([
+      "Timestamp", "अनुगमन मिति", "प्रदेश", "जिल्ला", "स्थानीय तह", "कार्यालयको नाम",
+      "१. नागरिक बडापत्र (डिजिटल/अडियो)", "२. सेवा प्रक्रिया, कागजात, लागत र समय", "३. शाखागत व्यवस्था, कोठा नं. र नामावली", "४. नागरिक बडापत्रमा क्षतिपूर्ति व्यवस्था", "५. मध्यस्थकर्ताको प्रवेश",
+      "६. नागरिक बडापत्र वेवसाईटमा upload र update", "७. सूचनाको हकसम्बन्धी स्वतः प्रकाशन", "८. जानकारी पाउने माध्यमको अवलम्बन", "९. हाजिरीको अवस्था", "१०. कर्मचारीहरु कार्यकक्षमा रहेको", "११. सूचना पाटी", "१२. कार्यालयको सरसफाइको अवस्था",
+      "सहायता कक्ष", "अपाङ्गमैत्री", "प्रतिक्षालय", "शौचालय", "खानेपानी", "स्तनपान कक्ष", "धुम्रपान निषेध", "चमेना गृह", "उजुरी पेटिका", "Website/Social Media",
+      "१४. कार्यालयबाट प्रवाह हुने मुख्य सेवाहरू", "१५. मूलभूत समस्या/अनियमितता", "१६. अपनाएका सुधारका उपायहरू",
+      "कुल दरबन्दी", "कार्यरत संख्या", "रिक्त", "रमाना लिन बाँकी", "पद भन्दा बढी कर्मचारी",
+      "१८. अनुगमनकर्ताको टिप्पणी", "अनुगमनकर्ताको नाम", "पद"
+    ]);
+  }
+
+  // ४. Survey Sheet (Sheet1) सेटअप
+  let sSheet = ss.getSheetByName(SHEET_NAME);
+  if (!sSheet) {
+    sSheet = ss.insertSheet(SHEET_NAME);
+    sSheet.appendRow([
+      "Timestamp", "सर्वेक्षण मिति", "प्रदेश", "जिल्ला", "स्थानीय तह", "लिङ्ग",
+      "कार्यालय १", "कार्यालय २", "कार्यालय ३", "विवरण दिन चाहेको कार्यालय",
+      "४.१ नागरिक वडापत्रको जानकारी", "४.२ समय र दस्तूरको जानकारी", "४.३ तोकिएको समयमा काम भयो?", "४.४ भएन भने कारण",
+      "५. बाहिरी व्यक्तिको सहयोग", "५.१ कसको सहयोग", "६. अतिरिक्त रकम (घुस) दिनुपर्यो?", "६.१ कसलाई दिनुभयो",
+      "७. सेवा सन्तुष्टि", "सन्तुष्ट भए कारण", "असन्तुष्ट भए कारण", "Satisfaction Flag", "८. सुधारका लागि सुझाव", "९. राम्रो सेवा प्रवाह गर्ने कार्यालय", "१०. सेवा प्रवाह कमजोर कार्यालय",
+      "११. सूचनाको हक जानकारी", "१२. गुनासो/उजुरी गरेको", "१३. सार्वजनिक सुनुवाई सहभागिता", "१४. विकासको कामको जानकारी",
+      "१५. विकास निर्माणमा सहभागिता", "१६. विकास निर्माणको गुणस्तर", "१७. सूचना पाटी", "१८. योजनाबाट सन्तुष्टि",
+      "१९. असन्तुष्टिको कारण", "असन्तुष्टिको अन्य कारण"
+    ]);
+  }
 }

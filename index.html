@@ -33,6 +33,7 @@
         <div class="tabs">
             <button class="tab-btn active" data-tab="form-tab"> सर्वेक्षण फारम</button>
             <button class="tab-btn" data-tab="monitoring-tab"> अनुगमन फारम</button>
+            <button class="tab-btn" data-tab="attendance-tab"> समय पालना/पोशाक अनुगमन</button>
             <button class="tab-btn" data-tab="dashboard-tab"> ड्यासबोर्ड / तथ्याङ्क</button>
         </div>
 
@@ -485,6 +486,69 @@
             </div>
         </div>
 
+        <!-- ATTENDANCE & DRESS CODE MONITORING PANEL -->
+        <div id="attendance-tab" class="panel">
+            <div class="survey-card">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <h3 style="font-family:'Kalimati', sans-serif;">नेपाल सरकार</h3>
+                    <h2 style="font-family:'Kalimati', sans-serif;">राष्ट्रिय सतर्कता केन्द्र</h2>
+                    <p>सिंहदरबार, काठमाडौं</p>
+                    <h4 style="margin-top: 10px; background: #357a8c; color: white; padding: 5px; border-radius: 5px;">कार्यालयमा कर्मचारीको कार्यालय समय पालना/अनुपस्थिति र पोशाकको अनुगमन फाराम</h4>
+                </div>
+                <form id="attendanceForm">
+                    <div class="form-grid">
+                        <div class="field-group"><span class="field-label">प्रदेश:<span class="required-asterisk">*</span></span><select name="a_pradesh" id="a_pradesh" required><option value="">प्रदेश छान्नुहोस्</option></select></div>
+                        <div class="field-group"><span class="field-label">जिल्ला:<span class="required-asterisk">*</span></span><select name="a_jilla" id="a_jilla" required><option value="">जिल्ला छान्नुहोस्</option></select></div>
+                        <div class="field-group"><span class="field-label">स्थानीय तह:<span class="required-asterisk">*</span></span><select name="a_sthaaniya" id="a_sthaaniya" required><option value="">स्थानीय तह छान्नुहोस्</option></select></div>
+                        <div class="field-group"><span class="field-label">कार्यालयको नाम/ठेगाना:</span><input type="text" name="a_office" required></div>
+                        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                            <div class="field-item">कुल दरबन्दी: <input type="number" name="a_total_staff" style="width: 80px;"></div>
+                            <div class="field-item">हाल कार्यरत: <input type="number" name="a_working_staff" style="width: 80px;"></div>
+                            <div class="field-item">रिक्त: <input type="number" name="a_vacant_staff" style="width: 80px;"></div>
+                        </div>
+                        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                            <div class="field-group"><span class="field-label">अनुगमन मिति र समय:</span><input type="text" name="a_date" class="nepali-datepicker" readonly required style="width: 150px;"> <input type="time" name="a_time" style="width: 120px;"></div>
+                            <div class="field-group"><span class="field-label">कार्यालयको फोन नं.:</span><input type="text" name="a_phone"></div>
+                        </div>
+
+                        <div class="section-title">कर्मचारीहरूको विवरण (अनुपस्थिति/पोशाक पालना नगरेका)</div>
+                        <div class="table-wrapper">
+                            <table id="attendanceEntryTable">
+                                <thead>
+                                    <tr>
+                                        <th>विवरण प्रकार (Category)</th>
+                                        <th>पद</th>
+                                        <th>संकेत नं.</th>
+                                        <th>कर्मचारीको नाम</th>
+                                        <th>कैफियत/थप मिति</th>
+                                        <th>हटाउनुहोस्</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="attendanceEntryBody">
+                                    <!-- Rows added dynamically -->
+                                </tbody>
+                            </table>
+                            <button type="button" onclick="addAttendanceRow()" style="margin-top: 10px; background: #27ae60; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">+ कर्मचारी थप्नुहोस्</button>
+                        </div>
+
+                        <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-top: 20px; border-top: 1px solid #ddd; padding-top: 15px;">
+                            <div style="flex: 1;">
+                                <p><strong>अनुगमन टोली प्रमुखको:</strong></p>
+                                <div class="field-group"><span class="field-label">नाम:</span><input type="text" name="a_monitor_name"></div>
+                                <div class="field-group"><span class="field-label">पद:</span><input type="text" name="a_monitor_rank"></div>
+                            </div>
+                            <div style="flex: 1;">
+                                <p><strong>सम्बन्धित कार्यालयको अधिकृतको:</strong></p>
+                                <div class="field-group"><span class="field-label">नाम:</span><input type="text" name="a_office_officer"></div>
+                                <div class="field-group"><span class="field-label">पद:</span><input type="text" name="a_office_rank"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" class="submit-btn" id="submitAttendance">✅ अनुगमन फारम सुरक्षित गर्नुहोस्</button>
+                </form>
+            </div>
+        </div>
+
         <!-- DASHBOARD PANEL -->
         <div id="dashboard-tab" class="panel">
             <div class="dashboard-card">
@@ -492,6 +556,7 @@
                 <div style="display: flex; gap: 10px; margin-bottom: 20px; justify-content: center;">
                     <button id="showSurveyView" class="tab-btn active" style="flex: 1; max-width: 300px; padding: 7px 20px;">सेवाग्राही सर्वेक्षण</button>
                     <button id="showMonitoringView" class="tab-btn" style="flex: 1; max-width: 300px; padding: 7px 20px;">कार्यालय/नागरिक बडापत्र अनुगमन</button>
+                    <button id="showAttendanceView" class="tab-btn" style="flex: 1; max-width: 300px; padding: 7px 20px;">समय पालना/पोशाक अनुगमन</button>
                 </div>
 
                 <div class="filter-bar" style="margin-bottom: 15px;">
@@ -516,6 +581,10 @@
                             <option>महिला</option>
                             <option>अन्य</option>
                         </select></div>
+                    <div class="filter-item" id="attendanceExtraFilters" style="display: none;">
+                        <label>कर्मचारीको नाम</label><input type="text" id="filterEmpName" placeholder="नाम खोज्नुहोस्">
+                        <label>संकेत नं.</label><input type="text" id="filterEmpSymbol" placeholder="संकेत नं.">
+                    </div>
                     <button id="applyFilter" style="background:#0c3c89; border:none; border-radius:6px; color:white; cursor:pointer;">फिल्टर लागू गर्नुहोस्</button>
                     <button id="resetFilter" style="background:#ba2845; border:none; border-radius:6px; color:white; cursor:pointer;">रिसेट</button>
                 </div>

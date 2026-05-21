@@ -1,15 +1,17 @@
 // Google Apps Script Web App URL (Replace with actual deployed URL)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzr1sNmaj_490-7H4yfGNIFNJcz5RT4yLwxarDhlQTLxU1AvPIwsQTbrgIDM8-ZAWls/exec";  // यहाँ तपाईंको Google Apps Script Web App URL राख्नुहोस्, example: "https://script.google.com/macros/s/XXXX/exec"
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx5-oHyGtN-I7IrNETtnhPhEVrIxj02p7nF4vAjN7z8KPV-OT-UySJbZP9ZJO7ThWQp/exec"; 
 let allSubmissions = [];
 let allMonitorings = []; // अनुगमन डाटाको लागि
+let allAttendanceMonitorings = []; // समय पालना/पोशाक डाटाको लागि
 let currentFilteredMonitorings = []; // डाउनलोडका लागि हाल फिल्टर गरिएको डाटा राख्न
-let currentDashboardView = 'survey'; // 'survey' वा 'monitoring'
+let currentDashboardView = 'survey'; // 'survey', 'monitoring', 'attendance'
 
 // चार्ट अब्जेक्टहरूलाई ग्लोबल रूपमा डिक्लेयर गरिएको (ReferenceError हटाउन)
 let genderChartObj = null, satisfactionChartObj = null, ghusChartObj = null, devChartObj = null, dynamicChartObj = null, topUnsatisfiedChartObj = null, topSatisfiedChartObj = null;
 let charterClarityChartObj = null, attendanceChartObj = null, brokerChartObj = null, facilitiesChartObj = null, staffingChartObj = null, vacantByProvinceChartObj = null, provStaffingComparisonChartObj = null;
 // नयाँ अनुगमन चार्ट अब्जेक्टहरू
 let websiteChartObj = null, disclosureChartObj = null, autoInfoChartObj = null, workroomChartObj = null, infoBoardChartObj = null, cleaningChartObj = null;
+let attendanceViolationChartObj = null;
 
 // Province, District, and Municipality Data
 const PROVINCE = {
@@ -372,9 +374,10 @@ function handleNepaliPickerOutsideClick(event) {
 }
 
 function populateProvinces() {
-    const pradeshSelects = [document.getElementById("pradesh"), document.getElementById("filterPradesh"), document.getElementById("m_pradesh")];
+    const pradeshSelects = [document.getElementById("pradesh"), document.getElementById("filterPradesh"), document.getElementById("m_pradesh"), document.getElementById("a_pradesh")];
     pradeshSelects.forEach(sel => {
         if (!sel) return;
+        sel.innerHTML = '<option value="">प्रदेश छान्नुहोस्</option>'; // Clear existing options and add a default
         for (const [id, name] of Object.entries(PROVINCE)) {
             const option = document.createElement("option");
             option.value = id;
@@ -467,6 +470,12 @@ document.addEventListener("DOMContentLoaded", function () {
     // Monitoring dropdowns
     document.getElementById("m_pradesh")?.addEventListener("change", () => updateDistricts("m_pradesh", "m_jilla", "m_sthaaniya"));
     document.getElementById("m_jilla")?.addEventListener("change", () => updateMunicipalities("m_pradesh", "m_jilla", "m_sthaaniya"));
+    document.getElementById("a_pradesh")?.addEventListener("change", () => updateDistricts("a_pradesh", "a_jilla", "a_sthaaniya"));
+    document.getElementById("a_jilla")?.addEventListener("change", () => updateMunicipalities("a_pradesh", "a_jilla", "a_sthaaniya"));
+    
+    // Attendance Monitoring dropdowns
+    // populateProvinces(); // Redundant call, as it's called once above and the function now clears options
+    addAttendanceRow(); // Initial row
 
     // विशिष्ट प्रश्न विश्लेषण (Dynamic Analysis) छनोट गर्दा ड्यासबोर्ड रिफ्रेस गर्ने
     document.getElementById("dynamicFieldSelector")?.addEventListener("change", refreshDashboard);
@@ -760,12 +769,20 @@ async function loadData() {
             if (response.ok) {
                 const result = await response.json();
                 if (result.survey) {
-                    allSubmissions = result.survey.reverse();
+                    allSubmissions = result.survey;
+                    // रिभर्स गर्ने भए एक पटक मात्र गर्ने (भर्खरै आएकालाई माथि देखाउन)
+                    allSubmissions.reverse(); 
                     localStorage.setItem("surveyData_nsc_full", JSON.stringify(allSubmissions));
                 }
                 if (result.monitoring) {
-                    allMonitorings = result.monitoring.reverse();
+                    allMonitorings = result.monitoring;
+                    allMonitorings.reverse();
                     localStorage.setItem("monitoringData_nsc", JSON.stringify(allMonitorings));
+                }
+                if (result.attendance) {
+                    allAttendanceMonitorings = result.attendance;
+                    allAttendanceMonitorings.reverse();
+                    localStorage.setItem("attendanceData_nsc", JSON.stringify(allAttendanceMonitorings));
                 }
             }
         } catch (e) {
@@ -1047,10 +1064,127 @@ document.getElementById("submitMonitoring")?.addEventListener("click", async fun
     }
 });
 
+// समय पालना र पोशाक अनुगमन फारमका लागि डाइनामिक लहरहरू
+function addAttendanceRow() {
+    const tbody = document.getElementById("attendanceEntryBody");
+    if (!tbody) return;
+    const rowCount = tbody.rows.length + 1;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+        <td>
+            <select name="emp_category[]" required>
+                <option value="अनुगमन मितिमा अनुपस्थित/ढिला आउने">अनुपस्थित/ढिला (आज)</option>
+                <option value="अघिल्लो मितिमा अनुपस्थित">अघिल्लो मितिमा अनुपस्थित</option>
+                <option value="हाजिर भई कार्यकक्षमा नभेटिएको">कार्यकक्षमा नभेटिएको</option>
+                <option value="तोकिएको पोशाक नलगाएको">पोशाक नलगाएको</option>
+            </select>
+        </td>
+        <td><input type="text" name="emp_rank[]" placeholder="पद"></td>
+        <td><input type="text" name="emp_symbol[]" placeholder="संकेत नं."></td>
+        <td><input type="text" name="emp_name[]" placeholder="कर्मचारीको नाम"></td>
+        <td><input type="text" name="emp_extra[]" placeholder="कैफियत/मिति"></td>
+        <td><button type="button" onclick="this.closest('tr').remove()" style="background:#e74c3c; color:white; border:none; padding:5px 10px; border-radius:4px;">हटाउने</button></td>
+    `;
+    tbody.appendChild(tr);
+}
+
+document.getElementById("submitAttendance")?.addEventListener("click", async function() {
+    const form = document.getElementById("attendanceForm");
+    
+    // भ्यालिडेसनका लागि क्लास थप्ने
+    form.classList.add('was-validated');
+
+    if (!form.checkValidity()) { 
+        form.reportValidity(); 
+        return; 
+    }
+
+    const formData = new FormData(form);
+    let payload = { 
+        type: 'attendance', 
+        timestamp: new Date().toISOString(), // मुख्य रेकर्डको लागि टाइमस्ट्याम्प
+        mainRecordId: new Date().getTime().toString(), // अद्वितीय ID
+        rows: []
+    };
+
+    // Form base data
+    payload.pradesh = PROVINCE[formData.get("a_pradesh")] || "";
+    payload.jilla = formData.get("a_jilla") || "";
+    payload.sthaaniya = formData.get("a_sthaaniya") || "";
+    payload.office = formData.get("a_office");
+    payload.total_staff = formData.get("a_total_staff");
+    payload.working_staff = formData.get("a_working_staff");
+    payload.vacant_staff = formData.get("a_vacant_staff");
+    payload.date = formData.get("a_date");
+    payload.time = formData.get("a_time");
+    payload.phone = formData.get("a_phone");
+    payload.monitor_name = formData.get("a_monitor_name");
+    payload.monitor_rank = formData.get("a_monitor_rank");
+
+    // Get rows
+    const categories = formData.getAll("emp_category[]");
+    const ranks = formData.getAll("emp_rank[]");
+    const symbols = formData.getAll("emp_symbol[]");
+    const names = formData.getAll("emp_name[]");
+    const extras = formData.getAll("emp_extra[]");
+
+    let hasValidRow = false;
+    for(let i=0; i < names.length; i++) {
+        // नाम वा संकेत नं. मध्ये कम्तिमा एउटा हुनुपर्ने गरी सुधारिएको
+        if(names[i].trim() !== "" || symbols[i].trim() !== "") {
+            hasValidRow = true;
+            payload.rows.push({
+                category: categories[i],
+                rank: ranks[i],
+                symbol: symbols[i],
+                name: names[i],
+                extra: extras[i],
+                mainRecordId: payload.mainRecordId // मुख्य रेकर्डसँग लिङ्क गर्न
+            });
+        }
+    }
+
+    if (!hasValidRow) {
+        Swal.fire({ 
+            icon: 'warning', 
+            title: 'कर्मचारी विवरण आवश्यक',
+            text: 'कृपया अनुगमन तालिकामा कम्तिमा एक कर्मचारीको विवरण (नाम वा संकेत नं.) अनिवार्य रुपमा भर्नुहोस्।',
+            confirmButtonColor: '#387ae6'
+        });
+        return;
+    }
+
+    const loadingOverlay = document.getElementById("loadingOverlay");
+    if (loadingOverlay) loadingOverlay.style.display = "flex";
+
+    try {
+        allAttendanceMonitorings.unshift(payload);
+        localStorage.setItem("attendanceData_nsc", JSON.stringify(allAttendanceMonitorings));
+
+        if (SCRIPT_URL) {
+            await fetch(SCRIPT_URL, { method: "POST", mode: 'no-cors', body: JSON.stringify(payload) });
+        }
+        Swal.fire({ icon: 'success', title: 'सफल!', text: 'समय पालना र पोशाक अनुगमन विवरण सुरक्षित भयो।' });
+        form.reset();
+        form.classList.remove('was-validated');
+        document.getElementById("attendanceEntryBody").innerHTML = "";
+        addAttendanceRow();
+    } catch (e) {
+        console.error(e);
+        Swal.fire({ icon: 'info', text: 'डाटा स्थानीय भण्डारणमा सेभ भयो।' });
+    } finally {
+        if (loadingOverlay) loadingOverlay.style.display = "none";
+    }
+});
+
 // Dashboard rendering
 function refreshDashboard() {
     if (currentDashboardView === 'monitoring') {
         refreshMonitoringDashboard();
+        return;
+    }
+    if (currentDashboardView === 'attendance') {
+        refreshAttendanceDashboard();
         return;
     }
     // साविकको सर्वेक्षण ड्यासबोर्ड लजिक
@@ -1139,6 +1273,91 @@ function refreshMonitoringDashboard() {
     updateMonitoringAlerts(filtered);
     // विवरणात्मक विवरणहरू अपडेट गर्ने
     updateMonitoringDetails(filtered);
+}
+
+function refreshAttendanceDashboard() {
+    const pradeshFilter = document.getElementById("filterPradesh")?.value || "";
+    const districtFilter = document.getElementById("filterDistrict")?.value || "";
+    const sthaaniyaFilter = document.getElementById("filterSthaaniya")?.value || "";
+    const officeFilter = document.getElementById("filterOffice")?.value.toLowerCase() || "";
+    const empNameFilter = document.getElementById("filterEmpName")?.value.toLowerCase() || "";
+    const empSymbolFilter = document.getElementById("filterEmpSymbol")?.value || "";
+
+    let filteredEntries = [];
+    allAttendanceMonitorings.forEach(report => {
+        // प्रदेश र जिल्ला फिल्टर
+        if (pradeshFilter) {
+            const provinceName = PROVINCE[pradeshFilter];
+            if (report.pradesh !== provinceName) return;
+        }
+        if (districtFilter && report.jilla !== districtFilter) return;
+        if (sthaaniyaFilter && report.sthaaniya !== sthaaniyaFilter) return;
+        
+        if (officeFilter && !report.office.toLowerCase().includes(officeFilter)) return;
+        
+        report.rows.forEach(row => {
+            if (empNameFilter && !row.name.toLowerCase().includes(empNameFilter)) return;
+            if (empSymbolFilter && row.symbol !== empSymbolFilter) return;
+            
+            filteredEntries.push({
+                office: report.office,
+                date: report.date,
+                ...row
+            });
+        });
+    });
+
+    // Stats
+    const totalViolations = filteredEntries.length;
+    const lateAbsent = filteredEntries.filter(e => e.category.includes("अनुपस्थित/ढिला")).length;
+    const noUniform = filteredEntries.filter(e => e.category.includes("पोशाक")).length;
+
+    document.getElementById("statCardsContainer").innerHTML = `
+        <div class="stat-card"><div class="stat-number">${toNepaliDigits(totalViolations)}</div><div>जम्मा अपरिपालना</div></div>
+        <div class="stat-card"><div class="stat-number">${toNepaliDigits(lateAbsent)}</div><div>अनुपस्थित/ढिला कर्मचारी</div></div>
+        <div class="stat-card"><div class="stat-number">${toNepaliDigits(noUniform)}</div><div>पोशाक नलगाउने</div></div>
+    `;
+
+    // Table
+    const tbody = document.querySelector("#dataTable tbody");
+    if (tbody) {
+        tbody.innerHTML = filteredEntries.map(e => `
+            <tr>
+                <td>${e.date}</td>
+                <td>${e.office}</td>
+                <td>${e.name}</td>
+                <td>${e.rank}</td>
+                <td>${e.symbol}</td>
+                <td>${e.category}</td>
+                <td colspan="2">${e.extra || "-"}</td>
+            </tr>
+        `).join('');
+    }
+
+    // Charts
+    if (attendanceViolationChartObj) attendanceViolationChartObj.destroy();
+    const catCounts = {};
+    filteredEntries.forEach(e => catCounts[e.category] = (catCounts[e.category] || 0) + 1);
+    
+    attendanceViolationChartObj = new Chart(document.getElementById("dynamicChart").getContext('2d'), {
+        type: 'pie',
+        data: {
+            labels: Object.keys(catCounts),
+            datasets: [{
+                data: Object.values(catCounts),
+                backgroundColor: ['#ef4444cc', '#f59e0bcc', '#3b82f6cc', '#10b981cc']
+            }]
+        },
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom' } } 
+        }
+    });
+    
+    // Show chart row
+    document.getElementById("dynamicChartRow").style.display = "flex";
+    document.getElementById("dynamicChartLabel").textContent = "अपरिपालनाको वर्गीकरण";
 }
 
 function updateMonitoringAlerts(data) {
@@ -1704,16 +1923,26 @@ function switchDashboardView(view) {
     
     const surveyBtn = document.getElementById("showSurveyView");
     const monitoringBtn = document.getElementById("showMonitoringView");
+    const attendanceBtn = document.getElementById("showAttendanceView");
     
     const tableHead = document.querySelector("#dataTable thead");
+    const extraFilters = document.getElementById("attendanceExtraFilters");
 
     if (view === 'survey') {
         surveyBtn?.classList.add("active");
         monitoringBtn?.classList.remove("active");
+        attendanceBtn?.classList.remove("active");
+        if(extraFilters) extraFilters.style.display = "none";
         
         document.getElementById("surveyChartsRow")?.style.setProperty('display', 'flex', 'important');
-        document.getElementById("surveyDynamicAnalysis")?.style.setProperty('display', 'block', 'important');
         document.getElementById("topOfficesRow")?.style.setProperty('display', 'flex', 'important');
+
+        const dynamicAnalysis = document.getElementById("surveyDynamicAnalysis");
+        if (dynamicAnalysis) {
+            dynamicAnalysis.style.setProperty('display', 'block', 'important');
+            const selectorDiv = dynamicAnalysis.querySelector(".filter-item");
+            if (selectorDiv) selectorDiv.style.display = "flex"; // सर्वेक्षणमा यो फिल्टर पुनः देखाउने
+        }
         document.getElementById("monitoringChartsRow")?.style.setProperty('display', 'none', 'important');
         document.getElementById("monitoringAlertsSection")?.style.setProperty('display', 'none', 'important');
         document.getElementById("monitoringDetailsSection")?.style.setProperty('display', 'none', 'important');
@@ -1733,9 +1962,44 @@ function switchDashboardView(view) {
         
         const genderFilter = document.getElementById("filterGender")?.closest('.filter-item');
         if (genderFilter) genderFilter.style.display = "flex";
+    } else if (view === 'attendance') {
+        attendanceBtn?.classList.add("active");
+        surveyBtn?.classList.remove("active");
+        monitoringBtn?.classList.remove("active");
+        if(extraFilters) extraFilters.style.display = "flex";
+
+        document.getElementById("surveyChartsRow")?.style.setProperty('display', 'none', 'important');
+        document.getElementById("monitoringChartsRow")?.style.setProperty('display', 'none', 'important');
+        document.getElementById("topOfficesRow")?.style.setProperty('display', 'none', 'important');
+        
+        const dynamicAnalysis = document.getElementById("surveyDynamicAnalysis");
+        if (dynamicAnalysis) {
+            dynamicAnalysis.style.setProperty('display', 'block', 'important');
+            const selectorDiv = dynamicAnalysis.querySelector(".filter-item");
+            if (selectorDiv) selectorDiv.style.display = "none"; // प्रश्न छान्ने फिल्टर लुकाउने
+        }
+        
+        document.getElementById("monitoringDetailsSection")?.style.setProperty('display', 'none', 'important');
+
+        if (tableHead) {
+            tableHead.innerHTML = `<tr>
+                <th>मिति</th>
+                <th>कार्यालय</th>
+                <th>कर्मचारीको नाम</th>
+                <th>पद</th>
+                <th>संकेत नं.</th>
+                <th>अपरिपालना प्रकार</th>
+                <th colspan="2">कैफियत</th>
+            </tr>`;
+        }
+        
+        const genderFilter = document.getElementById("filterGender")?.closest('.filter-item');
+        if (genderFilter) genderFilter.style.display = "none";
     } else {
         monitoringBtn?.classList.add("active");
         surveyBtn?.classList.remove("active");
+        attendanceBtn?.classList.remove("active");
+        if(extraFilters) extraFilters.style.display = "none";
         
         document.getElementById("surveyChartsRow")?.style.setProperty('display', 'none', 'important');
         document.getElementById("surveyDynamicAnalysis")?.style.setProperty('display', 'none', 'important');
@@ -1769,6 +2033,7 @@ function switchDashboardView(view) {
 // इभेन्ट लिसनरहरू (बटनहरूले काम गर्ने बनाउन)
 document.getElementById("showSurveyView")?.addEventListener("click", () => switchDashboardView('survey'));
 document.getElementById("showMonitoringView")?.addEventListener("click", () => switchDashboardView('monitoring'));
+document.getElementById("showAttendanceView")?.addEventListener("click", () => switchDashboardView('attendance'));
 
 document.querySelectorAll(".tab-btn").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -1785,7 +2050,8 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
         }
 
         if (targetTab === "dashboard-tab") {
-            refreshDashboard();
+            // ड्यासबोर्ड ट्याबमा क्लिक गर्दा डाटा लोड भएको सुनिश्चित गर्ने र सर्वेक्षण देखाउने
+            switchDashboardView('survey');
         }
     });
 });
