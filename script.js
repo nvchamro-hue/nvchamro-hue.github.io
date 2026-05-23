@@ -4,6 +4,7 @@ let allSubmissions = [];
 let allMonitorings = []; // अनुगमन डाटाको लागि
 let allAttendanceMonitorings = []; // समय पालना/पोशाक डाटाको लागि
 let currentFilteredMonitorings = []; // डाउनलोडका लागि हाल फिल्टर गरिएको डाटा राख्न
+let currentFilteredAttendance = []; // एटेन्डेन्स डाउनलोडका लागि डाटा राख्न
 let currentDashboardView = 'survey'; // 'survey', 'monitoring', 'attendance'
 
 // चार्ट अब्जेक्टहरूलाई ग्लोबल रूपमा डिक्लेयर गरिएको (ReferenceError हटाउन)
@@ -546,7 +547,20 @@ let chartTypes = {
     developmentChart: 'bar',
     topUnsatisfiedChart: 'bar',
     topSatisfiedChart: 'bar',
-    dynamicChart: 'bar' // Default for dynamic chart
+    dynamicChart: 'bar', // Default for dynamic chart
+    charterClarityChart: 'bar',
+    websiteChart: 'pie',
+    disclosureChart: 'doughnut',
+    autoInfoChart: 'pie',
+    attendanceChart: 'doughnut',
+    workroomChart: 'bar',
+    infoBoardChart: 'pie',
+    cleaningChart: 'bar',
+    brokerChart: 'doughnut',
+    vacantByProvinceChart: 'bar',
+    provStaffingComparisonChart: 'bar',
+    staffingChart: 'bar',
+    facilitiesChart: 'bar'
 };
 
 // Define cycles for each chart
@@ -557,7 +571,20 @@ const CHART_TYPE_CYCLES = {
     developmentChart: ['bar', 'pie', 'doughnut'],
     topUnsatisfiedChart: ['bar', 'pie', 'doughnut'],
     topSatisfiedChart: ['bar', 'pie', 'doughnut'],
-    dynamicChart: ['bar', 'pie', 'doughnut', 'line'] // Added line for dynamic
+    dynamicChart: ['bar', 'pie', 'doughnut', 'line'],
+    charterClarityChart: ['bar', 'pie', 'doughnut', 'line'],
+    websiteChart: ['pie', 'doughnut', 'bar', 'line'],
+    disclosureChart: ['doughnut', 'pie', 'bar', 'line'],
+    autoInfoChart: ['pie', 'doughnut', 'bar', 'line'],
+    attendanceChart: ['doughnut', 'pie', 'bar', 'line'],
+    workroomChart: ['bar', 'pie', 'doughnut', 'line'],
+    infoBoardChart: ['pie', 'doughnut', 'bar', 'line'],
+    cleaningChart: ['bar', 'pie', 'doughnut', 'line'],
+    brokerChart: ['doughnut', 'pie', 'bar', 'line'],
+    vacantByProvinceChart: ['bar', 'pie', 'doughnut', 'line'],
+    provStaffingComparisonChart: ['bar', 'pie', 'doughnut', 'line'],
+    staffingChart: ['bar', 'pie', 'doughnut', 'line'],
+    facilitiesChart: ['bar', 'pie', 'doughnut', 'line']
 };
 
 function updateWordCountDisplay(inputEl, counterId, limit) {
@@ -1261,8 +1288,8 @@ function refreshMonitoringDashboard() {
 
     document.getElementById("statCardsContainer").innerHTML = `
         <div class="stat-card"><div class="stat-number">${total}</div><div>जम्मा अनुगमन</div></div>        
-        <div class="stat-card"><div class="stat-number">${brokerSeen}</div><div>बिचौलिया देखिएको</div></div>
-        <div class="stat-card"><div class="stat-number">${digitalCharter}</div><div>डिजिटल बडापत्र स्पष्ट</div></div>
+        <div class="stat-card"><div class="stat-number">${brokerSeen} <span style="font-size: 50%;">(${toNepaliDigits(total > 0 ? (brokerSeen/total*100).toFixed(1) : 0)}%)</span></div><div>बाहिरी व्यक्तिको सहयोग लिनु परेको</div></div>
+        <div class="stat-card"><div class="stat-number">${digitalCharter} <span style="font-size: 50%;">(${toNepaliDigits(total > 0 ? (digitalCharter/total*100).toFixed(1) : 0)}%)</span></div><div>डिजिटल बडापत्र स्पष्ट</div></div>
     `;
 
     // Table rendering for Monitoring
@@ -1282,6 +1309,7 @@ function refreshAttendanceDashboard() {
     const officeFilter = document.getElementById("filterOffice")?.value.toLowerCase() || "";
     const empNameFilter = document.getElementById("filterEmpName")?.value.toLowerCase() || "";
     const empSymbolFilter = document.getElementById("filterEmpSymbol")?.value || "";
+    const categoryFilter = document.getElementById("filterCategory")?.value || "";
 
     let filteredEntries = [];
     allAttendanceMonitorings.forEach(report => {
@@ -1298,6 +1326,7 @@ function refreshAttendanceDashboard() {
         report.rows.forEach(row => {
             if (empNameFilter && !row.name.toLowerCase().includes(empNameFilter)) return;
             if (empSymbolFilter && row.symbol !== empSymbolFilter) return;
+            if (categoryFilter && row.category !== categoryFilter) return;
             
             filteredEntries.push({
                 office: report.office,
@@ -1306,6 +1335,7 @@ function refreshAttendanceDashboard() {
             });
         });
     });
+    currentFilteredAttendance = filteredEntries; // ग्लोबल भेरिएबलमा राख्ने
 
     // Stats
     const totalViolations = filteredEntries.length;
@@ -1314,8 +1344,8 @@ function refreshAttendanceDashboard() {
 
     document.getElementById("statCardsContainer").innerHTML = `
         <div class="stat-card"><div class="stat-number">${toNepaliDigits(totalViolations)}</div><div>जम्मा अपरिपालना</div></div>
-        <div class="stat-card"><div class="stat-number">${toNepaliDigits(lateAbsent)}</div><div>अनुपस्थित/ढिला कर्मचारी</div></div>
-        <div class="stat-card"><div class="stat-number">${toNepaliDigits(noUniform)}</div><div>पोशाक नलगाउने</div></div>
+        <div class="stat-card"><div class="stat-number">${toNepaliDigits(lateAbsent)} <span style="font-size: 50%;">(${toNepaliDigits(totalViolations > 0 ? (lateAbsent/totalViolations*100).toFixed(1) : 0)}%)</span></div><div>अनुपस्थित/ढिला कर्मचारी</div></div>
+        <div class="stat-card"><div class="stat-number">${toNepaliDigits(noUniform)} <span style="font-size: 50%;">(${toNepaliDigits(totalViolations > 0 ? (noUniform/totalViolations*100).toFixed(1) : 0)}%)</span></div><div>पोशाक नलगाउने</div></div>
     `;
 
     // Table
@@ -1323,41 +1353,149 @@ function refreshAttendanceDashboard() {
     if (tbody) {
         tbody.innerHTML = filteredEntries.map(e => `
             <tr>
-                <td>${e.date}</td>
-                <td>${e.office}</td>
-                <td>${e.name}</td>
-                <td>${e.rank}</td>
-                <td>${e.symbol}</td>
-                <td>${e.category}</td>
-                <td colspan="2">${e.extra || "-"}</td>
+                <td data-label="मिति">${e.date}</td>
+                <td data-label="कार्यालय">${e.office}</td>
+                <td data-label="कर्मचारी">${e.name}</td>
+                <td data-label="पद">${e.rank}</td>
+                <td data-label="संकेत नं.">${e.symbol}</td>
+                <td data-label="प्रकार">${e.category}</td>
+                <td data-label="कैफियत" colspan="2">${e.extra || "-"}</td>
             </tr>
         `).join('');
     }
 
-    // Charts
+    // सर्वेक्षणबाट आउन सक्ने अनावश्यक बक्सहरू लुकाउने
+    const dStatRow = document.getElementById("dynamicStatRow");
+    if (dStatRow) dStatRow.style.display = "none";
+    const detailTable = document.getElementById("dynamicDetailTableContainer");
+    if (detailTable) detailTable.style.display = "none";
+
+    // Charts - फिल्टर अनुसार गतिशील रूपमा देखाउने
     if (attendanceViolationChartObj) attendanceViolationChartObj.destroy();
-    const catCounts = {};
-    filteredEntries.forEach(e => catCounts[e.category] = (catCounts[e.category] || 0) + 1);
+
+    // यदि 'प्रकार' फिल्टर गरिएको छ भने कार्यालय अनुसार देखाउने, नत्र प्रकार अनुसार
+    const dimension = categoryFilter ? 'office' : 'category';
+    const counts = {};
+    filteredEntries.forEach(e => counts[e[dimension]] = (counts[e[dimension]] || 0) + 1);
+    
+    const labels = Object.keys(counts);
+    const values = Object.values(counts);
+    const palette = ['#ef4444cc', '#f59e0bcc', '#3b82f6cc', '#10b981cc', '#8b5cf6cc', '#06b6d4cc'];
     
     attendanceViolationChartObj = new Chart(document.getElementById("dynamicChart").getContext('2d'), {
-        type: 'pie',
+        type: chartTypes.dynamicChart || 'pie',
         data: {
-            labels: Object.keys(catCounts),
+            labels: labels,
             datasets: [{
-                data: Object.values(catCounts),
-                backgroundColor: ['#ef4444cc', '#f59e0bcc', '#3b82f6cc', '#10b981cc']
+                data: values,
+                backgroundColor: labels.map((_, i) => palette[i % palette.length]),
+                borderRadius: 5
             }]
         },
         options: { 
             responsive: true, 
             maintainAspectRatio: false,
-            plugins: { legend: { position: 'bottom' } } 
+            plugins: { 
+                legend: { position: 'bottom', display: labels.length > 0 },
+                tooltip: { callbacks: { label: (ctx) => ` संख्या: ${toNepaliDigits(ctx.raw)}` } }
+            },
+            scales: (chartTypes.dynamicChart === 'pie' || chartTypes.dynamicChart === 'doughnut') ? {} : {
+                y: { beginAtZero: true, ticks: { stepSize: 1, callback: (v) => toNepaliDigits(v) } }
+            }
         }
     });
     
     // Show chart row
     document.getElementById("dynamicChartRow").style.display = "flex";
-    document.getElementById("dynamicChartLabel").textContent = "अपरिपालनाको वर्गीकरण";
+    document.getElementById("dynamicChartLabel").textContent = categoryFilter 
+        ? `कार्यालय अनुसार विवरण (${categoryFilter})` 
+        : "अपरिपालनाको वर्गीकरण";
+}
+
+/**
+ * समय पालना/पोशाक अनुगमनको PDF रिपोर्ट जेनेरेट गर्ने
+ */
+async function downloadAttendancePDF() {
+    const element = document.createElement('div');
+    const stats = document.getElementById('statCardsContainer').innerHTML;
+    const table = document.querySelector('#dataTable').parentElement.innerHTML;
+    const chartCanvas = document.getElementById('dynamicChart');
+    const chartImage = chartCanvas.toDataURL('image/png');
+
+    element.innerHTML = `
+        <div style="padding: 20px; font-family: 'Kalimati', sans-serif;">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h2 style="color: #306a95;">समय पालना तथा पोशाक अनुगमन रिपोर्ट</h2>
+                <p>राष्ट्रिय सतर्कता केन्द्र</p>
+                <hr>
+            </div>
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">${stats}</div>
+            <div style="text-align: center; margin-bottom: 20px;">
+                <img src="${chartImage}" style="width: 300px; height: auto;">
+                <p><strong>अपरिपालनाको वर्गीकरण</strong></p>
+            </div>
+            <div style="margin-top: 20px;">${table}</div>
+        </div>
+    `;
+
+    // स्टाइलिङ मिलाउन केही ट्वीकहरू
+    const cards = element.querySelectorAll('.stat-card');
+    cards.forEach(c => {
+        c.style.border = "1px solid #ddd";
+        c.style.padding = "10px";
+        c.style.flex = "1";
+    });
+
+    const opt = {
+        margin: 0.5,
+        filename: 'Attendance_Report.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(element).save();
+}
+
+/**
+ * समय पालना/पोशाक अनुगमनको डेटा एक्सेलमा निर्यात गर्ने
+ */
+function exportAttendanceToExcel() {
+    if (currentFilteredAttendance.length === 0) {
+        Swal.fire({ icon: 'info', text: 'निर्यात गर्नको लागि कुनै डाटा छैन।' });
+        return;
+    }
+
+    const workbook = XLSX.utils.book_new();
+
+    // डाटालाई कार्यालय अनुसार समूहकृत (Grouping) गर्ने
+    const groupedByOffice = currentFilteredAttendance.reduce((acc, curr) => {
+        const office = curr.office || "अन्य कार्यालय";
+        if (!acc[office]) acc[office] = [];
+        acc[office].push(curr);
+        return acc;
+    }, {});
+
+    // प्रत्येक कार्यालयको लागि छुट्टाछुट्टै Sheet थप्ने
+    Object.keys(groupedByOffice).forEach(officeName => {
+        const officeData = groupedByOffice[officeName].map(e => ({
+            'मिति': e.date,
+            'कार्यालय': e.office,
+            'कर्मचारीको नाम': e.name,
+            'पद': e.rank,
+            'संकेत नं.': e.symbol,
+            'अपरिपालना प्रकार': e.category,
+            'कैफियत': e.extra || "-"
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(officeData);
+        
+        // Excel Sheet Name नियम: बढीमा ३१ अक्षर र केही संकेतहरू (\ / ? * [ ]) निषेध गरिएको हुन्छ
+        const sanitizedName = officeName.replace(/[\\/?*:[\]]/g, '').substring(0, 31);
+        XLSX.utils.book_append_sheet(workbook, worksheet, sanitizedName || "Sheet");
+    });
+
+    XLSX.writeFile(workbook, "Attendance_Report_By_Office.xlsx");
 }
 
 function updateMonitoringAlerts(data) {
@@ -1426,10 +1564,11 @@ function updateMonitoringCharts(data) {
     const chartAnimation = { duration: 2500, easing: 'easeInOutQuart' };
 
     // सहयोगी फङ्सन: रिक्वेन्सी म्यापिङ र चार्ट सिर्जना गर्न
-    const createMonChart = (ctxId, fieldName, currentObj, chartType = 'bar') => {
+    const createMonChart = (ctxId, fieldName, currentObj, defaultType = 'bar') => {
         let counts = {};
         data.forEach(d => { if (d[fieldName]) counts[d[fieldName]] = (counts[d[fieldName]] || 0) + 1; });
         if (currentObj) currentObj.destroy();
+        const chartType = chartTypes[ctxId] || defaultType;
         return new Chart(document.getElementById(ctxId).getContext('2d'), {
             type: chartType,
             data: {
@@ -1462,7 +1601,7 @@ function updateMonitoringCharts(data) {
 
     if (vacantByProvinceChartObj) vacantByProvinceChartObj.destroy();
     vacantByProvinceChartObj = new Chart(document.getElementById("vacantByProvinceChart").getContext('2d'), {
-        type: 'bar',
+        type: chartTypes.vacantByProvinceChart || 'bar',
         data: {
             labels: Object.keys(provVacMap),
             datasets: [{
@@ -1500,7 +1639,7 @@ function updateMonitoringCharts(data) {
 
     if (provStaffingComparisonChartObj) provStaffingComparisonChartObj.destroy();
     provStaffingComparisonChartObj = new Chart(document.getElementById("provStaffingComparisonChart").getContext('2d'), {
-        type: 'bar',
+        type: chartTypes.provStaffingComparisonChart || 'bar',
         data: {
             labels: Object.keys(provCompMap),
             datasets: [
@@ -1585,7 +1724,7 @@ function updateMonitoringCharts(data) {
     }
 
     staffingChartObj = new Chart(document.getElementById("staffingChart").getContext('2d'), {
-        type: 'bar',
+        type: chartTypes.staffingChart || 'bar',
         data: {
             labels: staffingLabels,
             datasets: staffingDatasets
@@ -1633,7 +1772,7 @@ function updateMonitoringCharts(data) {
 
     if (facilitiesChartObj) facilitiesChartObj.destroy();
     facilitiesChartObj = new Chart(document.getElementById("facilitiesChart").getContext('2d'), {
-        type: 'bar',
+        type: chartTypes.facilitiesChart || 'bar',
         data: {
             labels: facilityLabels,
             datasets: [
@@ -1682,10 +1821,10 @@ function renderStats(data) {
 
     container.innerHTML = `
         <div class="stat-card"><div class="stat-number">${toNepaliDigits(total)}</div><div>जम्मा प्रतिक्रिया</div></div>        
-        <div class="stat-card"><div class="stat-number">${toNepaliDigits(femaleCount)}</div><div>महिला सेवाग्राही</div></div>
-        <div class="stat-card"><div class="stat-number">${toNepaliDigits(maleCount)}</div><div>पुरुष सेवाग्राही</div></div>
-        <div class="stat-card"><div class="stat-number">${toNepaliDigits(satCount)}</div><div>सन्तुष्ट सेवाग्राही</div></div>
-        <div class="stat-card"><div class="stat-number">${toNepaliDigits(ghusCount)}</div><div>अतिरिक्त रकम तिर्नु परेको</div></div>
+        <div class="stat-card"><div class="stat-number">${toNepaliDigits(femaleCount)} <span style="font-size: 50%;">(${toNepaliDigits(total > 0 ? (femaleCount/total*100).toFixed(1) : 0)}%)</span></div><div>महिला सेवाग्राही</div></div>
+        <div class="stat-card"><div class="stat-number">${toNepaliDigits(maleCount)} <span style="font-size: 50%;">(${toNepaliDigits(total > 0 ? (maleCount/total*100).toFixed(1) : 0)}%)</span></div><div>पुरुष सेवाग्राही</div></div>
+        <div class="stat-card"><div class="stat-number">${toNepaliDigits(satCount)} <span style="font-size: 50%;">(${toNepaliDigits(total > 0 ? (satCount/total*100).toFixed(1) : 0)}%)</span></div><div>सन्तुष्ट सेवाग्राही</div></div>
+        <div class="stat-card"><div class="stat-number">${toNepaliDigits(ghusCount)} <span style="font-size: 50%;">(${toNepaliDigits(total > 0 ? (ghusCount/total*100).toFixed(1) : 0)}%)</span></div><div>अतिरिक्त रकम तिर्नु परेको</div></div>
     `;
 }
 
@@ -1751,22 +1890,35 @@ function updateCharts(data) {
     });
 
     // विकास जानकारी चार्ट
-    let devKnown = data.filter(d => d.bikas_janakari === "छ").length;
-    let devUnknown = data.filter(d => d.bikas_janakari === "छैन").length;
+    let devCounts = {};
+    data.forEach(d => {
+        const val = d.bikas_janakari || "अज्ञात";
+        devCounts[val] = (devCounts[val] || 0) + 1;
+    });
+    const devLabels = Object.keys(devCounts);
+    const devPalette = ['#3b82f6', '#94a3b8', '#f59e0b', '#ef4444', '#8b5cf6'];
+
     if (devChartObj) devChartObj.destroy();
     devChartObj = new Chart(document.getElementById("developmentChart").getContext('2d'), {
         type: chartTypes.developmentChart,
         data: {
-            labels: ["छ", "छैन"],
+            labels: devLabels,
             datasets: [{
-                data: [devKnown, devUnknown],
-                backgroundColor: ['#3b82f6cc', '#94a3b8cc'],
+                data: Object.values(devCounts),
+                backgroundColor: devLabels.map((_, i) => devPalette[i % devPalette.length] + 'cc'),
                 borderColor: ['#3b82f6', '#94a3b8'],
                 borderWidth: 1,
                 borderRadius: 5
             }]
         },
-        options: { animation: { duration: 2500, easing: 'easeInOutQuart' }, responsive: true, plugins: { legend: { display: false } } }
+        options: { 
+            animation: { duration: 2500, easing: 'easeInOutQuart' }, 
+            responsive: true, 
+            plugins: { 
+                legend: { display: devLabels.length > 2, position: 'bottom' },
+                tooltip: { callbacks: { label: (ctx) => ` संख्या: ${toNepaliDigits(ctx.raw)}` } }
+            } 
+        }
     });
 }
 
@@ -1855,6 +2007,7 @@ function updateDynamicAnalysis(data) {
 
     const labels = Object.keys(counts);
     const values = Object.values(counts);
+    const totalVal = values.reduce((acc, curr) => acc + curr, 0);
 
     // यदि छानिएको फिल्डमा कुनै डाटा भेटिएन भने
     if (labels.length === 0) {
@@ -1907,8 +2060,8 @@ function updateDynamicAnalysis(data) {
     // तथ्याङ्क कार्डहरू अपडेट गर्ने - Colorful stat cards
     if (statRow) {
         statRow.innerHTML = labels.map((l, i) => `
-            <div class="stat-card" style="min-width: 140px; padding: 12px; flex: 1; border-top: 5px solid ${colorPalette[i % colorPalette.length]}; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); background: white;">
-                <div class="stat-number" style="font-size: 1.6rem; color: ${colorPalette[i % colorPalette.length]}; margin-bottom: 5px;">${toNepaliDigits(counts[l])}</div>
+            <div class="stat-card" style="min-width: 110px; padding: 8px 12px; flex: 1; border-top: 4px solid ${colorPalette[i % colorPalette.length]}; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); background: white;">
+                <div class="stat-number" style="font-size: 1.25rem; color: ${colorPalette[i % colorPalette.length]}; margin-bottom: 4px;">${toNepaliDigits(counts[l])} <span style="font-size: 50%;">(${toNepaliDigits(totalVal > 0 ? (counts[l]/totalVal*100).toFixed(1) : 0)}%)</span></div>
                 <div style="font-size: 0.9rem; font-weight: 600; color: #4a5568; line-height: 1.3;">${l}</div>
             </div>
         `).join('');
@@ -1924,11 +2077,15 @@ function switchDashboardView(view) {
     const surveyBtn = document.getElementById("showSurveyView");
     const monitoringBtn = document.getElementById("showMonitoringView");
     const attendanceBtn = document.getElementById("showAttendanceView");
+    const pdfBtn = document.getElementById("downloadAttendancePDF");
+    const excelBtn = document.getElementById("exportAttendanceExcel");
     
     const tableHead = document.querySelector("#dataTable thead");
     const extraFilters = document.getElementById("attendanceExtraFilters");
 
     if (view === 'survey') {
+        if(pdfBtn) pdfBtn.style.display = "none";
+        if(excelBtn) excelBtn.style.display = "none";
         surveyBtn?.classList.add("active");
         monitoringBtn?.classList.remove("active");
         attendanceBtn?.classList.remove("active");
@@ -1963,6 +2120,8 @@ function switchDashboardView(view) {
         const genderFilter = document.getElementById("filterGender")?.closest('.filter-item');
         if (genderFilter) genderFilter.style.display = "flex";
     } else if (view === 'attendance') {
+        if(pdfBtn) pdfBtn.style.display = "block";
+        if(excelBtn) excelBtn.style.display = "block";
         attendanceBtn?.classList.add("active");
         surveyBtn?.classList.remove("active");
         monitoringBtn?.classList.remove("active");
@@ -1996,6 +2155,8 @@ function switchDashboardView(view) {
         const genderFilter = document.getElementById("filterGender")?.closest('.filter-item');
         if (genderFilter) genderFilter.style.display = "none";
     } else {
+        if(pdfBtn) pdfBtn.style.display = "none";
+        if(excelBtn) excelBtn.style.display = "none";
         monitoringBtn?.classList.add("active");
         surveyBtn?.classList.remove("active");
         attendanceBtn?.classList.remove("active");
@@ -2034,6 +2195,8 @@ function switchDashboardView(view) {
 document.getElementById("showSurveyView")?.addEventListener("click", () => switchDashboardView('survey'));
 document.getElementById("showMonitoringView")?.addEventListener("click", () => switchDashboardView('monitoring'));
 document.getElementById("showAttendanceView")?.addEventListener("click", () => switchDashboardView('attendance'));
+document.getElementById("downloadAttendancePDF")?.addEventListener("click", downloadAttendancePDF);
+document.getElementById("exportAttendanceExcel")?.addEventListener("click", exportAttendanceToExcel);
 
 document.querySelectorAll(".tab-btn").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -2062,6 +2225,9 @@ document.getElementById("resetFilter")?.addEventListener("click", () => {
     document.getElementById("filterDistrict").innerHTML = '<option value="">सबै</option>';
     document.getElementById("filterOffice").value = "";
     document.getElementById("filterGender").value = "";
+    if(document.getElementById("filterCategory")) document.getElementById("filterCategory").value = "";
+    if(document.getElementById("filterEmpName")) document.getElementById("filterEmpName").value = "";
+    if(document.getElementById("filterEmpSymbol")) document.getElementById("filterEmpSymbol").value = "";
     refreshDashboard();
 });
 

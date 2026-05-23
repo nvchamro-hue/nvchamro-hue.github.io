@@ -12,6 +12,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -222,17 +224,21 @@
 
                         <div class="section-title">१२. तोकिएको समयमा सेवा नपाउँदा गुनासो/उजुरी गर्ने गरे/नगरेको</div>
                         <div class="field-group"><span class="field-label">गुनासो वा उजुरी गर्नुभएको छ ?</span>
-                            <div class="radio-group"><label><input type="radio" name="ujuri_gareko" value="गरेको छु">
-                                    गरेको छु</label><label><input type="radio" name="ujuri_gareko" value="गरेको छैन">
-                                    गरेको छैन</label></div>
+                            <div class="radio-group">
+                                <label><input type="radio" name="ujuri_gareko" value="गरेको छु"> गरेको छु</label>
+                                <label><input type="radio" name="ujuri_gareko" value="गरेको छैन"> गरेको छैन</label>
+                                <label><input type="radio" name="ujuri_gareko" value="तोकिए बमोजिम सेवा प्राप्त भएकोले गुनासो गर्नु परेको छैन"> तोकिए बमोजिम सेवा प्राप्त भएकोले गुनासो गर्नु परेको छैन</label>
+                                <label><input type="radio" name="ujuri_gareko" value="गुनासो सुनुवाई हुन्छ भन्ने विश्वास छैन"> गुनासो सुनुवाई हुन्छ भन्ने विश्वास छैन</label>
+                            </div>
                         </div>
 
                         <div class="section-title">१३. सार्वजनिक सुनुवाईमा सहभागिता</div>
                         <div class="field-group"><span class="field-label">सार्वजनिक सुनुवाईमा सहभागी हुनुभएको छ
                                 ?</span>
-                            <div class="radio-group"><label><input type="radio" name="sunuwai_sahabhagi" value="छ">
-                                    छ</label><label><input type="radio" name="sunuwai_sahabhagi" value="छैन">
-                                    छैन</label></div>
+                            <div class="radio-group">
+                                <label><input type="radio" name="sunuwai_sahabhagi" value="छ"> छ</label>
+                                <label><input type="radio" name="sunuwai_sahabhagi" value="सार्वजनिक सुनुवाई नै हुने गरेको छैन"> सार्वजनिक सुनुवाई नै हुने गरेको छैन</label>
+                            </div>
                         </div>
 
                         <div class="section-title">१४. टोल/गाउँ/नगरमा विकासको कामको जानकारी</div>
@@ -246,9 +252,11 @@
                         <div class="section-title">१५. विकास निर्माण कार्यमा सहभागिता</div>
                         <div class="field-group"><span class="field-label">तपाईंको गाउँ/टोलमा भएका विकास निर्माणका
                                 कार्यमा सहभागी हुनुभएको छ ?</span>
-                            <div class="radio-group"><label><input type="radio" name="bikas_sahabhagi" value="भएको छु">
-                                    भएको छु</label><label><input type="radio" name="bikas_sahabhagi" value="भएको छैन">
-                                    भएको छैन</label></div>
+                            <div class="radio-group">
+                                <label><input type="radio" name="bikas_sahabhagi" value="भएको छु"> भएको छु</label>
+                                <label><input type="radio" name="bikas_sahabhagi" value="भएको छैन"> भएको छैन</label>
+                                <label><input type="radio" name="bikas_sahabhagi" value="विकास निर्माणका कार्यक्रम नै भएका छैनन्"> विकास निर्माणका कार्यक्रम नै भएका छैनन्</label>
+                            </div>
                         </div>
                         <div class="section-title">१६. विकास निर्माणको गुणस्तर सम्बन्धी धारणा</div>
                         <div class="field-group"><span class="field-label">तपाईंको गाउँ/टोलमा भएका विकास निर्माणका कामको
@@ -581,20 +589,32 @@
                             <option>महिला</option>
                             <option>अन्य</option>
                         </select></div>
-                    <div class="filter-item" id="attendanceExtraFilters" style="display: none;">
-                        <label>कर्मचारीको नाम</label><input type="text" id="filterEmpName" placeholder="नाम खोज्नुहोस्">
-                        <label>संकेत नं.</label><input type="text" id="filterEmpSymbol" placeholder="संकेत नं.">
+                    <div id="attendanceExtraFilters" style="display: none; gap: 12px; flex-wrap: wrap;">
+                        <div class="filter-item"><label>कर्मचारीको नाम</label><input type="text" id="filterEmpName" placeholder="नाम खोज्नुहोस्"></div>
+                        <div class="filter-item"><label>संकेत नं.</label><input type="text" id="filterEmpSymbol" placeholder="संकेत नं."></div>
+                        <div class="filter-item">
+                            <label>विवरण प्रकार</label>
+                            <select id="filterCategory">
+                            <option value="">सबै</option>
+                            <option value="अनुगमन मितिमा अनुपस्थित/ढिला आउने">अनुपस्थित/ढिला (आज)</option>
+                            <option value="अघिल्लो मितिमा अनुपस्थित">अघिल्लो मितिमा अनुपस्थित</option>
+                            <option value="हाजिर भई कार्यकक्षमा नभेटिएको">कार्यकक्षमा नभेटिएको</option>
+                            <option value="तोकिएको पोशाक नलगाएको">पोशाक नलगाएको</option>
+                            </select>
+                        </div>
                     </div>
                     <button id="applyFilter" style="background:#0c3c89; border:none; border-radius:6px; color:white; cursor:pointer;">फिल्टर लागू गर्नुहोस्</button>
                     <button id="resetFilter" style="background:#ba2845; border:none; border-radius:6px; color:white; cursor:pointer;">रिसेट</button>
+                    <button id="downloadAttendancePDF" style="display: none; background:#27ae60; border:none; border-radius:6px; color:white; cursor:pointer; font-family: 'Kalimati', sans-serif;">PDF रिपोर्ट</button>
+                    <button id="exportAttendanceExcel" style="display: none; background:#1d6f42; border:none; border-radius:6px; color:white; cursor:pointer; font-family: 'Kalimati', sans-serif;">Excel Export</button>
                 </div>
 
                 <!-- विशिष्ट प्रश्न विश्लेषण खण्ड -->
-                <div id="surveyDynamicAnalysis" style="margin-bottom: 15px; padding: 12px; background: #f0f4f8; border-radius: 10px; border: 1px solid #d1d9e6;">
+                <div id="surveyDynamicAnalysis" style="margin-bottom: 8px; padding: 6px 12px; background: #f0f4f8; border-radius: 10px; border: 1px solid #d1d9e6;">
                     <!-- <h3 style="font-family:'Kalimati', sans-serif; color: #306a95; margin-bottom: 15px; border-bottom: 2px solid #306a95; display: inline-block;">विशिष्ट प्रश्न विश्लेषण</h3> -->
-                    <div class="filter-item" style="max-width: 500px; margin-bottom: 12px;">
+                    <div class="filter-item" style="max-width: 500px; margin-bottom: 6px;">
                         <label style="font-weight: 700;">कुनै एक क्षेत्र/प्रश्न छान्नुहोस्:</label>
-                        <select id="dynamicFieldSelector" style="width: 100%; border: 2px solid #306a95; padding: 10px; border-radius: 6px;">
+                        <select id="dynamicFieldSelector" style="width: 100%; border: 2px solid #306a95; padding: 5px 10px; border-radius: 6px;">
                             <option value="">-- प्रश्न छान्नुहोस् --</option>
                             <option value="pradesh">प्रदेश</option>
                             <option value="jilla">जिल्ला</option>
@@ -700,19 +720,71 @@
 
                 <!-- अनुगमन फारमका लागि चार्टहरू -->
                 <div class="chart-row" id="monitoringChartsRow" style="display: none;">
-                    <div class="chart-box"><canvas id="charterClarityChart" width="400" height="200"></canvas><p class="small-note">नागरिक बडापत्रको स्पष्टता</p></div>
-                    <div class="chart-box"><canvas id="websiteChart" width="400" height="200"></canvas><p class="small-note">वेबसाइटमा अपलोड/अपडेट</p></div>
-                    <div class="chart-box"><canvas id="disclosureChart" width="400" height="200"></canvas><p class="small-note">स्वतः प्रकाशन (३ महिनामा)</p></div>
-                    <div class="chart-box"><canvas id="autoInfoChart" width="400" height="200"></canvas><p class="small-note">जानकारी पाउने माध्यम अवलम्बन</p></div>
-                    <div class="chart-box"><canvas id="attendanceChart" width="400" height="200"></canvas><p class="small-note">हाजिरीको अवस्था</p></div>
-                    <div class="chart-box"><canvas id="workroomChart" width="400" height="200"></canvas><p class="small-note">कर्मचारी कार्यकक्षमा रहेको</p></div>
-                    <div class="chart-box"><canvas id="infoBoardChart" width="400" height="200"></canvas><p class="small-note">सूचना पाटीको व्यवस्था</p></div>
-                    <div class="chart-box"><canvas id="cleaningChart" width="400" height="200"></canvas><p class="small-note">कार्यालय सरसफाइको अवस्था</p></div>
-                    <div class="chart-box"><canvas id="brokerChart" width="400" height="200"></canvas><p class="small-note">बिचौलियाको उपस्थिति</p></div>
-                    <div class="chart-box"><canvas id="vacantByProvinceChart" width="400" height="200"></canvas><p class="small-note">प्रदेश अनुसार रिक्त पदको अवस्था</p></div>
-                    <div class="chart-box" style="flex: 1 1 100%;"><canvas id="provStaffingComparisonChart" height="150"></canvas><p class="small-note">प्रदेश अनुसार कार्यरत र रिक्त कर्मचारीको तुलनात्मक अवस्था</p></div>
-                    <div class="chart-box" style="flex: 1 1 100%;"><canvas id="staffingChart" height="120"></canvas><p class="small-note">कुल दरबन्दी र कार्यरत कर्मचारीको तुलनात्मक अवस्था</p></div>
-                    <div class="chart-box" style="flex: 1 1 100%;"><canvas id="facilitiesChart" height="120"></canvas><p class="small-note">कार्यालयका सुविधाहरूको विस्तृत अवस्था</p></div>
+                    <div class="chart-box">
+                        <canvas id="charterClarityChart" width="400" height="200"></canvas>
+                        <p class="small-note">नागरिक बडापत्रको स्पष्टता</p>
+                        <button class="chart-type-cycle-btn" data-chart-id="charterClarityChart">🔄</button>
+                    </div>
+                    <div class="chart-box">
+                        <canvas id="websiteChart" width="400" height="200"></canvas>
+                        <p class="small-note">वेबसाइटमा अपलोड/अपडेट</p>
+                        <button class="chart-type-cycle-btn" data-chart-id="websiteChart">🔄</button>
+                    </div>
+                    <div class="chart-box">
+                        <canvas id="disclosureChart" width="400" height="200"></canvas>
+                        <p class="small-note">स्वतः प्रकाशन (३ महिनामा)</p>
+                        <button class="chart-type-cycle-btn" data-chart-id="disclosureChart">🔄</button>
+                    </div>
+                    <div class="chart-box">
+                        <canvas id="autoInfoChart" width="400" height="200"></canvas>
+                        <p class="small-note">जानकारी पाउने माध्यम अवलम्बन</p>
+                        <button class="chart-type-cycle-btn" data-chart-id="autoInfoChart">🔄</button>
+                    </div>
+                    <div class="chart-box">
+                        <canvas id="attendanceChart" width="400" height="200"></canvas>
+                        <p class="small-note">हाजिरीको अवस्था</p>
+                        <button class="chart-type-cycle-btn" data-chart-id="attendanceChart">🔄</button>
+                    </div>
+                    <div class="chart-box">
+                        <canvas id="workroomChart" width="400" height="200"></canvas>
+                        <p class="small-note">कर्मचारी कार्यकक्षमा रहेको</p>
+                        <button class="chart-type-cycle-btn" data-chart-id="workroomChart">🔄</button>
+                    </div>
+                    <div class="chart-box">
+                        <canvas id="infoBoardChart" width="400" height="200"></canvas>
+                        <p class="small-note">सूचना पाटीको व्यवस्था</p>
+                        <button class="chart-type-cycle-btn" data-chart-id="infoBoardChart">🔄</button>
+                    </div>
+                    <div class="chart-box">
+                        <canvas id="cleaningChart" width="400" height="200"></canvas>
+                        <p class="small-note">कार्यालय सरसफाइको अवस्था</p>
+                        <button class="chart-type-cycle-btn" data-chart-id="cleaningChart">🔄</button>
+                    </div>
+                    <div class="chart-box">
+                        <canvas id="brokerChart" width="400" height="200"></canvas>
+                        <p class="small-note">बिचौलियाको उपस्थिति</p>
+                        <button class="chart-type-cycle-btn" data-chart-id="brokerChart">🔄</button>
+                    </div>
+                    <div class="chart-box">
+                        <canvas id="vacantByProvinceChart" width="400" height="200"></canvas>
+                        <p class="small-note">प्रदेश अनुसार रिक्त पदको अवस्था</p>
+                        <button class="chart-type-cycle-btn" data-chart-id="vacantByProvinceChart">🔄</button>
+                    </div>
+                    <div class="chart-box" style="flex: 1 1 100%;">
+                        <canvas id="provStaffingComparisonChart" height="150"></canvas>
+                        <p class="small-note">प्रदेश अनुसार कार्यरत र रिक्त कर्मचारीको तुलनात्मक अवस्था</p>
+                        <button class="chart-type-cycle-btn" data-chart-id="provStaffingComparisonChart">🔄</button>
+                    </div>
+                    <div class="chart-box" style="flex: 1 1 100%;">
+                        <canvas id="staffingChart" height="120"></canvas>
+                        <p class="small-note">कुल दरबन्दी र कार्यरत कर्मचारीको तुलनात्मक अवस्था</p>
+                        <button class="chart-type-cycle-btn" data-chart-id="staffingChart">🔄</button>
+                    </div>
+                    <div class="chart-box" style="flex: 1 1 100%;">
+                        <canvas id="facilitiesChart" height="120"></canvas>
+                        <p class="small-note">कार्यालयका सुविधाहरूको विस्तृत अवस्था</p>
+                        <button class="chart-type-cycle-btn" data-chart-id="facilitiesChart">🔄</button>
+                    </div>
                 </div>
                 
                 <!-- अनुगमन फारमका विवरणात्मक टेक्स्ट फिल्डहरू -->
