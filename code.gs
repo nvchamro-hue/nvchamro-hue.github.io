@@ -160,9 +160,19 @@ function doGet() {
       }
       
       attendanceData.push({
-        timestamp: timestamp, office: mRows[k][4], total_staff: mRows[k][5], working_staff: mRows[k][6],
-        vacant_staff: mRows[k][7], date: mRows[k][8], time: mRows[k][9], phone: mRows[k][10],
-        monitor_name: mRows[k][11], rows: details
+        timestamp: timestamp,
+        pradesh: mRows[k][1],
+        jilla: mRows[k][2],
+        sthaaniya: mRows[k][3],
+        office: mRows[k][4],
+        total_staff: mRows[k][5],
+        working_staff: mRows[k][6],
+        vacant_staff: mRows[k][7],
+        date: mRows[k][8],
+        time: mRows[k][9],
+        phone: mRows[k][10],
+        monitor_name: mRows[k][11],
+        rows: details
       });
     }
   }

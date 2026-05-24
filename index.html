@@ -24,7 +24,10 @@
                 <img src="coa.png" alt="Coat of Arms" class="coa-logo">
                 <div class="header-text">
                     <h5 class="gov-text">नेपाल सरकार</h5>
-                    <h1>राष्ट्रिय सतर्कता केन्द्र</h1>
+                    <div style="display: flex; align-items: center; flex-wrap: wrap;">
+                        <h1>राष्ट्रिय सतर्कता केन्द्र</h1>
+                        <span id="offlineBadge" class="offline-badge">अफ्लाइन मोड सक्रिय</span>
+                    </div>
                     <p>सेवाग्राही सर्वेक्षण - सार्वजनिक संस्थाको सेवा प्रवाह अनुगमन</p>
                 </div>
             </div>
@@ -33,14 +36,14 @@
             </div>
         </div>
         <div class="tabs">
-            <button class="tab-btn active" data-tab="form-tab"> सर्वेक्षण फारम</button>
+            <button class="tab-btn active" data-tab="dashboard-tab"> ड्यासबोर्ड / तथ्याङ्क</button>
+            <button class="tab-btn" data-tab="form-tab"> सर्वेक्षण फारम</button>
             <button class="tab-btn" data-tab="monitoring-tab"> अनुगमन फारम</button>
             <button class="tab-btn" data-tab="attendance-tab"> समय पालना/पोशाक अनुगमन</button>
-            <button class="tab-btn" data-tab="dashboard-tab"> ड्यासबोर्ड / तथ्याङ्क</button>
         </div>
 
         <!-- FORM PANEL -->
-        <div id="form-tab" class="panel active-panel">
+        <div id="form-tab" class="panel">
             <div class="survey-card">
                 <form id="surveyForm">
                     <div class="form-grid">
@@ -237,6 +240,7 @@
                                 ?</span>
                             <div class="radio-group">
                                 <label><input type="radio" name="sunuwai_sahabhagi" value="छ"> छ</label>
+                                <label><input type="radio" name="sunuwai_sahabhagi" value="छैन"> छैन</label>
                                 <label><input type="radio" name="sunuwai_sahabhagi" value="सार्वजनिक सुनुवाई नै हुने गरेको छैन"> सार्वजनिक सुनुवाई नै हुने गरेको छैन</label>
                             </div>
                         </div>
@@ -328,7 +332,7 @@
                         </div>
                         <div class="field-group"><span class="field-label">अनुगमन मिति :<span class="required-asterisk">*</span></span><input type="text" name="m_date" id="m_date" class="nepali-datepicker" readonly required></div>
 
-                        <div class="section-title">१. नागरिक बडापत्र तथा सेवा प्रवाहको अवस्था</div>
+                        <div class="section-title">नागरिक बडापत्र तथा सेवा प्रवाहको अवस्था</div>
                         <div class="field-group"><span class="field-label">१. नागरिक बडापत्र (डिजिटल/अडियो)</span>
                             <div class="radio-group">
                                 <label><input type="radio" name="m_q1" value="स्पष्ट बुझिने"> स्पष्ट बुझिने</label>
@@ -441,7 +445,7 @@
                             </table>
                         </div>
 
-                        <div class="section-title">२. अन्य विवरणात्मक जानकारी</div>
+                        <div class="section-title">अन्य विवरणात्मक जानकारी</div>
                         <div class="field-group"><span class="field-label">१४. कार्यालयबाट प्रवाह हुने मुख्य सेवाहरू:</span>
                             <div class="voice-input-wrapper">
                                 <textarea id="m_main_services" name="m_main_services" rows="2" placeholder="मुख्य सेवाहरू लेख्नुहोस्..."></textarea>
@@ -498,9 +502,9 @@
         <div id="attendance-tab" class="panel">
             <div class="survey-card">
                 <div style="text-align: center; margin-bottom: 20px;">
-                    <h3 style="font-family:'Kalimati', sans-serif;">नेपाल सरकार</h3>
+                    <!-- <h3 style="font-family:'Kalimati', sans-serif;">नेपाल सरकार</h3>
                     <h2 style="font-family:'Kalimati', sans-serif;">राष्ट्रिय सतर्कता केन्द्र</h2>
-                    <p>सिंहदरबार, काठमाडौं</p>
+                    <p>सिंहदरबार, काठमाडौं</p> -->
                     <h4 style="margin-top: 10px; background: #357a8c; color: white; padding: 5px; border-radius: 5px;">कार्यालयमा कर्मचारीको कार्यालय समय पालना/अनुपस्थिति र पोशाकको अनुगमन फाराम</h4>
                 </div>
                 <form id="attendanceForm">
@@ -558,16 +562,20 @@
         </div>
 
         <!-- DASHBOARD PANEL -->
-        <div id="dashboard-tab" class="panel">
+        <div id="dashboard-tab" class="panel active-panel">
             <div class="dashboard-card">
                 <!-- View Toggles -->
                 <div style="display: flex; gap: 10px; margin-bottom: 20px; justify-content: center;">
-                    <button id="showSurveyView" class="tab-btn active" style="flex: 1; max-width: 300px; padding: 7px 20px;">सेवाग्राही सर्वेक्षण</button>
-                    <button id="showMonitoringView" class="tab-btn" style="flex: 1; max-width: 300px; padding: 7px 20px;">कार्यालय/नागरिक बडापत्र अनुगमन</button>
+                    <button id="showSurveyView" class="tab-btn" style="flex: 1; max-width: 300px; padding: 7px 20px;">सेवाग्राही सर्वेक्षण</button>
+                    <button id="showMonitoringView" class="tab-btn active" style="flex: 1; max-width: 300px; padding: 7px 20px;">कार्यालय/नागरिक बडापत्र अनुगमन</button>
                     <button id="showAttendanceView" class="tab-btn" style="flex: 1; max-width: 300px; padding: 7px 20px;">समय पालना/पोशाक अनुगमन</button>
                 </div>
 
-                <div class="filter-bar" style="margin-bottom: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; cursor: pointer; padding: 0 5px;" id="filterToggleHeader">
+                    <h4 style="font-family:'Kalimati', sans-serif; color: #4a5568; font-size: 1rem;">🔍 फिल्टर विकल्पहरू</h4>
+                    <span id="filterArrow" class="arrow-rotated" style="transition: transform 0.3s ease; font-size: 0.8rem; color: #4a5568;">▼</span>
+                </div>
+                <div class="filter-bar collapsed" id="mainFilterBar" style="margin-bottom: 15px;">
                     <div class="filter-item"><label>मिति सुरु</label><input type="text" id="filterDateFrom" class="nepali-datepicker"
                             placeholder="मिति छान्नुहोस्" readonly></div>
                     <div class="filter-item"><label>मिति अन्त्य</label><input type="text" id="filterDateTo" class="nepali-datepicker"
@@ -589,6 +597,16 @@
                             <option>महिला</option>
                             <option>अन्य</option>
                         </select></div>
+                    <div class="filter-item">
+                        <label>चार्ट थिम</label>
+                        <select id="themeSelector">
+                            <option value="default">डिफल्ट (Classic)</option>
+                            <option value="ocean">निलो (Ocean)</option>
+                            <option value="forest">हरियो (Forest)</option>
+                            <option value="sunset">सुन्तला/रातो (Sunset)</option>
+                            <option value="vibrant">चम्किलो (Vibrant)</option>
+                        </select>
+                    </div>
                     <div id="attendanceExtraFilters" style="display: none; gap: 12px; flex-wrap: wrap;">
                         <div class="filter-item"><label>कर्मचारीको नाम</label><input type="text" id="filterEmpName" placeholder="नाम खोज्नुहोस्"></div>
                         <div class="filter-item"><label>संकेत नं.</label><input type="text" id="filterEmpSymbol" placeholder="संकेत नं."></div>
@@ -597,9 +615,45 @@
                             <select id="filterCategory">
                             <option value="">सबै</option>
                             <option value="अनुगमन मितिमा अनुपस्थित/ढिला आउने">अनुपस्थित/ढिला (आज)</option>
-                            <option value="अघिल्लो मितिमा अनुपस्थित">अघिल्लो मितिमा अनुपस्थित</option>
+                            <option value="अघिल्लो मितिमा अनुपस्थित/ढिला">अघिल्लो मितिमा अनुपस्थित/ढिला</option>
                             <option value="हाजिर भई कार्यकक्षमा नभेटिएको">कार्यकक्षमा नभेटिएको</option>
-                            <option value="तोकिएको पोशाक नलगाएको">पोशाक नलगाएको</option>
+                            <option value="तोकिएको पोशाक नलगाएको">तोकिएको पोशाक नलगाएको</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button id="toggleMonitoringFilters" style="display: none; background:#306a95; border:none; border-radius:6px; color:white; cursor:pointer; padding: 7px 15px;">🔍 थप अनुगमन फिल्टरहरू</button>
+                    
+                    <div id="monitoringExtraFilters" style="display: none; width: 100%; margin-top: 10px;">
+                        <div class="filter-item" style="max-width: 600px;">
+                            <label style="font-weight: 700;">अनुगमनको क्षेत्र/प्रश्न छान्नुहोस्:</label>
+                            <select id="monitoringFieldSelector" style="width: 100%; border: 2px solid #306a95; padding: 5px 10px; border-radius: 6px;">
+                                <option value="">-- प्रश्न छान्नुहोस् --</option>
+                                <optgroup label="१. नागरिक बडापत्र तथा सेवा प्रवाहको अवस्था">
+                                    <option value="m_q1">नागरिक बडापत्र (डिजिटल/अडियो)</option>
+                                    <option value="m_q2">सेवा प्रक्रिया, कागजात, लागत र समय</option>
+                                    <option value="m_q3">शाखागत व्यवस्था, कोठा नं. र नामावली</option>
+                                    <option value="m_q4">नागरिक बडापत्रमा क्षतिपूर्ति व्यवस्था</option>
+                                    <option value="m_q5">मध्यस्थकर्ताको प्रवेश</option>
+                                    <option value="m_q6">नागरिक बडापत्र वेवसाईट (website) मा upload र update</option>
+                                    <option value="m_q7">सूचनाको हकसम्बन्धी व्यवस्था/स्वततः प्रकाशन</option>
+                                    <option value="m_q8">जानकारी पाउने माध्यमको अवलम्बन</option>
+                                    <option value="m_q9">हाजिरीको अवस्था</option>
+                                    <option value="m_q10">कर्मचारीहरु तोकिएको कार्यकक्षमा रहेको</option>
+                                    <option value="m_q11">सूचना पाटी</option>
+                                    <option value="m_q12">कार्यालयको सरसफाइको अवस्था</option>
+                                </optgroup>
+                                <optgroup label="२. कार्यालयले सेवाग्राहीको सुविधाको लागि गरेका व्यवस्थाहरु">
+                                    <option value="f_1">सेवाग्राही सहायता कक्ष (Help Desk)</option>
+                                    <option value="f_2">अपाङ्गमैत्री कार्यस्थल</option>
+                                    <option value="f_3">प्रतिक्षालय</option>
+                                    <option value="f_4">शौचालय (महिला/पुरुष)</option>
+                                    <option value="f_5">खानेपानीको उचित व्यवस्था</option>
+                                    <option value="f_6">स्तनपान कक्ष/स्थान</option>
+                                    <option value="f_7">धुम्रपान निषेध संकेत</option>
+                                    <option value="f_8">चमेना गृह</option>
+                                    <option value="f_9">उजुरी पेटिका</option>
+                                    <option value="f_10">Website, Social Media</option>
+                                </optgroup>
                             </select>
                         </div>
                     </div>
@@ -626,7 +680,7 @@
                             <option value="helper_type">सहयोग लिइएको व्यक्ति</option>
                             <option value="ghus_parera">अतिरिक्त रकम (घुस)</option>
                             <option value="ghus_diye_kaslai">रकम बुझिलिने व्यक्ति</option>
-                            <option value="main_satisfaction">मुख्य सन्तुष्टि</option>
+                            <option value="main_satisfaction">सन्तुष्ट/असन्तुष्ट</option>
                             <option value="santushti_positive">सन्तुष्टिको कारण</option>
                             <option value="santushti_negative">असन्तुष्टिको कारण</option>                          
                             <option value="suchana_hak">सूचनाको हक जानकारी</option>
@@ -714,7 +768,7 @@
 
                 <!-- अनुगमन अलर्ट सेक्सन (रिक्त पद धेरै भएका कार्यालयहरू) -->
                 <div id="monitoringAlertsSection" style="display: none; margin-bottom: 10px; padding: 12px; background: #fff1f0; border: 1px solid #ffa39e; border-radius: 10px;">
-                    <h4 style="font-family:'Kalimati', sans-serif; color: #c03e37; margin-bottom: 10px; border-bottom: 2px solid #de5030; display: inline-block;">⚠️ ध्यानाकर्षण: रिक्त पद धेरै भएका कार्यालयहरू</h4>
+                    <h4 style="font-family:'Kalimati', sans-serif; color: #c03e37; margin-bottom: 10px; border-bottom: 2px solid #de5030; display: inline-block;">⚠️ रिक्त पद धेरै भएका कार्यालयहरू</h4>
                     <div id="alertsList" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
                 </div>
 
@@ -762,7 +816,7 @@
                     </div>
                     <div class="chart-box">
                         <canvas id="brokerChart" width="400" height="200"></canvas>
-                        <p class="small-note">बिचौलियाको उपस्थिति</p>
+                        <p class="small-note">मध्यस्थकर्ताको उपस्थिति</p>
                         <button class="chart-type-cycle-btn" data-chart-id="brokerChart">🔄</button>
                     </div>
                     <div class="chart-box">
@@ -822,6 +876,12 @@
         <div class="spinner"></div>
         <div class="loading-text">डाटा सुरक्षित हुँदैछ, कृपया केही समय पर्खनुहोस्...</div>
     </div>
+
+    <!-- Sync Indicator -->
+    <div id="syncIndicator" class="sync-indicator">🔄 डेटा सिङ्क हुँदैछ...</div>
+
+    <!-- Scroll to Top Button -->
+    <button id="scrollTopBtn" class="scroll-top-btn" title="माथि जानुहोस्">↑</button>
 
     <script src="script.js"></script>
 </body>

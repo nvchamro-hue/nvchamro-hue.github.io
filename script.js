@@ -1,15 +1,35 @@
 // Google Apps Script Web App URL (Replace with actual deployed URL)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx5-oHyGtN-I7IrNETtnhPhEVrIxj02p7nF4vAjN7z8KPV-OT-UySJbZP9ZJO7ThWQp/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz-JpXGExJWgiTueg9xC-xObZXrUySk6c_7aKTJbV-fmr-wIjloGqjx2W7v9Zmwigmy/exec"; 
 let allSubmissions = [];
 let allMonitorings = []; // अनुगमन डाटाको लागि
 let allAttendanceMonitorings = []; // समय पालना/पोशाक डाटाको लागि
 let currentFilteredMonitorings = []; // डाउनलोडका लागि हाल फिल्टर गरिएको डाटा राख्न
 let currentFilteredAttendance = []; // एटेन्डेन्स डाउनलोडका लागि डाटा राख्न
-let currentDashboardView = 'survey'; // 'survey', 'monitoring', 'attendance'
+let currentDashboardView = 'monitoring'; // 'survey', 'monitoring', 'attendance'
+let consecutiveErrorCount = 0; // लगातार भएका गल्तीहरू गणना गर्न
 
 // चार्ट अब्जेक्टहरूलाई ग्लोबल रूपमा डिक्लेयर गरिएको (ReferenceError हटाउन)
 let genderChartObj = null, satisfactionChartObj = null, ghusChartObj = null, devChartObj = null, dynamicChartObj = null, topUnsatisfiedChartObj = null, topSatisfiedChartObj = null;
 let charterClarityChartObj = null, attendanceChartObj = null, brokerChartObj = null, facilitiesChartObj = null, staffingChartObj = null, vacantByProvinceChartObj = null, provStaffingComparisonChartObj = null;
+
+// रङ्गका थिमहरू (Color Themes)
+const CHART_THEMES = {
+    default: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#6366f1', '#14b8a6', '#f97316'],
+    ocean: ['#0077b6', '#00b4d8', '#90e0ef', '#023e8a', '#0096c7', '#48cae4', '#ade8f4', '#00b4d8', '#caf0f8', '#03045e'],
+    forest: ['#2d6a4f', '#40916c', '#52b788', '#74c69d', '#95d5b2', '#b7e4c7', '#d8f3dc', '#1b4332', '#081c15', '#52b788'],
+    sunset: ['#f94144', '#f3722c', '#f8961e', '#f9844a', '#f9c74f', '#90be6d', '#43aa8b', '#4d908e', '#577590', '#277da1'],
+    vibrant: ['#ff6b6b', '#4ecdc4', '#ffe66d', '#1a535c', '#f7fff7', '#ff9f1c', '#2ec4b6', '#e71d36', '#011627', '#fdfffc']
+};
+let activeTheme = 'default';
+
+// थिम अनुसार रङ्गहरू तान्ने फङ्सन
+function getThemeColors(opacity = 1) {
+    return CHART_THEMES[activeTheme].map(color => {
+        if (opacity === 1) return color;
+        return color + Math.floor(opacity * 255).toString(16).padStart(2, '0');
+    });
+}
+
 // नयाँ अनुगमन चार्ट अब्जेक्टहरू
 let websiteChartObj = null, disclosureChartObj = null, autoInfoChartObj = null, workroomChartObj = null, infoBoardChartObj = null, cleaningChartObj = null;
 let attendanceViolationChartObj = null;
@@ -47,8 +67,8 @@ function getVal(obj, field, label) {
     if (obj[label] !== undefined && obj[label] !== null && obj[label] !== "") return obj[label];
     
     const keys = Object.keys(obj);
-    // ३. अनावश्यक चिन्हहरू हटाएर तुलना गर्ने (Resilient Matching)
-    const clean = (s) => String(s || "").replace(/[\s.०-९?？।()\/\\-]|बारेमा|सम्बन्धमा|सम्बन्धी/g, '').toLowerCase();
+    // ३. अनावश्यक चिन्हहरू (कम्टा, डट, अङ्क) हटाएर र 'व/ब' लाई समान मानेर तुलना गर्ने (Robust Matching)
+    const clean = (s) => String(s || "").replace(/[\s.,0-9०-९?？।()\/\\-]|बारेमा|सम्बन्धमा|सम्बन्धी/g, '').replace(/व/g, 'ब').toLowerCase();
     const cleanLabel = clean(label);
     const cleanField = clean(field);
 
@@ -108,7 +128,7 @@ const MUNICIPALITIES = {
         "सिन्धुपाल्चोक": ["बलेफी", "बाह्रबिसे", "भोटेकोशी", "चौतारा साँगाचोकगढी", "हेलम्बु", "इन्द्रावती", "जुगल", "लिसाङ्खु", "मेलम्ची", "पाँचपोखरी थाङ्पाल", "सुनकोशी", "त्रिपुरासुन्दरी"]
     },
     4: {
-        "बागलुङ": ["बडिगाड", "बागलुङ", "बरेङ", "ढोरपाटन", "गलकोट", "जैमुनी", "कान्ठेखोला", "निसिखोला", "तमान खोला", "तारा खोला"],
+        "बागलुङ": ["बडिगाड", "बागलुङ", "बरेङ", "ढोरपाटन", "गलकोट", "जैमिनी", "काठेखोला", "निसिखोला", "तमानखोला", "ताराखोला"],
         "गोरखा": ["आरुघाट", "अजिरकोट", "बारपाक सुलिकोट", "भीमसेनथापा", "चुम नुब्रि", "धार्चे", "गण्डकी", "गोरखा", "पालुङटार", "सहिद लखन", "सिरञ्चोक"],
         "कास्की": ["अन्नपूर्ण", "माछापुच्छ्रे", "माडी", "पोखरा", "रुपा"],
         "लमजुङ": ["बेशिशहर", "दोर्दी", "दूधपोखरी", "क्वालासोथर", "मध्यनेपाल", "मर्स्याङ्दी", "रैनास", "सुन्दरबजार"],
@@ -481,6 +501,36 @@ document.addEventListener("DOMContentLoaded", function () {
     // विशिष्ट प्रश्न विश्लेषण (Dynamic Analysis) छनोट गर्दा ड्यासबोर्ड रिफ्रेस गर्ने
     document.getElementById("dynamicFieldSelector")?.addEventListener("change", refreshDashboard);
 
+    // थप अनुगमन फिल्टर बटनको टोगल लजिक
+    document.getElementById("toggleMonitoringFilters")?.addEventListener("click", function() {
+        const container = document.getElementById("monitoringExtraFilters");
+        if (container.style.display === "none" || container.style.display === "") {
+            container.style.display = "block";
+            this.textContent = "✖ फिल्टरहरू लुकाउनुहोस्";
+        } else {
+            container.style.display = "none";
+            this.textContent = "🔍 थप अनुगमन फिल्टरहरू";
+        }
+    });
+
+    // थिम परिवर्तन गर्दा ड्यासबोर्ड रिफ्रेस गर्ने
+    document.getElementById("themeSelector")?.addEventListener("change", function() {
+        activeTheme = this.value;
+        refreshDashboard();
+    });
+
+    // मुख्य फिल्टर बार कोल्याप्स/अनकोल्याप्स गर्ने लजिक
+    const filterToggleHeader = document.getElementById("filterToggleHeader");
+    const mainFilterBar = document.getElementById("mainFilterBar");
+    const filterArrow = document.getElementById("filterArrow");
+    filterToggleHeader?.addEventListener("click", function() {
+        mainFilterBar?.classList.toggle("collapsed");
+        filterArrow?.classList.toggle("arrow-rotated");
+    });
+
+    // अनुगमन क्षेत्र (Field) छान्दा तुरुन्तै चार्ट र तथ्याङ्क अपडेट गर्ने
+    document.getElementById("monitoringFieldSelector")?.addEventListener("change", refreshDashboard);
+
     document.getElementById("filterPradesh")?.addEventListener("change", updateFilterDistricts);
     document.getElementById("filterDistrict")?.addEventListener("change", updateFilterMunicipalities);
 
@@ -489,6 +539,31 @@ document.addEventListener("DOMContentLoaded", function () {
     nepaliFields.forEach(field => {
         field.addEventListener('focus', () => showNepaliDatePicker(field));
         field.addEventListener('click', () => showNepaliDatePicker(field));
+    });
+
+    // Scroll to Top बटनको प्रदर्शनी नियन्त्रण
+    const scrollTopBtn = document.getElementById("scrollTopBtn");
+    window.addEventListener("scroll", () => {
+        if (window.scrollY > 400) {
+            scrollTopBtn.style.display = "flex";
+        } else {
+            scrollTopBtn.style.display = "none";
+        }
+    });
+
+    scrollTopBtn?.addEventListener("click", () => {
+        // १. Haptic Feedback (मोबाइलका लागि सानो कम्पन)
+        if (navigator.vibrate) {
+            navigator.vibrate(40); // ४० मिलिसेकेन्डको कम्पन
+        }
+
+        // २. साउन्ड इफेक्ट (सानो क्लिक आवाज)
+        // नोट: यहाँ मैले एउटा अनलाइन लिङ्क प्रयोग गरेको छु, तपाईंले आफ्नो स्थानीय फाइल पनि राख्न सक्नुहुन्छ
+        const clickSound = new Audio('https://www.soundjay.com/buttons/button-16.mp3');
+        clickSound.volume = 0.4; // आवाजको मात्रा ४०% मा सेट गरिएको
+        clickSound.play().catch(e => console.log("Browser policy ले गर्दा साउन्ड प्ले भएन।"));
+
+        window.scrollTo({ top: 0, behavior: "smooth" });
     });
 
     setTodayNepaliDate();
@@ -767,7 +842,15 @@ function renderTopSatisfiedOffices(data) {
                 borderRadius: 4
             }]
         },
-        options: { animation: { duration: 2500, easing: 'easeInOutQuart' }, indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1, callback: (v) => toNepaliDigits(v) } }, y: { ticks: { font: { family: 'Kalimati' } } } } }
+        options: { 
+            animation: { duration: 2500, easing: 'easeInOutQuart' }, 
+            animations: (chartTypes.topSatisfiedChart === 'bar' || chartTypes.topSatisfiedChart === 'line') ? { x: { from: (ctx) => ctx.chart.scales.x.getPixelForValue(0) } } : {},
+            indexAxis: 'y', 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            plugins: { legend: { display: false } }, 
+            scales: { x: { beginAtZero: true, ticks: { stepSize: 1, callback: (v) => toNepaliDigits(v) } }, y: { ticks: { font: { family: 'Kalimati' } } } } 
+        }
     });
 
     container.style.display = "block";
@@ -786,11 +869,46 @@ function checkTopRowVisibility() {
 async function loadData() {
     const loadingOverlay = document.getElementById("loadingOverlay");
     const loadingText = loadingOverlay?.querySelector(".loading-text");
+    const dashboardCard = document.querySelector(".dashboard-card");
+
     if (loadingOverlay) {
         if (loadingText) loadingText.textContent = "डाटा लोड हुँदैछ, कृपया पर्खनुहोस्...";
         loadingOverlay.style.display = "flex";
     }
-    if (typeof SCRIPT_URL !== "undefined" && SCRIPT_URL && SCRIPT_URL.trim() !== "") {
+
+    if (dashboardCard) dashboardCard.classList.add("skeleton-loading");
+
+    // इन्टरनेट जडान जाँच गर्ने र अफलाइन मोड अपडेट गर्ने
+    function updateOnlineStatus() {
+        const badge = document.getElementById('offlineBadge');
+        if (navigator.onLine) {
+            if (badge) badge.style.display = 'none';
+            // अनलाइन हुने बित्तिकै पेन्डिङ डाटा सिङ्क गर्ने
+            syncPendingData();
+            return true;
+        } else {
+            if (badge) badge.style.display = 'inline-block';
+            return false;
+        }
+    }
+
+    // पहिलो पटक जाँच गर्ने
+    const isOnline = updateOnlineStatus();
+    
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+
+    // डाटा लोड हुन धेरै समय लागेमा रिफ्रेस बटन देखाउने (Timeout: १० सेकेन्ड)
+    const slowLoadTimeout = setTimeout(() => {
+        if (loadingOverlay && loadingOverlay.style.display === "flex" && loadingText) {
+            loadingText.innerHTML = `
+                नेटवर्क ढिलो भएकोले डाटा लोड हुन समय लागिरहेको छ।<br>
+                <button onclick="location.reload()" style="margin-top:15px; padding:10px 20px; background:#387ae6; color:white; border:none; border-radius:10px; cursor:pointer; font-family:'Kalimati'; box-shadow: 0 4px 10px rgba(56, 122, 230, 0.3);">🔄 पुनः लोड गर्नुहोस्</button>
+            `;
+        }
+    }, 10000);
+
+    if (isOnline && typeof SCRIPT_URL !== "undefined" && SCRIPT_URL && SCRIPT_URL.trim() !== "") {
         try {
             const response = await fetch(SCRIPT_URL);
             if (response.ok) {
@@ -819,7 +937,11 @@ async function loadData() {
     } else {
         loadLocalDataFallback();
     }
-    refreshDashboard();
+    // सुरुमा ड्यासबोर्ड लोड हुँदा डिफल्ट भ्यु (monitoring) अनुसारको UI र डेटा सेट गर्ने
+    switchDashboardView(currentDashboardView);
+
+    clearTimeout(slowLoadTimeout);
+    if (dashboardCard) dashboardCard.classList.remove("skeleton-loading");
     if (loadingOverlay) loadingOverlay.style.display = "none";
 }
 
@@ -848,6 +970,7 @@ document.getElementById("submitSurvey").addEventListener("click", async function
     
     if (!form.checkValidity()) {
         form.reportValidity();
+        playErrorSound("विवरण अधुरो छ, कृपया रातो चिन्ह लागेका क्षेत्रहरू भर्नुहोस्।");
         return;
     }
 
@@ -856,6 +979,7 @@ document.getElementById("submitSurvey").addEventListener("click", async function
     const posOtherTxt = document.getElementById("pos_other_text");
     if (posOtherCb?.checked && !posOtherTxt?.value.trim()) {
         Swal.fire({ icon: 'warning', title: 'थप विवरण आवश्यक', text: 'कृपया सन्तुष्टिको "अन्य" कारण लेख्नुहोस्।', confirmButtonColor: '#387ae6' });
+        playErrorSound();
         posOtherTxt.focus();
         return;
     }
@@ -864,6 +988,7 @@ document.getElementById("submitSurvey").addEventListener("click", async function
     const negOtherTxt = document.getElementById("neg_other_text");
     if (negOtherCb?.checked && !negOtherTxt?.value.trim()) {
         Swal.fire({ icon: 'warning', title: 'थप विवरण आवश्यक', text: 'कृपया असन्तुष्टिको "अन्य" कारण लेख्नुहोस्।', confirmButtonColor: '#387ae6' });
+        playErrorSound();
         negOtherTxt.focus();
         return;
     }
@@ -873,6 +998,7 @@ document.getElementById("submitSurvey").addEventListener("click", async function
     const yojanaOtherTxt = document.querySelector('input[name="asantushti_karan_other"]');
     if (yojanaOtherCb?.checked && !yojanaOtherTxt?.value.trim()) {
         Swal.fire({ icon: 'warning', title: 'थप विवरण आवश्यक', text: 'कृपया योजना असन्तुष्टिको "अन्य" कारण लेख्नुहोस्।', confirmButtonColor: '#387ae6' });
+        playErrorSound();
         yojanaOtherTxt.focus();
         return;
     }
@@ -896,6 +1022,7 @@ document.getElementById("submitSurvey").addEventListener("click", async function
                     text: `${item.name} बढीमा ${item.limit} शब्दको हुनुपर्छ। (हाल: ${count} शब्द)`,
                     confirmButtonColor: '#387ae6'
                 });
+                playErrorSound();
                 el.focus();
                 return;
             }
@@ -985,10 +1112,15 @@ document.getElementById("submitSurvey").addEventListener("click", async function
         } catch (e) { 
             if (loadingOverlay) loadingOverlay.style.display = "none";
             console.warn(e); 
+            playErrorSound("गुगल सिटमा कनेक्ट हुन सकेन।");
+            playErrorSound();
+            // असफल भएमा पेन्डिङ क्यूमा राख्ने
+            addToPendingSync(payload);
             document.getElementById("formStatus").innerHTML = "⚠️ गुगल सिटमा सेभ गर्न समस्या भयो। स्थानीय भण्डारणमा सेभ गरिएको छ।";
         }
     } else {
         if (loadingOverlay) loadingOverlay.style.display = "none";
+        addToPendingSync(payload);
         document.getElementById("formStatus").innerHTML = "✅ डाटा स्थानीय भण्डारणमा सेभ भयो।<br>⚠️ गुगल सिट जोड्नको लागि SCRIPT_URL कन्फिगर गर्नुहोस्।";
     }
     form.reset();
@@ -1002,6 +1134,9 @@ document.getElementById("submitSurvey").addEventListener("click", async function
     updateSatisfactionVisibility();
 
     // सर्वेक्षण सफल भएको पप-अप मेसेज देखाउने
+    // सफलताको साउन्ड बजाउने
+    playSuccessSound();
+
     Swal.fire({
         title: 'सफल!',
         text: 'सर्वेक्षण सफलतापूर्वक सुरक्षित भयो। सहयोगको लागि धन्यवाद!',
@@ -1021,10 +1156,28 @@ document.getElementById("submitSurvey").addEventListener("click", async function
     setTimeout(() => document.getElementById("formStatus").innerHTML = "", 3500);
 });
 
+/**
+ * सिङ्क हुन बाँकी डाटालाई क्यूमा थप्ने
+ */
+function addToPendingSync(payload) {
+    try {
+        let pending = JSON.parse(localStorage.getItem("nsc_pending_sync") || "[]");
+        pending.push(payload);
+        localStorage.setItem("nsc_pending_sync", JSON.stringify(pending));
+        console.log("Data added to pending sync queue.");
+    } catch (e) {
+        console.error("Error adding to pending sync:", e);
+    }
+}
+
 // अनुगमन फारम सबमिट गर्ने लजिक
 document.getElementById("submitMonitoring")?.addEventListener("click", async function() {
     const form = document.getElementById("monitoringForm");
-    if (!form.checkValidity()) { form.reportValidity(); return; }
+    if (!form.checkValidity()) { 
+        form.reportValidity(); 
+        playErrorSound();
+        return; 
+    }
 
     // शब्द सीमा जाँच (Word Limit Validation for Monitoring Fields)
     const wordLimits = [
@@ -1041,6 +1194,7 @@ document.getElementById("submitMonitoring")?.addEventListener("click", async fun
             const count = countWords(el.value);
             if (count > item.limit) {
                 Swal.fire({ icon: 'warning', title: 'शब्द सीमा नाघ्यो', text: `${item.name} बढीमा ${toNepaliDigits(item.limit)} शब्दको हुनुपर्छ। (हाल: ${toNepaliDigits(count)} शब्द)`, confirmButtonColor: '#387ae6' });
+                playErrorSound();
                 el.focus();
                 return;
             }
@@ -1074,16 +1228,28 @@ document.getElementById("submitMonitoring")?.addEventListener("click", async fun
         localStorage.setItem("monitoringData_nsc", JSON.stringify(allMonitorings));
 
         if (SCRIPT_URL) {
-            await fetch(SCRIPT_URL, { 
-                method: "POST", 
-                mode: 'no-cors', // CORS समस्या समाधान गर्न
-                body: JSON.stringify(payload) 
-            });
+            try {
+                await fetch(SCRIPT_URL, { method: "POST", mode: 'no-cors', body: JSON.stringify(payload) });
+            } catch (err) {
+                addToPendingSync(payload);
+                throw err;
+            }
         }
         
+        playSuccessSound();
         Swal.fire({ icon: 'success', title: 'सफल!', text: 'कार्यालय अनुगमन फारम सुरक्षित भयो।', confirmButtonColor: '#387ae6' });
         form.reset();
+
+        // सफलतापूर्वक सेभ भएपछि २ सेकेन्डमा ड्यासबोर्डमा आफैं लैजाने
+        setTimeout(() => {
+            const dashboardBtn = document.querySelector('.tab-btn[data-tab="dashboard-tab"]');
+            if (dashboardBtn) {
+                dashboardBtn.click(); // यसले ट्याब स्विच र स्क्रोल टप दुबै गर्छ
+            }
+        }, 2000);
     } catch (e) {
+        playErrorSound("डाटा सेभ गर्दा समस्या भयो।");
+        playErrorSound();
         console.error(e);
         Swal.fire({ icon: 'info', title: 'नोट', text: 'डाटा स्थानीय भण्डारणमा सेभ भयो।' });
     } finally {
@@ -1101,9 +1267,9 @@ function addAttendanceRow() {
         <td>
             <select name="emp_category[]" required>
                 <option value="अनुगमन मितिमा अनुपस्थित/ढिला आउने">अनुपस्थित/ढिला (आज)</option>
-                <option value="अघिल्लो मितिमा अनुपस्थित">अघिल्लो मितिमा अनुपस्थित</option>
+                <option value="अघिल्लो मितिमा अनुपस्थित/ढिला">अघिल्लो मितिमा अनुपस्थित/ढिला</option>
                 <option value="हाजिर भई कार्यकक्षमा नभेटिएको">कार्यकक्षमा नभेटिएको</option>
-                <option value="तोकिएको पोशाक नलगाएको">पोशाक नलगाएको</option>
+                <option value="तोकिएको पोशाक नलगाएको">तोकिएको पोशाक नलगाएको</option>
             </select>
         </td>
         <td><input type="text" name="emp_rank[]" placeholder="पद"></td>
@@ -1123,6 +1289,7 @@ document.getElementById("submitAttendance")?.addEventListener("click", async fun
 
     if (!form.checkValidity()) { 
         form.reportValidity(); 
+        playErrorSound();
         return; 
     }
 
@@ -1178,6 +1345,7 @@ document.getElementById("submitAttendance")?.addEventListener("click", async fun
             text: 'कृपया अनुगमन तालिकामा कम्तिमा एक कर्मचारीको विवरण (नाम वा संकेत नं.) अनिवार्य रुपमा भर्नुहोस्।',
             confirmButtonColor: '#387ae6'
         });
+        playErrorSound();
         return;
     }
 
@@ -1189,20 +1357,84 @@ document.getElementById("submitAttendance")?.addEventListener("click", async fun
         localStorage.setItem("attendanceData_nsc", JSON.stringify(allAttendanceMonitorings));
 
         if (SCRIPT_URL) {
-            await fetch(SCRIPT_URL, { method: "POST", mode: 'no-cors', body: JSON.stringify(payload) });
+            try {
+                await fetch(SCRIPT_URL, { method: "POST", mode: 'no-cors', body: JSON.stringify(payload) });
+            } catch (err) {
+                addToPendingSync(payload);
+                throw err;
+            }
         }
+        playSuccessSound();
         Swal.fire({ icon: 'success', title: 'सफल!', text: 'समय पालना र पोशाक अनुगमन विवरण सुरक्षित भयो।' });
         form.reset();
+
+        // सफलतापूर्वक सेभ भएपछि २ सेकेन्डमा ड्यासबोर्डमा आफैं लैजाने
+        setTimeout(() => {
+            const dashboardBtn = document.querySelector('.tab-btn[data-tab="dashboard-tab"]');
+            if (dashboardBtn) {
+                dashboardBtn.click();
+            }
+        }, 2000);
         form.classList.remove('was-validated');
         document.getElementById("attendanceEntryBody").innerHTML = "";
         addAttendanceRow();
     } catch (e) {
+        playErrorSound();
         console.error(e);
         Swal.fire({ icon: 'info', text: 'डाटा स्थानीय भण्डारणमा सेभ भयो।' });
     } finally {
         if (loadingOverlay) loadingOverlay.style.display = "none";
     }
 });
+
+/**
+ * पेन्डिङ रहेका डाटाहरू सर्भरमा पठाउने (Auto Sync)
+ */
+async function syncPendingData() {
+    if (!navigator.onLine || !SCRIPT_URL) return;
+
+    let pending = JSON.parse(localStorage.getItem("nsc_pending_sync") || "[]");
+    if (pending.length === 0) return;
+
+    const syncIndicator = document.getElementById('syncIndicator');
+    if (syncIndicator) syncIndicator.classList.remove('error');
+    if (syncIndicator) syncIndicator.classList.add('active');
+
+    console.log(`Syncing ${toNepaliDigits(pending.length)} pending records...`);
+    
+    let remaining = [];
+    for (let item of pending) {
+        try {
+            await fetch(SCRIPT_URL, { 
+                method: "POST", 
+                mode: 'no-cors', 
+                body: JSON.stringify(item) 
+            });
+            console.log("Item synced successfully");
+        } catch (e) {
+            remaining.push(item); // असफल भएमा फेरि क्यूमै राख्ने
+        }
+    }
+
+    localStorage.setItem("nsc_pending_sync", JSON.stringify(remaining));
+
+    if (syncIndicator) {
+        if (remaining.length === 0) {
+            syncIndicator.classList.remove('error');
+            // सफलताको सन्देश १.५ सेकेन्डसम्म देखाउने
+            syncIndicator.innerHTML = "✅ डेटा सिङ्क सफल भयो!";
+            setTimeout(() => {
+                syncIndicator.classList.remove('active');
+                // बन्द भएपछि पुनः साविकको टेक्स्टमा फर्काउने
+                setTimeout(() => { syncIndicator.innerHTML = "🔄 डेटा सिङ्क हुँदैछ..."; }, 400);
+            }, 1500);
+            console.log("All pending data synced successfully.");
+        } else {
+            // सिङ्क असफल भएको खण्डमा रातो सन्देश देखाउने
+            playErrorSound(`सिङ्क असफल: ${toNepaliDigits(remaining.length)} वटा रेकर्ड बाँकी छन्`);
+        }
+    }
+}
 
 // Dashboard rendering
 function refreshDashboard() {
@@ -1274,66 +1506,164 @@ function refreshMonitoringDashboard() {
     const officeFilter = document.getElementById("filterOffice")?.value.toLowerCase() || "";
 
     let filtered = allMonitorings.filter(r => {
-        if (pradeshFilter && r.m_pradesh !== PROVINCE[pradeshFilter]) return false;
+        if (pradeshFilter) {
+            const provinceName = PROVINCE[pradeshFilter];
+            if (r.m_pradesh !== provinceName) return false;
+        }
         if (districtFilter && r.m_jilla !== districtFilter) return false;
         if (officeFilter && !(r.m_office || "").toLowerCase().includes(officeFilter)) return false;
         return true;
     });
     currentFilteredMonitorings = filtered; // डाउनलोडका लागि डाटा अपडेट गर्ने
 
-    // Stats rendering for Monitoring
-    const total = filtered.length;
-    const brokerSeen = filtered.filter(d => d.m_q5 === "देखियो").length;
-    const digitalCharter = filtered.filter(d => d.m_q1 === "स्पष्ट बुझिने").length;
+    const fieldSelector = document.getElementById("monitoringFieldSelector");
+    const selectedField = fieldSelector?.value;
 
-    document.getElementById("statCardsContainer").innerHTML = `
-        <div class="stat-card"><div class="stat-number">${total}</div><div>जम्मा अनुगमन</div></div>        
-        <div class="stat-card"><div class="stat-number">${brokerSeen} <span style="font-size: 50%;">(${toNepaliDigits(total > 0 ? (brokerSeen/total*100).toFixed(1) : 0)}%)</span></div><div>बाहिरी व्यक्तिको सहयोग लिनु परेको</div></div>
-        <div class="stat-card"><div class="stat-number">${digitalCharter} <span style="font-size: 50%;">(${toNepaliDigits(total > 0 ? (digitalCharter/total*100).toFixed(1) : 0)}%)</span></div><div>डिजिटल बडापत्र स्पष्ट</div></div>
-    `;
+    if (!selectedField) {
+        const total = filtered.length;
+        const brokerSeen = filtered.filter(d => d.m_q5 === "देखियो").length;
+        const digitalCharter = filtered.filter(d => d.m_q1 === "स्पष्ट बुझिने").length;
+
+        // सबै चार्ट बक्सहरू देखाउने र पहिलो चार्टको लेबल रिसेट गर्ने
+        const firstChartNote = document.querySelector("#monitoringChartsRow .chart-box .small-note");
+        if (firstChartNote) firstChartNote.textContent = "नागरिक बडापत्रको स्पष्टता";
+        document.querySelectorAll("#monitoringChartsRow .chart-box").forEach(box => {
+            box.style.display = "block";
+        });
+
+        document.getElementById("statCardsContainer").innerHTML = `
+            <div class="stat-card"><div class="stat-number">${toNepaliDigits(total)}</div><div>जम्मा अनुगमन</div></div>        
+            <div class="stat-card"><div class="stat-number">${toNepaliDigits(brokerSeen)}</div><div>मध्यस्थकर्ताको प्रवेश देखिएको</div></div>
+            <div class="stat-card"><div class="stat-number">${toNepaliDigits(digitalCharter)}</div><div>डिजिटल बडापत्र स्पष्ट</div></div>
+        `;
+        updateMonitoringCharts(filtered);
+        document.getElementById("monitoringChartsRow").style.display = "flex";
+    } else {
+        let counts = {};
+        const total = filtered.length;
+        const fieldName = fieldSelector.options[fieldSelector.selectedIndex].text;
+
+        filtered.forEach(d => { 
+            let val = getVal(d, selectedField, fieldName);
+            if (val) counts[val] = (counts[val] || 0) + 1; 
+        });
+        
+        // चार्टको मुनि रहेको लेबल अपडेट गर्ने
+        const firstChartNote = document.querySelector("#monitoringChartsRow .chart-box .small-note");
+        if (firstChartNote) firstChartNote.textContent = fieldName;
+
+        let statHTML = `<div class="stat-card"><div class="stat-number">${toNepaliDigits(total)}</div><div>जम्मा अनुगमन</div></div>`;
+        const palette = getThemeColors();
+        Object.keys(counts).forEach((key, i) => {
+            const count = counts[key];
+            const percent = total > 0 ? (count / total * 100).toFixed(1) : 0;
+            statHTML += `<div class="stat-card" style="border-top: 2px solid ${palette[i%5]}"><div class="stat-number" style="color:${palette[i%5]}">${toNepaliDigits(count)} <span style="font-size: 50%;">(${toNepaliDigits(percent)}%)</span></div><div>${key}</div></div>`;
+        });
+        document.getElementById("statCardsContainer").innerHTML = statHTML;
+
+        if (charterClarityChartObj) charterClarityChartObj.destroy();
+        charterClarityChartObj = new Chart(document.getElementById("charterClarityChart").getContext('2d'), {
+            type: chartTypes.charterClarityChart || 'pie',
+            data: { labels: Object.keys(counts), datasets: [{ data: Object.values(counts), backgroundColor: palette.map(c => c + 'cc'), borderRadius: 5 }] },
+            options: { 
+                responsive: true, 
+                plugins: { 
+                    legend: { position: 'bottom' }, 
+                    title: { display: false },
+                    tooltip: { callbacks: { label: (ctx) => ` संख्या: ${toNepaliDigits(ctx.raw)}` } }
+                },
+                scales: (chartTypes.charterClarityChart === 'pie' || chartTypes.charterClarityChart === 'doughnut') ? {} : {
+                    y: { beginAtZero: true, ticks: { stepSize: 1, callback: (v) => toNepaliDigits(v) } }
+                }
+            }
+        });
+        document.querySelectorAll("#monitoringChartsRow .chart-box").forEach((box, i) => box.style.display = i === 0 ? "block" : "none");
+    }
 
     // Table rendering for Monitoring
     renderMonitoringTable(filtered);
-    // अनुगमन ड्यासबोर्डका लागि चार्टहरू अपडेट गर्ने
-    updateMonitoringCharts(filtered);
-    // अलर्ट सेक्सन अपडेट गर्ने (रिक्त पदको आधारमा)
-    updateMonitoringAlerts(filtered);
+    
+    // 'थप अनुगमन फिल्टर' लागू हुँदा अलर्ट सेक्सन लुकाउने
+    if (!selectedField) {
+        updateMonitoringAlerts(filtered);
+    } else {
+        const alertsSection = document.getElementById("monitoringAlertsSection");
+        if (alertsSection) alertsSection.style.setProperty('display', 'none', 'important');
+    }
+
     // विवरणात्मक विवरणहरू अपडेट गर्ने
     updateMonitoringDetails(filtered);
 }
 
 function refreshAttendanceDashboard() {
-    const pradeshFilter = document.getElementById("filterPradesh")?.value || "";
-    const districtFilter = document.getElementById("filterDistrict")?.value || "";
-    const sthaaniyaFilter = document.getElementById("filterSthaaniya")?.value || "";
-    const officeFilter = document.getElementById("filterOffice")?.value.toLowerCase() || "";
-    const empNameFilter = document.getElementById("filterEmpName")?.value.toLowerCase() || "";
-    const empSymbolFilter = document.getElementById("filterEmpSymbol")?.value || "";
-    const categoryFilter = document.getElementById("filterCategory")?.value || "";
+    const pradeshFilter = (document.getElementById("filterPradesh")?.value || "").trim();
+    const districtFilter = (document.getElementById("filterDistrict")?.value || "").trim();
+    const sthaaniyaFilter = (document.getElementById("filterSthaaniya")?.value || "").trim();
+    const officeFilter = (document.getElementById("filterOffice")?.value || "").toLowerCase().trim();
+    const empNameFilter = (document.getElementById("filterEmpName")?.value || "").toLowerCase().trim();
+    const empSymbolFilter = (document.getElementById("filterEmpSymbol")?.value || "").trim();
+    const categoryFilter = (document.getElementById("filterCategory")?.value || "").trim();
+    const fromDate = getStandardDate(document.getElementById("filterDateFrom")?.value || "");
+    const toDate = getStandardDate(document.getElementById("filterDateTo")?.value || "");
 
     let filteredEntries = [];
-    allAttendanceMonitorings.forEach(report => {
-        // प्रदेश र जिल्ला फिल्टर
+    allAttendanceMonitorings.forEach(item => {
+        // Handle both structures: Nested (local save) and Flat (Google Sheet rows)
+        const rPradesh = getVal(item, 'pradesh', 'प्रदेश');
+        const rJilla = getVal(item, 'jilla', 'जिल्ला');
+        const rSthaaniya = getVal(item, 'sthaaniya', 'स्थानीय तह');
+        const rOffice = getVal(item, 'office', 'कार्यालय');
+        const rDate = getVal(item, 'date', 'मिति');
+
+        // प्रदेश, जिल्ला र स्थानीय तह फिल्टर (String comparison with trim)
         if (pradeshFilter) {
             const provinceName = PROVINCE[pradeshFilter];
-            if (report.pradesh !== provinceName) return;
+            const pStr = String(rPradesh || "").trim();
+            if (pStr != pradeshFilter && pStr !== provinceName) return;
         }
-        if (districtFilter && report.jilla !== districtFilter) return;
-        if (sthaaniyaFilter && report.sthaaniya !== sthaaniyaFilter) return;
+        if (districtFilter && String(rJilla || "").trim() !== districtFilter) return;
+        if (sthaaniyaFilter && String(rSthaaniya || "").trim() !== sthaaniyaFilter) return;
         
-        if (officeFilter && !report.office.toLowerCase().includes(officeFilter)) return;
-        
-        report.rows.forEach(row => {
-            if (empNameFilter && !row.name.toLowerCase().includes(empNameFilter)) return;
-            if (empSymbolFilter && row.symbol !== empSymbolFilter) return;
-            if (categoryFilter && row.category !== categoryFilter) return;
-            
-            filteredEntries.push({
-                office: report.office,
-                date: report.date,
-                ...row
+        // कार्यालय र मिति फिल्टर
+        if (officeFilter && !(rOffice || "").toLowerCase().includes(officeFilter)) return;
+        const recDate = getStandardDate(rDate || "");
+        if (fromDate && recDate < fromDate) return;
+        if (toDate && recDate > toDate) return;
+
+        if (item.rows && Array.isArray(item.rows)) {
+            // Nested structure
+            item.rows.forEach(row => {
+                if (empNameFilter && !(row.name || "").toLowerCase().includes(empNameFilter)) return;
+                if (empSymbolFilter && String(row.symbol || "").trim() !== empSymbolFilter) return;
+                if (categoryFilter && row.category !== categoryFilter) return;
+                filteredEntries.push({ 
+                    office: rOffice || item.office, 
+                    date: rDate || item.date, 
+                    ...row 
+                });
             });
-        });
+        } else {
+            // Flat structure
+            const rName = getVal(item, 'name', 'कर्मचारीको नाम');
+            const rSymbol = getVal(item, 'symbol', 'संकेत नं.');
+            const rCategory = getVal(item, 'category', 'प्रकार');
+            const rRank = getVal(item, 'rank', 'पद');
+            const rExtra = getVal(item, 'extra', 'कैफियत');
+
+            if (empNameFilter && !(rName || "").toLowerCase().includes(empNameFilter)) return;
+            if (empSymbolFilter && String(rSymbol || "").trim() !== empSymbolFilter) return;
+            if (categoryFilter && String(rCategory || "").trim() !== categoryFilter) return;
+
+            filteredEntries.push({
+                office: rOffice, 
+                date: rDate, 
+                name: rName,
+                rank: rRank, 
+                symbol: rSymbol,
+                category: rCategory, 
+                extra: rExtra
+            });
+        }
     });
     currentFilteredAttendance = filteredEntries; // ग्लोबल भेरिएबलमा राख्ने
 
@@ -1380,7 +1710,7 @@ function refreshAttendanceDashboard() {
     
     const labels = Object.keys(counts);
     const values = Object.values(counts);
-    const palette = ['#ef4444cc', '#f59e0bcc', '#3b82f6cc', '#10b981cc', '#8b5cf6cc', '#06b6d4cc'];
+    const palette = getThemeColors(0.8);
     
     attendanceViolationChartObj = new Chart(document.getElementById("dynamicChart").getContext('2d'), {
         type: chartTypes.dynamicChart || 'pie',
@@ -1392,7 +1722,9 @@ function refreshAttendanceDashboard() {
                 borderRadius: 5
             }]
         },
-        options: { 
+        options: {
+            animation: { duration: 2500, easing: 'easeInOutQuart' },
+            animations: (chartTypes.dynamicChart === 'bar' || chartTypes.dynamicChart === 'line') ? { y: { from: (ctx) => ctx.chart.scales.y.getPixelForValue(0) } } : {},
             responsive: true, 
             maintainAspectRatio: false,
             plugins: { 
@@ -1505,26 +1837,26 @@ function updateMonitoringAlerts(data) {
 
     // ३०% भन्दा बढी रिक्तता दर (Vacancy Rate) भएका कार्यालयहरू फिल्टर गर्ने
     const highVacancyOffices = data.filter(d => {
-        const total = Number(d.d_total || 0);
-        const vacant = Number(d.d_vacant || 0);
+        const total = Number(getVal(d, 'd_total', 'कुल दरबन्दी') || 0);
+        const vacant = Number(getVal(d, 'd_vacant', 'रिक्त') || 0);
         if (total <= 0) return false; // शून्य दरबन्दी भएका कार्यालयलाई नदेखाउने
         const rate = (vacant / total) * 100;
         return rate > 30;
     });
 
     if (highVacancyOffices.length === 0) {
-        alertsSection.style.display = "none";
+        alertsSection.style.setProperty('display', 'none', 'important');
         return;
     }
 
-    alertsSection.style.display = "block";
+    alertsSection.style.setProperty('display', 'block', 'important');
     alertsList.innerHTML = highVacancyOffices.map(d => {
         const total = Number(d.d_total || 0);
         const vacant = Number(d.d_vacant || 0);
         const rate = ((vacant / total) * 100).toFixed(1); // १ दशमलव स्थानसम्म
         
         return `
-            <div class="stat-card" style="border-top: 4px solid #de3053; border-left: 1px solid #ffa39e; border-right: 1px solid #ffa39e; border-bottom: 1px solid #ffa39e; flex: 1 1 250px; text-align: left; padding: 12px; background: white; box-shadow: 0 2px 8px rgba(222, 48, 83, 0.1);">
+            <div class="stat-card" style="border-top: 2px solid #de3053; border-left: 1px solid #ffa39e; border-right: 1px solid #ffa39e; border-bottom: 1px solid #ffa39e; flex: 1 1 250px; text-align: left; padding: 12px; background: white; box-shadow: 0 2px 8px rgba(222, 48, 83, 0.1);">
                 <div style="font-weight: 700; color: #de3053; margin-bottom: 5px; font-size: 1.05rem;">${d.m_office || 'अज्ञात कार्यालय'}</div>
                 <div style="font-size: 1rem; color: #2d3748;">रिक्तता दर: <span style="font-weight: 800; color: #de3053;">${toNepaliDigits(rate)}%</span></div>
                 <div style="font-size: 0.85rem; color: #666; margin-top: 4px;">रिक्त संख्या: ${toNepaliDigits(vacant)} / कुल दरबन्दी: ${toNepaliDigits(total)}</div>
@@ -1560,7 +1892,7 @@ function updateMonitoringDetails(data) {
  * अनुगमन चार्टहरू अपडेट गर्ने
  */
 function updateMonitoringCharts(data) {
-    const colorPalette = ['#3b82f6cc', '#10b981cc', '#f59e0bcc', '#ef4444cc', '#8b5cf6cc'];
+    const colorPalette = getThemeColors(0.8);
     const chartAnimation = { duration: 2500, easing: 'easeInOutQuart' };
 
     // सहयोगी फङ्सन: रिक्वेन्सी म्यापिङ र चार्ट सिर्जना गर्न
@@ -1575,7 +1907,12 @@ function updateMonitoringCharts(data) {
                 labels: Object.keys(counts),
                 datasets: [{ label: 'संख्या', data: Object.values(counts), backgroundColor: colorPalette, borderRadius: 5 }]
             },
-            options: { animation: chartAnimation, responsive: true, plugins: { legend: { display: chartType !== 'bar', position: 'bottom' } } }
+            options: { 
+                animation: chartAnimation, 
+                animations: (chartType === 'bar' || chartType === 'line') ? { y: { from: (ctx) => ctx.chart.scales.y.getPixelForValue(0) } } : {},
+                responsive: true, 
+                plugins: { legend: { display: chartType !== 'bar', position: 'bottom' } } 
+            }
         });
     };
 
@@ -1613,6 +1950,7 @@ function updateMonitoringCharts(data) {
         },
         options: {
             animation: { duration: 2500, easing: 'easeInOutQuart' },
+            animations: (chartTypes.vacantByProvinceChart === 'bar' || chartTypes.vacantByProvinceChart === 'line') ? { y: { from: (ctx) => ctx.chart.scales.y.getPixelForValue(0) } } : {},
             responsive: true,
             scales: {
                 y: { 
@@ -1659,6 +1997,7 @@ function updateMonitoringCharts(data) {
         },
         options: {
             animation: { duration: 2500, easing: 'easeInOutQuart' },
+            animations: (chartTypes.dynamicChart === 'bar' || chartTypes.dynamicChart === 'line') ? { y: { from: (ctx) => ctx.chart.scales.y.getPixelForValue(0) } } : {},
             responsive: true,
             maintainAspectRatio: false,
             scales: {
@@ -1795,6 +2134,7 @@ function updateMonitoringCharts(data) {
         },
         options: {
             animation: { duration: 2500, easing: 'easeInOutQuart' },
+            animations: (chartTypes.provStaffingComparisonChart === 'bar' || chartTypes.provStaffingComparisonChart === 'line') ? { y: { from: (ctx) => ctx.chart.scales.y.getPixelForValue(0) } } : {},
             responsive: true,
             maintainAspectRatio: false,
             scales: {
@@ -2011,9 +2351,17 @@ function updateDynamicAnalysis(data) {
 
     // यदि छानिएको फिल्डमा कुनै डाटा भेटिएन भने
     if (labels.length === 0) {
-        if (statRow) statRow.innerHTML = '<div style="padding:25px; color:#666; width:100%; text-align:center; font-size:1rem; background:#f9fafb; border-radius:10px;">यो प्रश्न वा फिल्टरको लागि हाल कुनै तथ्याङ्क उपलब्ध छैन।</div>';
+        if (statRow) {
+            statRow.innerHTML = `
+                <div style="padding:40px 20px; color:#718096; width:100%; text-align:center; background:#fff; border-radius:12px; border: 1px dashed #cbd5e0; margin: 10px 0;">
+                    <div style="font-size: 2.5rem; margin-bottom: 10px;">📁</div>
+                    <div style="font-size: 1.1rem; font-weight: 600; color: #4a5568;">तथ्याङ्क फेला परेन</div>
+                    <p style="font-size: 0.95rem; margin-top: 5px;">छानिएको प्रश्न वा फिल्टरका लागि हालसम्म कुनै प्रतिक्रिया प्राप्त भएको छैन।</p>
+                </div>`;
+        }
         if (dynamicChartObj) dynamicChartObj.destroy();
-        if (labelEl) labelEl.textContent = `विश्लेषण: ${selector.options[selector.selectedIndex].text} (डाटा छैन)`;
+        if (chartRow) chartRow.style.display = "none";
+        if (labelEl) labelEl.textContent = `विश्लेषण: ${selector.options[selector.selectedIndex].text}`;
         return;
     }
 
@@ -2041,6 +2389,7 @@ function updateDynamicAnalysis(data) {
         },
         options: {
             animation: { duration: 2500, easing: 'easeInOutQuart' },
+            animations: (chartTypes.dynamicChart === 'bar' || chartTypes.dynamicChart === 'line') ? { y: { from: (ctx) => ctx.chart.scales.y.getPixelForValue(0) } } : {},
             responsive: true,
             maintainAspectRatio: false,
             scales: (chartTypes.dynamicChart === 'pie' || chartTypes.dynamicChart === 'doughnut') ? {} : {
@@ -2060,7 +2409,7 @@ function updateDynamicAnalysis(data) {
     // तथ्याङ्क कार्डहरू अपडेट गर्ने - Colorful stat cards
     if (statRow) {
         statRow.innerHTML = labels.map((l, i) => `
-            <div class="stat-card" style="min-width: 110px; padding: 8px 12px; flex: 1; border-top: 4px solid ${colorPalette[i % colorPalette.length]}; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); background: white;">
+            <div class="stat-card" style="min-width: 110px; padding: 8px 12px; flex: 1; border-top: 2px solid ${colorPalette[i % colorPalette.length]}; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); background: white;">
                 <div class="stat-number" style="font-size: 1.25rem; color: ${colorPalette[i % colorPalette.length]}; margin-bottom: 4px;">${toNepaliDigits(counts[l])} <span style="font-size: 50%;">(${toNepaliDigits(totalVal > 0 ? (counts[l]/totalVal*100).toFixed(1) : 0)}%)</span></div>
                 <div style="font-size: 0.9rem; font-weight: 600; color: #4a5568; line-height: 1.3;">${l}</div>
             </div>
@@ -2074,6 +2423,14 @@ function updateDynamicAnalysis(data) {
 function switchDashboardView(view) {
     currentDashboardView = view;
     
+    // ड्यासबोर्ड स्विच गर्दा पुराना 'विशिष्ट' फिल्टरहरू रिसेट गर्ने (डाटा ओभरल्याप हुन नदिन)
+    const mField = document.getElementById("monitoringFieldSelector");
+    const dField = document.getElementById("dynamicFieldSelector");
+    const aCat = document.getElementById("filterCategory");
+    if (mField) mField.value = "";
+    if (dField) dField.value = "";
+    if (aCat) aCat.value = "";
+
     const surveyBtn = document.getElementById("showSurveyView");
     const monitoringBtn = document.getElementById("showMonitoringView");
     const attendanceBtn = document.getElementById("showAttendanceView");
@@ -2082,6 +2439,8 @@ function switchDashboardView(view) {
     
     const tableHead = document.querySelector("#dataTable thead");
     const extraFilters = document.getElementById("attendanceExtraFilters");
+    const monitoringExtraFilters = document.getElementById("monitoringExtraFilters");
+    const toggleMBtn = document.getElementById("toggleMonitoringFilters");
 
     if (view === 'survey') {
         if(pdfBtn) pdfBtn.style.display = "none";
@@ -2090,6 +2449,8 @@ function switchDashboardView(view) {
         monitoringBtn?.classList.remove("active");
         attendanceBtn?.classList.remove("active");
         if(extraFilters) extraFilters.style.display = "none";
+        if(monitoringExtraFilters) monitoringExtraFilters.style.display = "none";
+        if(toggleMBtn) toggleMBtn.style.display = "none";
         
         document.getElementById("surveyChartsRow")?.style.setProperty('display', 'flex', 'important');
         document.getElementById("topOfficesRow")?.style.setProperty('display', 'flex', 'important');
@@ -2126,6 +2487,8 @@ function switchDashboardView(view) {
         surveyBtn?.classList.remove("active");
         monitoringBtn?.classList.remove("active");
         if(extraFilters) extraFilters.style.display = "flex";
+        if(monitoringExtraFilters) monitoringExtraFilters.style.display = "none";
+        if(toggleMBtn) toggleMBtn.style.display = "none";
 
         document.getElementById("surveyChartsRow")?.style.setProperty('display', 'none', 'important');
         document.getElementById("monitoringChartsRow")?.style.setProperty('display', 'none', 'important');
@@ -2161,6 +2524,7 @@ function switchDashboardView(view) {
         surveyBtn?.classList.remove("active");
         attendanceBtn?.classList.remove("active");
         if(extraFilters) extraFilters.style.display = "none";
+        if(toggleMBtn) toggleMBtn.style.display = "block";
         
         document.getElementById("surveyChartsRow")?.style.setProperty('display', 'none', 'important');
         document.getElementById("surveyDynamicAnalysis")?.style.setProperty('display', 'none', 'important');
@@ -2213,9 +2577,12 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
         }
 
         if (targetTab === "dashboard-tab") {
-            // ड्यासबोर्ड ट्याबमा क्लिक गर्दा डाटा लोड भएको सुनिश्चित गर्ने र सर्वेक्षण देखाउने
-            switchDashboardView('survey');
+            // ड्यासबोर्ड ट्याबमा क्लिक गर्दा डिफल्ट अनुगमन भ्यु लोड गर्ने
+            switchDashboardView('monitoring');
         }
+
+        // ट्याब परिवर्तन हुँदा वा रिडाइरेक्ट हुँदा पेजलाई माथि (Top) पुर्याउने
+        window.scrollTo(0, 0);
     });
 });
 
@@ -2228,6 +2595,42 @@ document.getElementById("resetFilter")?.addEventListener("click", () => {
     if(document.getElementById("filterCategory")) document.getElementById("filterCategory").value = "";
     if(document.getElementById("filterEmpName")) document.getElementById("filterEmpName").value = "";
     if(document.getElementById("filterEmpSymbol")) document.getElementById("filterEmpSymbol").value = "";
+    if(document.getElementById("monitoringFieldSelector")) document.getElementById("monitoringFieldSelector").value = "";
+    if(document.getElementById("monitoringExtraFilters")) document.getElementById("monitoringExtraFilters").style.display = "none";
+    const toggleBtn = document.getElementById("toggleMonitoringFilters");
+    if(toggleBtn) toggleBtn.textContent = "🔍 थप अनुगमन फिल्टरहरू";
+
+    // सबै चार्टहरूलाई सुरुको प्रकार (Default) मा फर्काउने
+    chartTypes = {
+        genderChart: 'bar',
+        satisfactionChart: 'doughnut',
+        ghusChart: 'pie',
+        developmentChart: 'bar',
+        topUnsatisfiedChart: 'bar',
+        topSatisfiedChart: 'bar',
+        dynamicChart: 'bar',
+        charterClarityChart: 'bar',
+        websiteChart: 'pie',
+        disclosureChart: 'doughnut',
+        autoInfoChart: 'pie',
+        attendanceChart: 'doughnut',
+        workroomChart: 'bar',
+        infoBoardChart: 'pie',
+        cleaningChart: 'bar',
+        brokerChart: 'doughnut',
+        vacantByProvinceChart: 'bar',
+        provStaffingComparisonChart: 'bar',
+        staffingChart: 'bar',
+        facilitiesChart: 'bar'
+    };
+
+    // रिसेट गर्दा चार्ट बक्स र स्ट्याट कार्डहरूमा 'pop' एनिमेसन लागू गर्ने
+    document.querySelectorAll('.chart-box, .stat-card').forEach(el => {
+        el.classList.remove('chart-pop-anim');
+        void el.offsetWidth; // एनिमेसन पुन: सुरु गर्न रिफ्लो ट्रिगर गर्ने
+        el.classList.add('chart-pop-anim');
+    });
+
     refreshDashboard();
 });
 
@@ -2291,4 +2694,59 @@ function clearInput(targetId) {
         target.dispatchEvent(new Event('input'));
     }
 }
+
+/**
+ * सफलताको साउन्ड इफेक्ट बजाउने फङ्सन
+ */
+function playSuccessSound() {
+    consecutiveErrorCount = 0; // सफलता मिलेपछि गल्तीको गणना रिसेट गर्ने
+
+    const syncIndicator = document.getElementById('syncIndicator');
+    if (syncIndicator) syncIndicator.style.backgroundColor = ''; // रङ्ग साविककै अवस्थामा फर्काउने
+
+    const successSound = new Audio('https://www.soundjay.com/buttons/button-09.mp3');
+    successSound.volume = 0.5;
+    successSound.play().catch(e => console.log("साउन्ड प्ले एरर:", e));
+}
+
+/**
+ * त्रुटि (Error) को साउन्ड इफेक्ट बजाउने र रातो सूचना देखाउने फङ्सन
+ */
+function playErrorSound(visualMessage = null) {
+    consecutiveErrorCount++; // प्रत्येक गल्तीमा काउन्ट बढाउने
+
+    const errorSound = new Audio('https://www.soundjay.com/buttons/beep-05.mp3');
+    errorSound.volume = 0.4;
+
+    // पिच बढाउने लजिक: १.० (सामान्य) देखि अधिकतम २.५ सम्म
+    // जति धेरै गल्ती, त्यति तीखो आवाज
+    let pitch = 1.0 + (consecutiveErrorCount - 1) * 0.25;
+    errorSound.playbackRate = Math.min(pitch, 2.5); 
+
+    errorSound.play().catch(e => console.log("साउन्ड प्ले एरर:", e));
+
+    if (visualMessage) {
+        const syncIndicator = document.getElementById('syncIndicator');
+        if (syncIndicator) {
+            syncIndicator.classList.add('error');
+            syncIndicator.classList.add('active');
+
+            // रङ्गको गाढापन (Intensity) परिवर्तन गर्ने लजिक
+            // #e74c3c को आधार Lightness ५७% हो। प्रत्येक गल्तीमा ७% ले घटाउँदै लैजाने (Darker red)
+            let lightness = Math.max(57 - (consecutiveErrorCount * 7), 20);
+            syncIndicator.style.backgroundColor = `hsl(6, 78%, ${lightness}%)`;
+
+            syncIndicator.innerHTML = `❌ ${visualMessage}`;
+            setTimeout(() => {
+                syncIndicator.classList.remove('active');
+                setTimeout(() => { 
+                    syncIndicator.classList.remove('error');
+                    syncIndicator.style.backgroundColor = ''; // क्लिनअप
+                    syncIndicator.innerHTML = "🔄 डेटा सिङ्क हुँदैछ..."; 
+                }, 400);
+            }, 3500); // ३.५ सेकेन्डसम्म रातो सन्देश देखाउने
+        }
+    }
+}
+
 loadData();

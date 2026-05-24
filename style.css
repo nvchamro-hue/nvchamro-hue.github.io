@@ -14,7 +14,7 @@ body, input, select, textarea, button, label {
 }
 
 body {
-    background: linear-gradient(135deg, #f5f7fa 0%, #e8eef5 100%);
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
     padding: 20px;
     min-height: 100vh;
 }
@@ -341,6 +341,31 @@ button.submit-btn:active {
     align-items: flex-end;
     border: 1px solid #e8eef5;
     gap: 12px;
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, padding 0.4s ease, margin 0.4s ease, border 0.4s ease;
+    overflow: hidden;
+    max-height: 1000px;
+}
+
+.filter-bar.collapsed {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+    border-width: 0 !important;
+    pointer-events: none;
+}
+
+.arrow-rotated {
+    transform: rotate(-90deg);
+}
+
+.filter-bar.collapsed {
+    display: none !important;
+}
+
+.arrow-rotated {
+    transform: rotate(-90deg);
 }
 
 .filter-item {
@@ -381,8 +406,8 @@ button.submit-btn:active {
     padding: 12px 16px;
     flex: 1;
     min-width: 160px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-    border-top: 4px solid #6bb8d1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+    border-top: 2px solid #6bb8d1;
     text-align: center;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
@@ -418,7 +443,7 @@ button.submit-btn:active {
     background: white;
     border-radius: 12px;
     padding: 12px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
     border: 1px solid #e8eef5;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
@@ -465,7 +490,7 @@ canvas {
     background: white;
     border-radius: 12px;
     padding: 16px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
     border: 1px solid #e8eef5;
 }
 
@@ -530,6 +555,9 @@ tr:hover {
     .filter-bar > button {
         width: 100%;
         justify-content: center;
+        white-space: normal;
+        flex: 1 1 auto;
+        min-width: 0;
     }
 
     .header {
@@ -661,6 +689,16 @@ tr:hover {
         width: 100%;
         min-width: 100%;
         margin-right: 0;
+    }
+
+    /* मोबाइलमा Scroll to Top बटनको साइज र पोजिसन मिलाउने */
+    .scroll-top-btn {
+        width: 38px;
+        height: 38px;
+        font-size: 1.2rem;
+        right: 15px; /* दायाँबाट दूरी कम गरिएको */
+        bottom: 75px; /* अलि तल सारिएको */
+        background: #4a90a4; /* मोबाइलमा अलि फरक र चम्किलो रङ्ग */
     }
 
     /* Responsive Table to Cards */
@@ -895,4 +933,117 @@ tr:hover {
 .was-validated textarea:invalid {
     border-color: #e74c3c !important;
     box-shadow: 0 0 5px rgba(231, 76, 60, 0.2) !important;
+}
+
+@keyframes chart-pop {
+    0% { transform: scale(0.96); opacity: 0.6; }
+    100% { transform: scale(1); opacity: 1; }
+}
+.chart-pop-anim {
+    animation: chart-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Skeleton Loader Styles */
+@keyframes shimmer {
+    0% { background-position: -468px 0; }
+    100% { background-position: 468px 0; }
+}
+
+.skeleton-loading .stat-card,
+.skeleton-loading .chart-box {
+    position: relative;
+    overflow: hidden;
+    pointer-events: none;
+    border-color: #e2e8f0;
+}
+
+.skeleton-loading .stat-card > *,
+.skeleton-loading .chart-box > * {
+    visibility: hidden;
+}
+
+.skeleton-loading .stat-card::after,
+.skeleton-loading .chart-box::after {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #f6f7f8;
+    background-image: linear-gradient(to right, #f6f7f8 0%, #edeef1 20%, #f6f7f8 40%, #f6f7f8 100%);
+    background-repeat: no-repeat;
+    background-size: 800px 100%;
+    animation: shimmer 1.5s linear infinite forwards;
+    visibility: visible;
+}
+
+/* Offline Badge Styles */
+.offline-badge {
+    display: none;
+    background: #e74c3c;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    margin-left: 15px;
+    vertical-align: middle;
+    box-shadow: 0 2px 8px rgba(231, 76, 60, 0.4);
+}
+
+/* Sync Indicator Styles */
+.sync-indicator {
+    display: none;
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background: #27ae60;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 50px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    z-index: 10001;
+    align-items: center;
+    gap: 10px;
+}
+
+.sync-indicator.active {
+    display: flex;
+    animation: slideUp 0.4s ease;
+}
+
+/* सिङ्क असफल हुँदाको लागि रातो थिम */
+.sync-indicator.error {
+    background: #e74c3c;
+}
+
+@keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+/* Scroll to Top Button Styles */
+.scroll-top-btn {
+    display: none;
+    position: fixed;
+    bottom: 85px; /* Sync indicator भन्दा माथि राख्न */
+    right: 30px;
+    background: #357a8c;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 45px;
+    height: 45px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    z-index: 10002;
+    font-size: 1.5rem;
+    transition: all 0.3s ease;
+    justify-content: center;
+    align-items: center;
+}
+
+.scroll-top-btn:hover {
+    background: #4a90a4;
+    transform: translateY(-3px);
 }
