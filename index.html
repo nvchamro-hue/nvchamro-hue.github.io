@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Mukta:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Kalimati&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -36,10 +37,10 @@
             </div>
         </div>
         <div class="tabs">
-            <button class="tab-btn active" data-tab="dashboard-tab"> ड्यासबोर्ड / तथ्याङ्क</button>
-            <button class="tab-btn" data-tab="form-tab"> सर्वेक्षण फारम</button>
-            <button class="tab-btn" data-tab="monitoring-tab"> अनुगमन फारम</button>
-            <button class="tab-btn" data-tab="attendance-tab"> समय पालना/पोशाक अनुगमन</button>
+            <button class="tab-btn active" data-tab="dashboard-tab"><i class="fas fa-chart-pie"></i> ड्यासबोर्ड / तथ्याङ्क</button>
+            <button class="tab-btn" data-tab="form-tab"><i class="fas fa-poll-h"></i> सर्वेक्षण फारम</button>
+            <button class="tab-btn" data-tab="monitoring-tab"><i class="fas fa-clipboard-check"></i> अनुगमन फारम</button>
+            <button class="tab-btn" data-tab="attendance-tab"><i class="fas fa-user-clock"></i> समय पालना/पोशाक</button>
         </div>
 
         <!-- FORM PANEL -->
@@ -48,7 +49,7 @@
                 <form id="surveyForm">
                     <div class="form-grid">
                         <!-- १. व्यक्तिगत विवरण -->
-                        <div class="section-title">१. व्यक्तिगत विवरण</div>
+                        <div class="section-title"><i class="fas fa-user-edit"></i> १. व्यक्तिगत विवरण</div>
                         <div class="field-group"><span class="field-label">प्रदेश:<span class="required-asterisk">*</span></span><select name="pradesh"
                                 id="pradesh" required>
                                 <option value="">प्रदेश छान्नुहोस्</option>
@@ -68,7 +69,7 @@
                             </div>
                         </div>
 
-                        <div class="section-title">२. सेवा लिएका कार्यालयहरू (पछिल्लो १ वर्षमा)</div>
+                        <div class="section-title"><i class="fas fa-building-user"></i> २. सेवा लिएका कार्यालयहरू (पछिल्लो १ वर्षमा)</div>
                         <div class="field-group"><span class="field-label">कार्यालय १:</span>
                             <div class="voice-input-wrapper">
                                 <input type="text" id="karyalay_1" name="karyalay_1" placeholder="कार्यालयको नाम">
@@ -98,7 +99,7 @@
                             </div>
                         </div>
 
-                        <div class="section-title">४. नागरिक वडापत्र तथा सेवा सम्बन्धी</div>
+                        <div class="section-title"><i class="fas fa-scroll"></i> ४. नागरिक वडापत्र तथा सेवा सम्बन्धी</div>
                         <div class="field-group"><span class="field-label">४.१ नागरिक वडापत्रको बारेमा जानकारी छ ?</span>
                             <div class="radio-group"><label><input type="radio" name="janakari_chha" value="छ">
                                     छ</label><label><input type="radio" name="janakari_chha" value="छैन"> छैन</label>
@@ -126,7 +127,7 @@
                                         value="अतिरिक्त रकम नदिएकोले"> अतिरिक्त रकम नदिएकोले</label></div>
                         </div>
 
-                        <div class="section-title">५. बाहिरी व्यक्तिको सहयोग</div>
+                        <div class="section-title"><i class="fas fa-handshake"></i> ५. बाहिरी व्यक्तिको सहयोग</div>
                         <div class="field-group"><span class="field-label">सेवा प्राप्त गर्न बाहिरी व्यक्तिको सहयोग
                                 लिनुपर्‍यो ?</span>
                             <div class="radio-group"><label><input type="radio" name="sahayog_parera" value="पर्‍यो">
@@ -143,7 +144,7 @@
                                         type="checkbox" name="helper_type" value="अन्य"> अन्य</label></div>
                         </div>
 
-                        <div class="section-title">६. अतिरिक्त रकम (घुस) सम्बन्धी</div>
+                        <div class="section-title"><i class="fas fa-hand-holding-dollar"></i> ६. अतिरिक्त रकम (घुस) सम्बन्धी</div>
                         <div class="field-group"><span class="field-label">अतिरिक्त रकम (घुस) दिनुपर्‍यो ?</span>
                             <div class="radio-group"><label><input type="radio" name="ghus_parera" value="पर्‍यो">
                                     पर्‍यो</label><label><input type="radio" name="ghus_parera" value="परेन">
@@ -158,7 +159,7 @@
                                     मध्यस्थकर्ता मार्फत</label></div>
                         </div>
 
-                        <div class="section-title">७. सेवा सन्तुष्टि र गुणस्तर (धेरै चिन्ह लगाउन सकिने)</div>
+                        <div class="section-title"><i class="fas fa-thumbs-up"></i> ७. सेवा सन्तुष्टि र गुणस्तर</div>
                         <div class="field-group">
                             <div class="radio-group">
                                 <label><input type="radio" name="main_satisfaction" value="सन्तुष्ट" required> <strong>सन्तुष्ट</strong></label>
@@ -218,14 +219,14 @@
                             </div>
                         </div>
 
-                        <div class="section-title">११. सूचनाको हक सम्बन्धमा जानकारी</div>
+                        <div class="section-title"><i class="fas fa-info-circle"></i> ११. सूचनाको हक सम्बन्धमा जानकारी</div>
                         <div class="field-group"><span class="field-label">सूचनाको हक सम्बन्धमा जानकारी छ ?</span>
                             <div class="radio-group"><label><input type="radio" name="suchana_hak" value="छ">
                                     छ</label><label><input type="radio" name="suchana_hak" value="छैन"> छैन</label>
                             </div>
                         </div>
 
-                        <div class="section-title">१२. तोकिएको समयमा सेवा नपाउँदा गुनासो/उजुरी गर्ने गरे/नगरेको</div>
+                        <div class="section-title"><i class="fas fa-envelope-open-text"></i> १२. गुनासो/उजुरी सम्बन्धी</div>
                         <div class="field-group"><span class="field-label">गुनासो वा उजुरी गर्नुभएको छ ?</span>
                             <div class="radio-group">
                                 <label><input type="radio" name="ujuri_gareko" value="गरेको छु"> गरेको छु</label>
@@ -235,7 +236,7 @@
                             </div>
                         </div>
 
-                        <div class="section-title">१३. सार्वजनिक सुनुवाईमा सहभागिता</div>
+                        <div class="section-title"><i class="fas fa-users-rectangle"></i> १३. सार्वजनिक सुनुवाईमा सहभागिता</div>
                         <div class="field-group"><span class="field-label">सार्वजनिक सुनुवाईमा सहभागी हुनुभएको छ
                                 ?</span>
                             <div class="radio-group">
@@ -245,7 +246,7 @@
                             </div>
                         </div>
 
-                        <div class="section-title">१४. टोल/गाउँ/नगरमा विकासको कामको जानकारी</div>
+                        <div class="section-title"><i class="fas fa-map-location-dot"></i> १४. विकास निर्माणको जानकारी</div>
                         <div class="field-group"><span class="field-label">तपाईंको टोल/गाउँ/नगरमा विकासको काम (बाटो,
                                 पुल, भवन, खानेपानी) भएको/भइरहेको जानकारी छ ?</span>
                             <div class="radio-group"><label><input type="radio" name="bikas_janakari" value="छ">
@@ -253,7 +254,7 @@
                             </div>
                         </div>
 
-                        <div class="section-title">१५. विकास निर्माण कार्यमा सहभागिता</div>
+                        <div class="section-title"><i class="fas fa-people-carry-box"></i> १५. विकास निर्माणमा सहभागिता</div>
                         <div class="field-group"><span class="field-label">तपाईंको गाउँ/टोलमा भएका विकास निर्माणका
                                 कार्यमा सहभागी हुनुभएको छ ?</span>
                             <div class="radio-group">
@@ -262,7 +263,7 @@
                                 <label><input type="radio" name="bikas_sahabhagi" value="विकास निर्माणका कार्यक्रम नै भएका छैनन्"> विकास निर्माणका कार्यक्रम नै भएका छैनन्</label>
                             </div>
                         </div>
-                        <div class="section-title">१६. विकास निर्माणको गुणस्तर सम्बन्धी धारणा</div>
+                        <div class="section-title"><i class="fas fa-medal"></i> १६. विकास निर्माणको गुणस्तर</div>
                         <div class="field-group"><span class="field-label">तपाईंको गाउँ/टोलमा भएका विकास निर्माणका कामको
                                 गुणस्तर कस्तो लाग्छ ?</span>
                             <div class="radio-group"><label><input type="radio" name="gunastar" value="राम्रो">
@@ -271,7 +272,7 @@
                             </div>
                         </div>
 
-                        <div class="section-title">१७. आयोजनास्थलमा सूचना पाटी</div>
+                        <div class="section-title"><i class="fas fa-rectangle-ad"></i> १७. आयोजनास्थलमा सूचना पाटी</div>
                         <div class="field-group"><span class="field-label">विकास निर्माण आयोजनास्थलमा जानकारी दिने
                                 विवरणसहितको सूचना पाटी राखिएको छ ?</span>
                             <div class="radio-group"><label><input type="radio" name="suchana_pati" value="छ">
@@ -280,7 +281,7 @@
                                         value="हेरेको छैन अब हेर्छु"> हेरेको छैन अब हेर्छु</label></div>
                         </div>
 
-                        <div class="section-title">१८. योजनाबाट सन्तुष्टि</div>
+                        <div class="section-title"><i class="fas fa-check-double"></i> १८. योजनाबाट सन्तुष्टि</div>
                         <div class="field-group"><span class="field-label">सो योजना/विकास कार्यबाट सन्तुष्ट वा असन्तुष्ट
                                 ?</span>
                             <div class="radio-group"><label><input type="radio" name="yojana_santushti"
@@ -288,7 +289,7 @@
                                         name="yojana_santushti" value="असन्तुष्ट"> असन्तुष्ट</label></div>
                         </div>
 
-                        <div class="section-title">१९. असन्तुष्टिको कारण (यदि असन्तुष्ट हुनुहुन्छ भने)</div>
+                        <div class="section-title"><i class="fas fa-circle-exclamation"></i> १९. असन्तुष्टिको कारण</div>
                         <div class="field-group">
                             <div class="checkbox-group"><label><input type="checkbox" name="asantushti_karan_yojana"
                                         value="तोकिएको समयमा योजना सम्पन्न नभएकोले"> तोकिएको समयमा योजना सम्पन्न
@@ -540,7 +541,7 @@
                                     <!-- Rows added dynamically -->
                                 </tbody>
                             </table>
-                            <button type="button" onclick="addAttendanceRow()" style="margin-top: 10px; background: #27ae60; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">+ कर्मचारी थप्नुहोस्</button>
+                            <button type="button" onclick="addAttendanceRow()" style="margin-top: 10px; background: #27ae60; color: white; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 0.84rem;">+ कर्मचारी थप्नुहोस्</button>
                         </div>
 
                         <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-top: 20px; border-top: 1px solid #ddd; padding-top: 15px;">
@@ -572,7 +573,7 @@
                 </div>
 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; cursor: pointer; padding: 0 5px;" id="filterToggleHeader">
-                    <h4 style="font-family:'Kalimati', sans-serif; color: #4a5568; font-size: 1rem;">🔍 फिल्टर विकल्पहरू</h4>
+                    <h4 style="font-family:'Kalimati', sans-serif; color: #4a5568; font-size: 1rem;">फिल्टर विकल्पहरू</h4>
                     <span id="filterArrow" class="arrow-rotated" style="transition: transform 0.3s ease; font-size: 0.8rem; color: #4a5568;">▼</span>
                 </div>
                 <div class="filter-bar collapsed" id="mainFilterBar" style="margin-bottom: 15px;">
@@ -621,8 +622,7 @@
                             </select>
                         </div>
                     </div>
-                    <button id="toggleMonitoringFilters" style="display: none; background:#306a95; border:none; border-radius:6px; color:white; cursor:pointer; padding: 7px 15px;">🔍 थप अनुगमन फिल्टरहरू</button>
-                    
+                    <button id="toggleMonitoringFilters" style="display: none; background:#306a95; border:none; border-radius:6px; color:white; cursor:pointer; padding: 5px 12px; font-size: 0.68rem;">थप अनुगमन फिल्टरहरू</button>
                     <div id="monitoringExtraFilters" style="display: none; width: 100%; margin-top: 10px;">
                         <div class="filter-item" style="max-width: 600px;">
                             <label style="font-weight: 700;">अनुगमनको क्षेत्र/प्रश्न छान्नुहोस्:</label>
@@ -700,26 +700,6 @@
                             <canvas id="dynamicChart"></canvas>
                             <p class="small-note" id="dynamicChartLabel" style="font-weight: 600; color: #306a95; margin-top: 10px;"></p>
                             <button class="chart-type-cycle-btn" data-chart-id="dynamicChart">🔄</button>
-                        </div>
-                    </div>
-                    <!-- New section for detailed table -->
-                    <div id="dynamicDetailTableContainer" style="display: none; margin-top: 20px; padding: 15px; background: #fff; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-                        <h4 style="font-family:'Kalimati', sans-serif; color: #2b72a9; margin-bottom: 15px;">विस्तृत विवरण: <span id="detailTableTitle"></span></h4>
-                        <button type="button" id="closeDetailTable" style="float: right; background: #ce2748; border: none; border-radius: 5px; padding: 5px 10px; color: white; cursor: pointer;">X बन्द गर्नुहोस्</button>
-                        <div class="table-wrapper" style="clear: both;">
-                            <table id="dynamicDetailTable">
-                                <thead>
-                                    <tr>
-                                        <th>मिति</th>
-                                        <th>जिल्ला</th>
-                                        <th>लिङ्ग</th>
-                                        <th>कार्यालय</th>
-                                        <th>सन्तुष्टि</th>
-                                        <th>चुनिएको कारण</th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
                         </div>
                     </div>
                 </div>
@@ -867,6 +847,29 @@
                         <tbody></tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Table Modal for Drill Down (Moved here to be accessible from all tabs) -->
+    <div id="dynamicDetailTableContainer" class="modal-overlay">
+        <div class="modal-content">
+            <button type="button" id="closeDetailTable" class="modal-close-btn"><i class="fas fa-times"></i></button>
+            <h4 class="modal-title">विस्तृत विवरण: <span id="detailTableTitle"></span></h4>
+            <div class="table-wrapper">
+                <table id="dynamicDetailTable">
+                    <thead>
+                        <tr>
+                            <th>मिति</th>
+                            <th>जिल्ला</th>
+                            <th>लिङ्ग</th>
+                            <th>कार्यालय</th>
+                            <th>सन्तुष्टि</th>
+                            <th>कैफियत</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
             </div>
         </div>
     </div>

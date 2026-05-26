@@ -1,3 +1,8 @@
+html {
+    scroll-behavior: smooth;
+    zoom: 0.75;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -49,7 +54,7 @@ body {
 }
 
 .coa-logo {
-    width: 70px;
+    width: 84px;
     height: auto;
     object-fit: contain;
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
@@ -99,7 +104,7 @@ body {
 }
 
 .nepal-flag {
-    height: 55px;
+    height: 66px;
     width: auto;
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
 }
@@ -376,9 +381,9 @@ button.submit-btn:active {
 }
 
 .filter-bar>button {
-    padding: 8px 16px !important;
+    padding: 6px 13px !important;
     white-space: nowrap;
-    font-size: 0.85rem !important;
+    font-size: 0.68rem !important;
     font-weight: 600;
 }
 
@@ -533,7 +538,7 @@ tr:hover {
     }
 
     body, input, select, textarea, button, label {
-        font-size: 0.95rem; /* मोबाइलमा सबै फन्ट साइज अलि सानो बनाउन */
+        font-size: 1rem; /* iOS मा Zoom हुने समस्या हटाउन कम्तिमा 16px (1rem) */
     }
 
     .container {
@@ -545,6 +550,7 @@ tr:hover {
         align-items: stretch;
         padding: 15px;
         gap: 12px;
+        max-height: 3000px;
     }
 
     .filter-item {
@@ -555,7 +561,7 @@ tr:hover {
     .filter-bar > button {
         width: 100%;
         justify-content: center;
-        white-space: normal;
+        padding: 12px !important;
         flex: 1 1 auto;
         min-width: 0;
     }
@@ -575,7 +581,7 @@ tr:hover {
     }
 
     .coa-logo {
-        width: 48px; /* साइज बढाइएको */
+        width: 58px; /* साइज बढाइएको */
     }
 
     .flag-container {
@@ -583,7 +589,7 @@ tr:hover {
     }
 
     .nepal-flag {
-        height: 42px; /* उचाइ बढाइएको */
+        height: 50px; /* उचाइ बढाइएको */
     }
 
     .gov-text {
@@ -607,8 +613,8 @@ tr:hover {
     }
 
     .tab-btn {
-        padding: 6px 12px;
-        font-size: 0.85rem;
+        padding: 10px 14px;
+        font-size: 0.9rem;
     }
 
     .survey-card,
@@ -648,13 +654,14 @@ tr:hover {
     input,
     select,
     textarea {
-        padding: 12px 10px; 
+        padding: 10px 12px; 
         min-height: 45px;  
+        font-size: 1rem; 
     }
 
     .voice-input-wrapper {
         flex-wrap: nowrap;
-        gap: 3px; 
+        gap: 6px; 
     }
 
     .voice-input-wrapper input,
@@ -665,8 +672,8 @@ tr:hover {
 
     .voice-btn, .clear-btn {
         flex: 0 0 auto;
-        padding: 3px 4px; 
-        font-size: 0.7rem; 
+        padding: 10px 14px; 
+        font-size: 1.1rem; 
     }
 
     .btn-text {
@@ -764,7 +771,7 @@ tr:hover {
     }
 
     button.submit-btn {
-        padding: 5px 20px;
+        padding: 12px 20px;
         font-size: 0.9rem;
     }
 }
@@ -1041,6 +1048,74 @@ tr:hover {
     transition: all 0.3s ease;
     justify-content: center;
     align-items: center;
+}
+
+/* Modal Popup Styles */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    z-index: 100001;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(5px);
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    animation: fadeIn 0.3s ease;
+}
+
+.modal-content {
+    background-color: #ffffff;
+    width: 100%;
+    max-width: 1100px;
+    border-radius: 16px;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+    padding: 30px;
+    position: relative;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: modalSlideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes modalSlideUp {
+    from { transform: translateY(50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.modal-title {
+    font-family: 'Kalimati', sans-serif;
+    color: #2b72a9;
+    margin-bottom: 20px;
+    font-size: 1.25rem;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 10px;
+}
+
+.modal-close-btn {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    background: #f1f5f9;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    font-size: 1.8rem;
+    color: #64748b;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.2s;
+}
+
+.modal-close-btn:hover {
+    background: #fee2e2;
+    color: #ef4444;
+    transform: rotate(90deg);
 }
 
 .scroll-top-btn:hover {
