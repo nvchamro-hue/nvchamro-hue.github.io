@@ -9,12 +9,16 @@
     <!-- Google Fonts & Chart.js CDN -->
     <link href="https://fonts.googleapis.com/css2?family=Mukta:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Kalimati&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0" defer></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+    <!-- Leaflet GIS Map CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -570,6 +574,8 @@
                     <button id="showSurveyView" class="tab-btn" style="flex: 1; max-width: 300px; padding: 7px 20px;">सेवाग्राही सर्वेक्षण</button>
                     <button id="showMonitoringView" class="tab-btn active" style="flex: 1; max-width: 300px; padding: 7px 20px;">कार्यालय/नागरिक बडापत्र अनुगमन</button>
                     <button id="showAttendanceView" class="tab-btn" style="flex: 1; max-width: 300px; padding: 7px 20px;">समय पालना/पोशाक अनुगमन</button>
+                    <button id="toggleMapBtn" class="tab-btn" onclick="toggleMapVisibility()" style="background: #e67e22; color: white; border-color: #d35400; padding: 3px 10px; font-size: 0.8rem; display: flex; align-items: center; justify-content: center;"><i class="fas fa-map-marked-alt"></i> नक्सामा हेर्नुहोस्</button>
+                    <button id="toggleAlertsVisibilityBtn" class="tab-btn" onclick="toggleAlertsVisibility()" style="display: none; background: #de3053; color: white; border-color: #c03e37; padding: 3px 10px; font-size: 0.8rem; display: flex; align-items: center; justify-content: center;"><i class="fas fa-bell"></i> अलर्ट लुकाउनुहोस्</button>
                 </div>
 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; cursor: pointer; padding: 0 5px;" id="filterToggleHeader">
@@ -704,6 +710,12 @@
                     </div>
                 </div>
 
+                <!-- GIS Mapping Section -->
+                <div id="mapSection" style="display: none; margin-bottom: 20px; padding: 15px; background: white; border-radius: 12px; border: 1px solid #e8eef5; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
+                    <h4 style="font-family:'Kalimati', sans-serif; color: #306a95; margin-bottom: 10px;">भौगोलिक अवस्था (GIS Map)</h4>
+                    <div id="nepalMap" style="height: 400px; border-radius: 8px;"></div>
+                </div>
+
                 <!-- शीर्ष ३ असन्तुष्ट र सन्तुष्ट कार्यालयहरू - एउटै रो मा -->
                 <div id="topOfficesRow" style="display: none; flex-wrap: wrap; gap: 15px; margin-bottom: 10px;">
                     <div id="topUnsatisfiedContainer" style="flex: 1; min-width: 300px; padding: 10px; background: #fff1f0; border-radius: 8px; border: 1px solid #ffa39e;">
@@ -804,6 +816,11 @@
                         <p class="small-note">प्रदेश अनुसार रिक्त पदको अवस्था</p>
                         <button class="chart-type-cycle-btn" data-chart-id="vacantByProvinceChart">🔄</button>
                     </div>
+                    <div class="chart-box">
+                        <canvas id="vacantPercentPieChart" width="400" height="200"></canvas>
+                        <p class="small-note">प्रदेश अनुसार रिक्त पदको प्रतिशत वितरण</p>
+                        <button class="chart-type-cycle-btn" data-chart-id="vacantPercentPieChart">🔄</button>
+                    </div>
                     <div class="chart-box" style="flex: 1 1 100%;">
                         <canvas id="provStaffingComparisonChart" height="150"></canvas>
                         <p class="small-note">प्रदेश अनुसार कार्यरत र रिक्त कर्मचारीको तुलनात्मक अवस्था</p>
@@ -821,13 +838,18 @@
                     </div>
                 </div>
                 
-                <!-- अनुगमन फारमका विवरणात्मक टेक्स्ट फिल्डहरू -->
-                <div id="monitoringDetailsSection" style="display: none; margin-top: 10px; padding: 12px; background: #f8fafc; border: 1px solid #e8eef5; border-radius: 10px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #306a95;">
-                        <h4 style="font-family:'Kalimati', sans-serif; color: #306995c3; margin-bottom: 0; display: inline-block;">अनुगमनका विस्तृत विवरणहरू</h4>
-                        <button id="downloadMonitoringReport" style="background: #27ae3d9f; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-family: 'Kalimati', sans-serif;">रिपोर्ट डाउनलोड गर्नुहोस्</button>
+                <!-- Pagination Controls -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px; background: #f8fafc; padding: 10px; border-radius: 10px; border: 1px solid #e8eef5;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label style="font-size: 0.85rem; font-weight: 600; color: #4a5568;">देखाउने संख्या:</label>
+                        <select id="pageSizeSelect" style="padding: 4px 8px; font-size: 0.85rem; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; width: auto; min-width: 80px;">
+                            <option value="10" selected>१०</option>
+                            <option value="20">२०</option>
+                            <option value="50">५०</option>
+                            <option value="100">१००</option>
+                        </select>
                     </div>
-                    <div id="monitoringDetailsList" style="display: flex; flex-direction: column; gap: 15px;"></div>
+                    <div id="paginationControls" style="display: flex; gap: 5px; align-items: center;"></div>
                 </div>
 
                 <div class="table-wrapper">
@@ -846,6 +868,15 @@
                         </thead>
                         <tbody></tbody>
                     </table>
+                </div>
+
+                <!-- अनुगमन फारमका विवरणात्मक टेक्स्ट फिल्डहरू -->
+                <div id="monitoringDetailsSection" style="display: none; margin-top: 20px; padding: 12px; background: #f8fafc; border: 1px solid #e8eef5; border-radius: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #306a95;">
+                        <h4 style="font-family:'Kalimati', sans-serif; color: #306995c3; margin-bottom: 0; display: inline-block;">अनुगमनका विस्तृत विवरणहरू</h4>
+                        <button id="downloadMonitoringReport" style="background: #27ae3d9f; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-family: 'Kalimati', sans-serif;">रिपोर्ट डाउनलोड गर्नुहोस्</button>
+                    </div>
+                    <div id="monitoringDetailsList" style="display: flex; flex-direction: column; gap: 15px;"></div>
                 </div>
             </div>
         </div>
@@ -874,6 +905,9 @@
         </div>
     </div>
 
+    <!-- Update Indicator Toast -->
+    <div id="updateIndicator" class="update-toast"><i class="fas fa-sync-alt fa-spin"></i> तथ्याङ्क अद्यावधिक हुँदैछ...</div>
+
     <!-- Loading Overlay -->
     <div id="loadingOverlay" class="loading-overlay">
         <div class="spinner"></div>
@@ -886,6 +920,7 @@
     <!-- Scroll to Top Button -->
     <button id="scrollTopBtn" class="scroll-top-btn" title="माथि जानुहोस्">↑</button>
 
-    <script src="script.js"></script>
+    <script src="metadata.js"></script>
+    <script src="script.js" defer></script>
 </body>
 </html>
