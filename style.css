@@ -379,8 +379,8 @@ button.submit-btn:active {
 .filter-item {
     display: flex;
     flex-direction: column;
-    flex: 1;
-    min-width: 180px;
+    flex: 1 1 220px;
+    min-width: 220px;
 }
 
 .filter-bar>button {
@@ -415,7 +415,11 @@ button.submit-btn:active {
     flex: 1;
     min-width: 160px;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    border-top: 4px solid #3182ce;
+    border: 1px solid transparent;
+    background-clip: padding-box, border-box;
+    background-origin: padding-box, border-box;
+    background-image: linear-gradient(var(--stat-bg-color, white), var(--stat-bg-color, white)), 
+                      linear-gradient(135deg, var(--stat-border-color, #3182ce), rgba(0,0,0,0.1));
     text-align: center;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -508,6 +512,10 @@ table {
     font-size: 0.85rem;
 }
 
+.modal-content table {
+    font-size: 0.8rem;
+}
+
 th,
 td {
     border-bottom: 1px solid #edf2f7;
@@ -564,22 +572,33 @@ tr:hover {
     }
 
     .filter-bar {
-        flex-direction: column;
-        align-items: stretch;
-        padding: 15px;
-        gap: 12px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        padding: 10px;
+        gap: 8px;
         max-height: 3000px;
     }
 
     .filter-item {
-        min-width: 100%;
-        margin-bottom: 5px;
+        flex: 1 1 calc(50% - 8px);
+        min-width: calc(50% - 8px);
+        margin-bottom: 0;
+    }
+
+    .filter-item label {
+        font-size: 0.75rem;
+        margin-bottom: 2px;
+    }
+
+    .filter-item input, .filter-item select {
+        min-height: 38px;
+        padding: 6px 10px;
     }
 
     .filter-bar > button {
-        width: 100%;
+        width: calc(50% - 4px);
         justify-content: center;
-        padding: 10px !important;
+        padding: 8px !important;
         flex: 1 1 auto;
         min-width: 0;
     }
@@ -797,6 +816,15 @@ tr:hover {
     button.submit-btn {
         padding: 10px 20px;
         font-size: 0.9rem;
+    }
+
+    .modal-overlay {
+        padding: 8px;
+    }
+
+    .modal-content {
+        padding: 10px;
+        width: 98%;
     }
 }
 
@@ -1151,7 +1179,7 @@ tr:hover {
     font-family: 'Kalimati', sans-serif;
     color: #2b72a9;
     margin-bottom: 10px;
-    font-size: 1.2rem;
+    font-size: 1rem;
     border-bottom: 2px solid #e2e8f0;
     padding-bottom: 6px;
     display: flex;
@@ -1169,7 +1197,7 @@ tr:hover {
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    font-size: 1.8rem;
+    font-size: 1.35rem; /* 1.8rem बाट 25% घटाइएको */
     color: #64748b;
     cursor: pointer;
     display: flex;
@@ -1314,14 +1342,14 @@ tr:hover {
 .summary-label {
     font-weight: 600;
     color: #2d3748;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-family: 'Kalimati', sans-serif;
 }
 
 .summary-value {
     font-weight: 700;
     color: #306a95;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-family: 'Kalimati', sans-serif;
     background: #ffffff;
     padding: 2px 8px;
@@ -1389,6 +1417,10 @@ tr:hover {
 
 .chart-fade-in {
     animation: chartFadeIn 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.stat-card.chart-fade-in {
+    border-left: 1px solid var(--stat-border-color, #3182ce) !important;
 }
 
 /* Update Toast Styling */

@@ -2,23 +2,23 @@
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz-JpXGExJWgiTueg9xC-xObZXrUySk6c_7aKTJbV-fmr-wIjloGqjx2W7v9Zmwigmy/exec"; 
 
 // Gemini API Key (Use cautiously in frontend)
-const GEMINI_API_KEY = "AQ.Ab8RN6IHbLdseGlFJXjtKCcqjRSoRPdjbGsZiTwN0Xh7tn9jfQ"; 
+const GEMINI_API_KEY = "AQ.Ab8RN6IiqHZW6FBoXkP70i0ou75G9Mh-t4-QGZvVMhShCujliA"; 
 
 let allSubmissions = [];
-let allMonitorings = []; // अनुगमन डाटाको लागि
-let allAttendanceMonitorings = []; // समय पालना/पोशाक डाटाको लागि
-let currentFilteredMonitorings = []; // डाउनलोडका लागि हाल फिल्टर गरिएको डाटा राख्न
-let currentFilteredAttendance = []; // एटेन्डेन्स डाउनलोडका लागि डाटा राख्न
+let allMonitorings = []; 
+let allAttendanceMonitorings = []; 
+let currentFilteredMonitorings = []; 
+let currentFilteredAttendance = []; 
 let currentDashboardView = 'monitoring'; // 'survey', 'monitoring', 'attendance'
-let consecutiveErrorCount = 0; // लगातार भएका गल्तीहरू गणना गर्न
-let currentFilteredSubmissions = []; // सर्वेक्षण डाउनलोडका लागि डाटा राख्न
-let mapObj = null; // GIS नक्साको लागि
+let consecutiveErrorCount = 0; 
+let currentFilteredSubmissions = []; 
+let mapObj = null; 
 let currentPage = 1;
 let itemsPerPage = 10;
-let activeTagId = null; // सक्रिय ट्याग फिल्टरको लागि
+let activeTagId = null; 
 let dismissedAlerts = new Set(JSON.parse(localStorage.getItem("dismissedAlerts_nsc") || "[]"));
 
-// की-वर्डका आधारमा समस्याहरूको वर्गीकरण कन्फिगरेसन
+
 const TAG_CONFIG = [
     { id: 'corruption', keywords: ['घुस', 'रकम', 'पैसा', 'अतिरिक्त', 'माग'], label: 'भ्रष्टाचार/अतिरिक्त रकम', color: '#e74c3c' },
     { id: 'absence', keywords: ['कर्मचारी', 'अनुपस्थित', 'भेटिएन', 'ढिला', 'हाजिर'], label: 'कर्मचारी अनुपस्थिति', color: '#f39c12' },
@@ -32,13 +32,11 @@ let DISTRICT_COORDS = {};
 let DISTRICTS = {};
 let MUNICIPALITIES = {};
 
-/**
- * Chart.js का लागि Gradient रङ बनाउने फङ्सन
- */
+
 function createGradient(ctx, color, isHorizontal = false, isRadial = false, isHover = false) {
     if (!ctx) return color;
 
-    // यदी कलर पहिले नै ८-डिजिट हेक्स (#RRGGBBAA) छ भने ७-डिजिट (#RRGGBB) मा बदल्ने
+    
     const baseColor = (typeof color === 'string' && color.startsWith('#') && color.length === 9) 
                       ? color.substring(0, 7) : color;
 
@@ -46,30 +44,30 @@ function createGradient(ctx, color, isHorizontal = false, isRadial = false, isHo
     let gradient;
 
     if (isRadial) {
-        // गोलाकार चार्टका लागि केन्द्रबाट बाहिर फैलिने Radial Gradient
+        
         const centerX = canvas.width / 2;
         const centerY = canvas.height / 2;
         const radius = Math.min(centerX, centerY);
         gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
     } else {
-        // बार चार्टका लागि Linear Gradient
+        
         gradient = isHorizontal ? ctx.createLinearGradient(0, 0, canvas.width, 0) : ctx.createLinearGradient(0, 0, 0, canvas.height);
     }
 
     if (isHover) {
-        // होभर गर्दा १००% ओपासिटी र थप चमक (High Contrast) दिने
+        
         gradient.addColorStop(0, baseColor + 'ff'); 
         gradient.addColorStop(0.5, baseColor + 'dd');
         gradient.addColorStop(1, baseColor + 'ee');
     } else {
-        gradient.addColorStop(0, baseColor + 'ee'); // ८५% ओपासिटी - सुरुवात
-        gradient.addColorStop(0.5, baseColor + 'aa'); // ६६% ओपासिटी - बीचमा हल्का
-        gradient.addColorStop(1, baseColor);       // पूर्ण गाढा - अन्त्य
+        gradient.addColorStop(0, baseColor + 'ee');
+        gradient.addColorStop(0.5, baseColor + 'aa');
+        gradient.addColorStop(1, baseColor);      
     }
     return gradient;
 }
 
-// Chart.js मा 3D shadow इफेक्ट थप्नका लागि Custom Shadow Plugin
+
 const shadowPlugin = {
     id: 'shadowPlugin',
     beforeDatasetsDraw(chart, args, options) {
@@ -87,6 +85,14 @@ const shadowPlugin = {
 };
 Chart.register(shadowPlugin);
 Chart.register(ChartDataLabels);
+
+// Chart.js का लेजेन्ड (Legend) का लागि ग्लोबल डिफल्ट सेटिङ्स
+Chart.defaults.plugins.legend.labels.color = '#4a5568'; // व्यावसायिक गाढा खरानी रङ
+Chart.defaults.plugins.legend.labels.font = {
+    family: 'Kalimati',
+    size: 11,
+    weight: '500'
+};
 
 /**
  * चार्ट डेटा लेबल्सका लागि साझा कन्फिगरेसन
@@ -125,11 +131,66 @@ const CHART_THEMES = {
 };
 let activeTheme = 'default';
 
+/**
+ * रङ्गको चम्किलोपन (Brightness) र गाढापन (Saturation) घटाउने फङ्सन।
+ * यसले HSL मोडल प्रयोग गरी चार्टहरूलाई अझ व्यावसायिक र कम चम्किलो (less vivid) बनाउँछ।
+ * sReduce: Saturation घटाउने प्रतिशत, lReduce: Lightness घटाउने प्रतिशत।
+ */
+function dampenColor(hex, sReduce = 25, lReduce = 15) {
+    if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) return hex;
+    
+    // Hex to RGB
+    let r = parseInt(hex.slice(1, 3), 16) / 255;
+    let g = parseInt(hex.slice(3, 5), 16) / 255;
+    let b = parseInt(hex.slice(5, 7), 16) / 255;
+
+    let max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h, s, l = (max + min) / 2;
+
+    if (max === min) {
+        h = s = 0; 
+    } else {
+        let d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+            case g: h = (b - r) / d + 2; break;
+            case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+    }
+
+    // Saturation र Lightness घटाउने (Vividness र Brightness कम गर्न)
+    s = Math.max(0, s * (1 - sReduce / 100));
+    l = Math.max(0, l * (1 - lReduce / 100));
+
+    // HSL back to RGB
+    const hue2rgb = (p, q, t) => {
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1/6) return p + (q - p) * 6 * t;
+        if (t < 1/2) return q;
+        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+        return p;
+    };
+
+    let q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    let p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1/3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1/3);
+
+    const toHex = x => Math.round(x * 255).toString(16).padStart(2, '0');
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
 // थिम अनुसार रङ्गहरू तान्ने फङ्सन
 function getThemeColors(opacity = 1) {
     return CHART_THEMES[activeTheme].map(color => {
-        if (opacity === 1) return color;
-        return color + Math.floor(opacity * 255).toString(16).padStart(2, '0');
+        // रङ्गलाई अलि मत्थर (Muted) बनाउने (Saturation -30%, Lightness -20%)
+        const mutedColor = dampenColor(color, 30, 20);
+        if (opacity === 1) return mutedColor;
+        return mutedColor + Math.floor(opacity * 255).toString(16).padStart(2, '0');
     });
 }
 
@@ -1606,9 +1667,9 @@ function refreshMonitoringDashboard() {
         });
 
         document.getElementById("statCardsContainer").innerHTML = `
-            <div class="stat-card" style="border-top:3px solid #3b82f6; cursor:pointer;" onclick="showDetailedTable(currentFilteredMonitorings, 'जम्मा अनुगमन', 'monitoring')"><div class="stat-number"><i class="fas fa-clipboard-list" style="color:#3b82f6"></i> ${toNepaliDigits(total)}</div><div style="color:#4a5568">जम्मा अनुगमन</div></div>        
-            <div class="stat-card" style="border-top:3px solid #ef4444; cursor:pointer;" onclick="showDetailedTable(currentFilteredMonitorings.filter(d => d.m_q5 === 'देखियो'), 'मध्यस्थकर्ताको उपस्थिति', 'monitoring')"><div class="stat-number"><i class="fas fa-user-secret" style="color:#ef4444"></i> ${toNepaliDigits(brokerSeen)}</div><div style="color:#4a5568">मध्यस्थकर्ताको उपस्थिति</div></div>
-            <div class="stat-card" style="border-top:3px solid #10b981; cursor:pointer;" onclick="showDetailedTable(currentFilteredMonitorings.filter(d => d.m_q1 === 'स्पष्ट बुझिने'), 'बडापत्र स्पष्ट/डिजिटल', 'monitoring')"><div class="stat-number"><i class="fas fa-display" style="color:#10b981"></i> ${toNepaliDigits(digitalCharter)}</div><div style="color:#4a5568">बडापत्र स्पष्ट/डिजिटल</div></div>
+            <div class="stat-card" style="--stat-border-color:#3b82f6; cursor:pointer;" onclick="showDetailedTable(currentFilteredMonitorings, 'जम्मा अनुगमन', 'monitoring')"><div class="stat-number"><i class="fas fa-clipboard-list" style="color:#3b82f6"></i> ${toNepaliDigits(total)}</div><div style="color:#4a5568">जम्मा अनुगमन</div></div>        
+            <div class="stat-card" style="--stat-border-color:#ef4444; cursor:pointer;" onclick="showDetailedTable(currentFilteredMonitorings.filter(d => d.m_q5 === 'देखियो'), 'मध्यस्थकर्ताको उपस्थिति', 'monitoring')"><div class="stat-number"><i class="fas fa-user-secret" style="color:#ef4444"></i> ${toNepaliDigits(brokerSeen)}</div><div style="color:#4a5568">मध्यस्थकर्ताको उपस्थिति</div></div>
+            <div class="stat-card" style="--stat-border-color:#10b981; cursor:pointer;" onclick="showDetailedTable(currentFilteredMonitorings.filter(d => d.m_q1 === 'स्पष्ट बुझिने'), 'बडापत्र स्पष्ट/डिजिटल', 'monitoring')"><div class="stat-number"><i class="fas fa-display" style="color:#10b981"></i> ${toNepaliDigits(digitalCharter)}</div><div style="color:#4a5568">बडापत्र स्पष्ट/डिजिटल</div></div>
         `;
         updateMonitoringCharts(filtered);
         document.getElementById("monitoringChartsRow").style.display = "flex";
@@ -1631,7 +1692,7 @@ function refreshMonitoringDashboard() {
         Object.keys(counts).forEach((key, i) => {
             const count = counts[key];
             const percent = total > 0 ? (count / total * 100).toFixed(1) : 0;
-            statHTML += `<div class="stat-card" style="border-top: 2px solid ${palette[i%5]}; cursor:pointer;" onclick="showDetailedTable(currentFilteredMonitorings.filter(d => d['${selectedField}'] === '${key}'), '${fieldName}: ${key}', 'monitoring')"><div class="stat-number" style="color:${palette[i%5]}">${toNepaliDigits(count)} <span style="font-size: 50%;">(${toNepaliDigits(percent)}%)</span></div><div>${key}</div></div>`;
+            statHTML += `<div class="stat-card" style="--stat-border-color: ${palette[i%5]}; cursor:pointer;" onclick="showDetailedTable(currentFilteredMonitorings.filter(d => d['${selectedField}'] === '${key}'), '${fieldName}: ${key}', 'monitoring')"><div class="stat-number" style="color:${palette[i%5]}">${toNepaliDigits(count)} <span style="font-size: 50%;">(${toNepaliDigits(percent)}%)</span></div><div>${key}</div></div>`;
         });
         document.getElementById("statCardsContainer").innerHTML = statHTML;
 
@@ -1757,9 +1818,9 @@ function refreshAttendanceDashboard() {
     const noUniform = filteredEntries.filter(e => e.category.includes("पोशाक")).length;
 
     document.getElementById("statCardsContainer").innerHTML = `
-        <div class="stat-card" style="border-top:3px solid #6366f1; cursor:pointer;" onclick="showDetailedTable(currentFilteredAttendance, 'जम्मा अपरिपालना', 'attendance')"><div class="stat-number"><i class="fas fa-users-viewfinder" style="color:#6366f1"></i> ${toNepaliDigits(totalViolations)}</div><div style="color:#4a5568">जम्मा अपरिपालना</div></div>
-        <div class="stat-card" style="border-top:3px solid #f59e0b; cursor:pointer;" onclick="showDetailedTable(currentFilteredAttendance.filter(e => e.category.includes('अनुपस्थित/ढिला')), 'अनुपस्थित/ढिला', 'attendance')"><div class="stat-number"><i class="fas fa-user-clock" style="color:#f59e0b"></i> ${toNepaliDigits(lateAbsent)} <span style="font-size: 50%;">(${toNepaliDigits(totalViolations > 0 ? (lateAbsent/totalViolations*100).toFixed(1) : 0)}%)</span></div><div style="color:#4a5568">अनुपस्थित/ढिला</div></div>
-        <div class="stat-card" style="border-top:3px solid #ec4899; cursor:pointer;" onclick="showDetailedTable(currentFilteredAttendance.filter(e => e.category.includes('पोशाक')), 'पोशाक नलगाउने', 'attendance')"><div class="stat-number"><i class="fas fa-user-tie" style="color:#ec4899"></i> ${toNepaliDigits(noUniform)} <span style="font-size: 50%;">(${toNepaliDigits(totalViolations > 0 ? (noUniform/totalViolations*100).toFixed(1) : 0)}%)</span></div><div style="color:#4a5568">पोशाक नलगाउने</div></div>
+        <div class="stat-card" style="--stat-border-color:#6366f1; cursor:pointer;" onclick="showDetailedTable(currentFilteredAttendance, 'जम्मा अपरिपालना', 'attendance')"><div class="stat-number"><i class="fas fa-users-viewfinder" style="color:#6366f1"></i> ${toNepaliDigits(totalViolations)}</div><div style="color:#4a5568">जम्मा अपरिपालना</div></div>
+        <div class="stat-card" style="--stat-border-color:#f59e0b; cursor:pointer;" onclick="showDetailedTable(currentFilteredAttendance.filter(e => e.category.includes('अनुपस्थित/ढिला')), 'अनुपस्थित/ढिला', 'attendance')"><div class="stat-number"><i class="fas fa-user-clock" style="color:#f59e0b"></i> ${toNepaliDigits(lateAbsent)} <span style="font-size: 50%;">(${toNepaliDigits(totalViolations > 0 ? (lateAbsent/totalViolations*100).toFixed(1) : 0)}%)</span></div><div style="color:#4a5568">अनुपस्थित/ढिला</div></div>
+        <div class="stat-card" style="--stat-border-color:#ec4899; cursor:pointer;" onclick="showDetailedTable(currentFilteredAttendance.filter(e => e.category.includes('पोशाक')), 'पोशाक नलगाउने', 'attendance')"><div class="stat-number"><i class="fas fa-user-tie" style="color:#ec4899"></i> ${toNepaliDigits(noUniform)} <span style="font-size: 50%;">(${toNepaliDigits(totalViolations > 0 ? (noUniform/totalViolations*100).toFixed(1) : 0)}%)</span></div><div style="color:#4a5568">पोशाक नलगाउने</div></div>
     `;
 
     // Table
@@ -1808,7 +1869,9 @@ function refreshAttendanceDashboard() {
             datasets: [{
                 data: values,
                 backgroundColor: labels.map((_, i) => palette[i % palette.length]),
-                borderRadius: 5
+                borderRadius: 5,
+                borderWidth: (chartTypes.dynamicChart === 'pie' || chartTypes.dynamicChart === 'doughnut') ? 0.5 : 1,
+                borderColor: '#ffffff'
             }]
         },
         options: {
@@ -1858,12 +1921,12 @@ async function downloadAttendancePDF() {
                 <p>राष्ट्रिय सतर्कता केन्द्र</p>
                 <hr>
             </div>
-            <div style="display: flex; gap: 10px; margin-bottom: 20px;">${stats}</div>
-            <div style="text-align: center; margin-bottom: 20px;">
+            <div style="display: flex; gap: 10px; margin-bottom: 20px; page-break-inside: avoid;">${stats}</div>
+            <div style="text-align: center; margin-bottom: 20px; page-break-inside: avoid;">
                 <img src="${chartImage}" style="width: 300px; height: auto;">
                 <p><strong>अपरिपालनाको वर्गीकरण</strong></p>
             </div>
-            <div style="margin-top: 20px;">${table}</div>
+            <div style="margin-top: 20px; page-break-inside: avoid;">${table}</div>
         </div>
     `;
 
@@ -1873,14 +1936,16 @@ async function downloadAttendancePDF() {
         c.style.border = "1px solid #ddd";
         c.style.padding = "10px";
         c.style.flex = "1";
+        c.style.pageBreakInside = "avoid";
     });
 
     const opt = {
-        margin: 0.5,
+        margin: [0.5, 0.5, 0.5, 0.5], // top, left, bottom, right मार्जिन स्पष्ट तोकिएको
         filename: 'Attendance_Report.pdf',
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] } // पेज ब्रेक व्यवस्थापन
     };
 
     html2pdf().set(opt).from(element).save();
@@ -2015,7 +2080,7 @@ function updateMonitoringAlerts(data) {
         const escapedOffice = (d.m_office || '').replace(/'/g, "\\'");
 
         return `
-            <div class="stat-card" style="position: relative; border-top: 3px solid ${themeColor}; border-left: 1px solid ${borderColor}; border-right: 1px solid ${borderColor}; border-bottom: 1px solid ${borderColor}; flex: 1 1 200px; text-align: left; padding: 8px 10px; background: ${bgColor}; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); cursor: pointer;" onclick="showDetailedTable(currentFilteredMonitorings.filter(item => item.m_office === '${escapedOffice}'), 'अलर्ट: ${escapedOffice}', 'monitoring')">
+            <div class="stat-card" style="position: relative; --stat-border-color: ${themeColor}; --stat-bg-color: ${bgColor}; flex: 1 1 200px; text-align: left; padding: 8px 10px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); cursor: pointer;" onclick="showDetailedTable(currentFilteredMonitorings.filter(item => item.m_office === '${escapedOffice}'), 'अलर्ट: ${escapedOffice}', 'monitoring')">
                 <button type="button" class="alert-close-btn" style="color: ${themeColor}; border-color: ${borderColor}" onclick="dismissAlert(event, '${escapedOffice}')" title="हटाउनुहोस्"><i class="fas fa-times"></i></button>
                 <div style="font-weight: 700; color: ${themeColor}; margin-bottom: 4px; font-size: 0.95rem; padding-right: 15px;">${d.m_office || 'अज्ञात कार्यालय'}</div>
                 <div style="font-size: 0.9rem; color: #2d3748;">रिक्तता दर: <span style="font-weight: 800; color: ${themeColor};">${toNepaliDigits(rateStr)}%</span></div>
@@ -2159,7 +2224,9 @@ function updateMonitoringCharts(data) {
                     hoverBackgroundColor: Object.keys(counts).map((_, i) => createGradient(ctx, colorPalette[i % colorPalette.length], false, isRadial, true)),
                     hoverBorderColor: '#ffffff',
                     hoverBorderWidth: 2,
-                    borderRadius: 5 
+                    borderRadius: 5,
+                    borderWidth: isRadial ? 0.5 : 1,
+                    borderColor: '#ffffff'
                 }]
             },
             options: { 
@@ -2251,7 +2318,9 @@ function updateMonitoringCharts(data) {
             datasets: [{
                 data: Object.values(provVacMap),
                 backgroundColor: colorPalette,
-                hoverOffset: 15
+                hoverOffset: 15,
+                borderWidth: 0.5,
+                borderColor: '#ffffff'
             }]
         },
         options: {
@@ -2523,11 +2592,11 @@ function renderStats(data) {
     if (!container) return;
 
     container.innerHTML = `
-        <div class="stat-card" style="border-top:3px solid #3b82f6; cursor:pointer;" onclick="showDetailedTable(currentFilteredSubmissions, 'जम्मा प्रतिक्रिया', 'survey')"><div class="stat-number"><i class="fas fa-users" style="color:#3b82f6"></i> ${toNepaliDigits(total)}</div><div style="color:#4a5568">जम्मा प्रतिक्रिया</div></div>        
-        <div class="stat-card" style="border-top:3px solid #ec4899; cursor:pointer;" onclick="showDetailedTable(currentFilteredSubmissions.filter(d => d.gender === 'महिला'), 'महिला सेवाग्राही', 'survey')"><div class="stat-number"><i class="fas fa-female" style="color:#ec4899"></i> ${toNepaliDigits(femaleCount)} <span style="font-size: 50%;">(${toNepaliDigits(total > 0 ? (femaleCount/total*100).toFixed(1) : 0)}%)</span></div><div style="color:#4a5568">महिला सेवाग्राही</div></div>
-        <div class="stat-card" style="border-top:3px solid #3b82f6; cursor:pointer;" onclick="showDetailedTable(currentFilteredSubmissions.filter(d => d.gender === 'पुरुष'), 'पुरुष सेवाग्राही', 'survey')"><div class="stat-number"><i class="fas fa-male" style="color:#3b82f6"></i> ${toNepaliDigits(maleCount)} <span style="font-size: 50%;">(${toNepaliDigits(total > 0 ? (maleCount/total*100).toFixed(1) : 0)}%)</span></div><div style="color:#4a5568">पुरुष सेवाग्राही</div></div>
-        <div class="stat-card" style="border-top:3px solid #10b981; cursor:pointer;" onclick="showDetailedTable(currentFilteredSubmissions.filter(d => d.satisfaction_flag === 'सन्तुष्ट'), 'सन्तुष्ट सेवाग्राही', 'survey')"><div class="stat-number"><i class="fas fa-smile" style="color:#10b981"></i> ${toNepaliDigits(satCount)} <span style="font-size: 50%;">(${toNepaliDigits(total > 0 ? (satCount/total*100).toFixed(1) : 0)}%)</span></div><div style="color:#4a5568">सन्तुष्ट सेवाग्राही</div></div>
-        <div class="stat-card" style="border-top:3px solid #ef4444; cursor:pointer;" onclick="showDetailedTable(currentFilteredSubmissions.filter(d => d.ghus_parera === 'पर्‍यो'), 'अतिरिक्त रकम तिर्नु परेको', 'survey')"><div class="stat-number"><i class="fas fa-hand-holding-dollar" style="color:#ef4444"></i> ${toNepaliDigits(ghusCount)} <span style="font-size: 50%;">(${toNepaliDigits(total > 0 ? (ghusCount/total*100).toFixed(1) : 0)}%)</span></div><div style="color:#4a5568">अतिरिक्त रकम तिर्नु परेको</div></div>
+        <div class="stat-card" style="--stat-border-color:#3b82f6; cursor:pointer;" onclick="showDetailedTable(currentFilteredSubmissions, 'जम्मा प्रतिक्रिया', 'survey')"><div class="stat-number"><i class="fas fa-users" style="color:#3b82f6"></i> ${toNepaliDigits(total)}</div><div style="color:#4a5568">जम्मा प्रतिक्रिया</div></div>        
+        <div class="stat-card" style="--stat-border-color:#ec4899; cursor:pointer;" onclick="showDetailedTable(currentFilteredSubmissions.filter(d => d.gender === ' महिला'), 'महिला सेवाग्राही', 'survey')"><div class="stat-number"><i class="fas fa-female" style="color:#ec4899"></i> ${toNepaliDigits(femaleCount)} <span style="font-size: 50%;">(${toNepaliDigits(total > 0 ? (femaleCount/total*100).toFixed(1) : 0)}%)</span></div><div style="color:#4a5568">महिला सेवाग्राही</div></div>
+        <div class="stat-card" style="--stat-border-color:#3b82f6; cursor:pointer;" onclick="showDetailedTable(currentFilteredSubmissions.filter(d => d.gender === 'पुरुष'), 'पुरुष सेवाग्राही', 'survey')"><div class="stat-number"><i class="fas fa-male" style="color:#3b82f6"></i> ${toNepaliDigits(maleCount)} <span style="font-size: 50%;">(${toNepaliDigits(total > 0 ? (maleCount/total*100).toFixed(1) : 0)}%)</span></div><div style="color:#4a5568">पुरुष सेवाग्राही</div></div>
+        <div class="stat-card" style="--stat-border-color:#10b981; cursor:pointer;" onclick="showDetailedTable(currentFilteredSubmissions.filter(d => d.satisfaction_flag === 'सन्तुष्ट'), 'सन्तुष्ट सेवाग्राही', 'survey')"><div class="stat-number"><i class="fas fa-smile" style="color:#10b981"></i> ${toNepaliDigits(satCount)} <span style="font-size: 50%;">(${toNepaliDigits(total > 0 ? (satCount/total*100).toFixed(1) : 0)}%)</span></div><div style="color:#4a5568">सन्तुष्ट सेवाग्राही</div></div>
+        <div class="stat-card" style="--stat-border-color:#ef4444; cursor:pointer;" onclick="showDetailedTable(currentFilteredSubmissions.filter(d => d.ghus_parera === 'पर्‍यो'), 'अतिरिक्त रकम तिर्नु परेको', 'survey')"><div class="stat-number"><i class="fas fa-hand-holding-dollar" style="color:#ef4444"></i> ${toNepaliDigits(ghusCount)} <span style="font-size: 50%;">(${toNepaliDigits(total > 0 ? (ghusCount/total*100).toFixed(1) : 0)}%)</span></div><div style="color:#4a5568">अतिरिक्त रकम तिर्नु परेको</div></div>
     `;
 }
 
@@ -2552,7 +2621,7 @@ function updateCharts(data) {
                 hoverBorderColor: '#ffffff',
                 hoverBorderWidth: 2,
                 borderColor: ['#3b82f6', '#ec4899', '#f59e0b'],
-                borderWidth: 1,
+                borderWidth: isGenderRadial ? 0.5 : 1,
                 borderRadius: 5
             }]
         },
@@ -2593,7 +2662,7 @@ function updateCharts(data) {
                 hoverBorderColor: '#ffffff',
                 hoverBorderWidth: 2,
                 borderColor: ['#10b981', '#ef4444', '#f59e0b'],
-                borderWidth: 1,
+                borderWidth: isSatRadial ? 0.5 : 1,
                 hoverOffset: 10
             }]
         },
@@ -2632,7 +2701,7 @@ function updateCharts(data) {
                 hoverBorderColor: '#ffffff',
                 hoverBorderWidth: 2,
                 borderColor: ['#ef4444', '#10b981'],
-                borderWidth: 1,
+                borderWidth: isGhusRadial ? 0.5 : 1,
                 hoverOffset: 10
             }]
         },
@@ -2836,7 +2905,7 @@ function updateDynamicAnalysis(data) {
                 hoverBorderColor: '#ffffff',
                 hoverBorderWidth: 2,
                 borderColor: borderColors,
-                borderWidth: 1,
+                borderWidth: isRadial ? 0.5 : 1,
                 borderRadius: 5
             }]
         },
@@ -2875,7 +2944,7 @@ function updateDynamicAnalysis(data) {
     // तथ्याङ्क कार्डहरू अपडेट गर्ने - Colorful stat cards
     if (statRow) {
         statRow.innerHTML = labels.map((l, i) => `
-            <div class="stat-card" style="cursor:pointer; min-width: 110px; padding: 8px 12px; flex: 1; border-top: 2px solid ${colorPalette[i % colorPalette.length]}; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); background: white;" 
+            <div class="stat-card" style="cursor:pointer; min-width: 110px; padding: 8px 12px; flex: 1; --stat-border-color: ${colorPalette[i % colorPalette.length]}; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.08);" 
                  onclick="showDetailedTable(currentFilteredSubmissions.filter(item => {
                      let val = getVal(item, '${field}', '${fieldLabel}');
                      return String(val).includes('${l}');
@@ -4058,11 +4127,16 @@ async function getAIStatusAnalysis(location, mSummary, sSummary, aSummary) {
     if (!aiSection || !aiContent) return;
 
     // API Key जाँच (Gemini Key प्राय: AIza बाट सुरु हुन्छ)
-    if (!GEMINI_API_KEY || !GEMINI_API_KEY.startsWith("AIza")) {
+    if (
+    !GEMINI_API_KEY ||
+    (!GEMINI_API_KEY.startsWith("AIza") &&
+     !GEMINI_API_KEY.startsWith("AQ"))
+    ) {
         aiSection.style.display = "block";
         aiContent.innerHTML = `
             <div style="color: #e53e3e; background: #fff5f5; padding: 10px; border-radius: 5px; border: 1px solid #feb2b2;">
-                ⚠️ <strong>API Key त्रुटि:</strong> कृपया <a href="https://aistudio.google.com/" target="_blank">Google AI Studio</a> बाट वैध API Key लिएर <code>script.js</code> को सुरुमा राख्नुहोस्।
+                ⚠️ <strong>API Key त्रुटि</strong> 
+                कृपया <a href="https://aistudio.google.com/" target="_blank">Google AI Studio</a> बाट वैध API Key लिएर <code>script.js</code> को सुरुमा राख्नुहोस्।
             </div>`;
         return;
     }
@@ -4075,7 +4149,7 @@ async function getAIStatusAnalysis(location, mSummary, sSummary, aSummary) {
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
         
         // v1beta को सट्टा stable v1 प्रयोग गर्न सकिन्छ, तर SDK ले आफैं व्यवस्थापन गर्छ
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); 
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }, { apiVersion: "v1beta" }); 
 
         // app.js को लजिक अनुसार विस्तृत स्कोर गणना
         const mScore = mSummary.total_count > 0 ? Number(((mSummary.charter_clear + mSummary.process_clear + mSummary.staff_found) / (mSummary.total_count * 3) * 100).toFixed(2)) : 0;
@@ -4134,6 +4208,7 @@ async function downloadStatusSummaryPDF() {
 
     const modal = document.getElementById('statusSummaryModal');
     const title = modal?.querySelector('.modal-title')?.textContent || "Status Summary";
+    const aiSection = document.getElementById('aiAnalysisSection');
 
     // PDF जेनेरेट गर्दा स्टाइलिङका लागि अस्थायी एलिमेन्ट बनाउने
     const element = document.createElement('div');
@@ -4151,8 +4226,32 @@ async function downloadStatusSummaryPDF() {
     `;
     element.appendChild(header);
 
+    // AI Analysis Section थप्ने (यदि यो देखिने अवस्थामा छ भने)
+    if (aiSection && aiSection.style.display !== 'none') {
+        const aiClone = aiSection.cloneNode(true);
+        aiClone.style.display = 'block';
+        aiClone.style.marginBottom = '25px';
+        aiClone.style.pageBreakInside = 'avoid'; // AI सेक्सनलाई नकाटिने बनाउने
+        
+        // PDF मा राम्रो देखाउन छाया (box-shadow) हटाउने र स्पष्ट बोर्डर थप्ने
+        const aiBox = aiClone.querySelector('div');
+        if (aiBox) {
+            aiBox.style.boxShadow = 'none';
+            aiBox.style.border = '1px solid #cbd5e0';
+        }
+        element.appendChild(aiClone);
+    }
+
     // कन्टेन्ट थप्ने (क्लोन गरेर)
     const clone = content.cloneNode(true);
+    
+    // Summary Section हरू नकाटिने गरी मिलाउने
+    clone.querySelectorAll('.summary-section').forEach(sec => {
+        sec.style.pageBreakInside = 'avoid';
+        sec.style.marginBottom = '15px';
+        sec.style.display = 'block';
+    });
+
     // Grid layout लाई PDF मा मिलाउन ब्लक बनाउने
     clone.querySelectorAll('.summary-grid').forEach(grid => {
         grid.style.display = 'block';
@@ -4162,15 +4261,17 @@ async function downloadStatusSummaryPDF() {
         item.style.borderBottom = '1px solid #eee';
         item.style.display = 'flex';
         item.style.justifyContent = 'space-between';
+        item.style.pageBreakInside = 'avoid'; // प्रत्येक रोलाई नकाटिने बनाउने
     });
     element.appendChild(clone);
 
     const opt = {
-        margin: 0.5,
+        margin: [0.5, 0.5, 0.5, 0.5],
         filename: title.replace(/\s+/g, '_') + '.pdf',
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
     };
 
     html2pdf().set(opt).from(element).save();
