@@ -124,7 +124,7 @@ body {
 .tab-btn {
     background: #f8fafc;
     border: 1px solid #e2e8f0;
-    padding: 8px 20px;
+    padding: 6px 20px;
     font-size: 0.95rem;
     font-weight: 600;
     border-radius: 8px;
@@ -306,7 +306,7 @@ button.submit-btn {
     background: linear-gradient(135deg, #4a90a4 0%, #357a8c 100%);
     border: none;
     color: white;
-    padding: 10px 24px;
+    padding: 8px 24px;
     font-size: 0.95rem;
     font-weight: 600;
     border-radius: 8px;
@@ -384,7 +384,7 @@ button.submit-btn:active {
 }
 
 .filter-bar>button {
-    padding: 6px 13px !important;
+    padding: 5px 13px !important;
     white-space: nowrap;
     font-size: 0.68rem !important;
     font-weight: 600;
@@ -579,7 +579,7 @@ tr:hover {
     .filter-bar > button {
         width: 100%;
         justify-content: center;
-        padding: 12px !important;
+        padding: 10px !important;
         flex: 1 1 auto;
         min-width: 0;
     }
@@ -631,7 +631,7 @@ tr:hover {
     }
 
     .tab-btn {
-        padding: 10px 14px;
+        padding: 8px 14px;
         font-size: 0.9rem;
     }
 
@@ -690,7 +690,7 @@ tr:hover {
 
     .voice-btn, .clear-btn {
         flex: 0 0 auto;
-        padding: 10px 14px; 
+        padding: 8px 14px; 
         font-size: 1.1rem; 
     }
 
@@ -795,7 +795,7 @@ tr:hover {
     }
 
     button.submit-btn {
-        padding: 12px 20px;
+        padding: 10px 20px;
         font-size: 0.9rem;
     }
 }
@@ -903,7 +903,7 @@ tr:hover {
     color: white;
     border: none;
     border-radius: 8px;
-    padding: 8px 12px;
+    padding: 6px 12px;
     cursor: pointer;
     font-size: 0.85rem;
     white-space: nowrap;
@@ -927,7 +927,7 @@ tr:hover {
     color: white;
     border: none;
     border-radius: 8px;
-    padding: 8px 12px;
+    padding: 6px 12px;
     cursor: pointer;
     font-size: 0.85rem;
     white-space: nowrap;
@@ -1101,8 +1101,8 @@ tr:hover {
     color: white;
     border: none;
     border-radius: 50%;
-    width: 45px;
-    height: 45px;
+    width: 36px;
+    height: 36px;
     cursor: pointer;
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     z-index: 10002;
@@ -1131,11 +1131,11 @@ tr:hover {
 
 .modal-content {
     background-color: #ffffff;
-    width: 100%;
-    max-width: 1100px;
-    border-radius: 16px;
+    width: 95%;
+    max-width: 1200px;
+    border-radius: 10px;
     box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
-    padding: 30px;
+    padding: 15px;
     position: relative;
     max-height: 90vh;
     overflow-y: auto;
@@ -1150,10 +1150,14 @@ tr:hover {
 .modal-title {
     font-family: 'Kalimati', sans-serif;
     color: #2b72a9;
-    margin-bottom: 20px;
-    font-size: 1.25rem;
+    margin-bottom: 10px;
+    font-size: 1.2rem;
     border-bottom: 2px solid #e2e8f0;
-    padding-bottom: 10px;
+    padding-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-right: 45px; /* Close button सँग नखप्टियोस् भनेर */
 }
 
 .modal-close-btn {
@@ -1162,8 +1166,8 @@ tr:hover {
     right: 20px;
     background: #f1f5f9;
     border: none;
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     font-size: 1.8rem;
     color: #64748b;
@@ -1272,8 +1276,104 @@ tr:hover {
 
 .tag-badge:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-    filter: brightness(1.1);
+}
+
+/* Status Summary Modal Styles */
+.summary-section {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 12px;
+    border: 1px solid #edf2f7;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+    margin-bottom: 15px;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 10px;
+}
+
+.summary-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #edf2f7;
+    transition: all 0.2s ease;
+}
+
+.summary-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border-color: #cbd5e0;
+}
+
+.summary-label {
+    font-weight: 600;
+    color: #2d3748;
+    font-size: 0.85rem;
+    font-family: 'Kalimati', sans-serif;
+}
+
+.summary-value {
+    font-weight: 700;
+    color: #306a95;
+    font-size: 0.85rem;
+    font-family: 'Kalimati', sans-serif;
+    background: #ffffff;
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+    text-align: center;
+}
+
+.summary-subsection {
+    grid-column: 1 / -1;
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 12px;
+    border: 1px solid #edf2f7;
+    margin-top: 8px;
+}
+
+.summary-subtitle {
+    font-weight: 700;
+    color: #2b72a9;
+    font-size: 0.95rem;
+    font-family: 'Kalimati', sans-serif;
+    display: block;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.summary-subsection .summary-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+}
+
+@media (max-width: 768px) {
+    .summary-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .summary-subsection .summary-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .summary-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+    
+    .summary-value {
+        align-self: flex-end;
+        min-width: 60px;
+    }
 }
 
 .tag-badge.active-tag {
@@ -1360,4 +1460,42 @@ tr:hover {
 .reset-alerts-btn:hover {
     background: #e2e8f0;
     color: #1a202c;
+}
+
+/* Summary Modal Styling */
+.summary-content-wrapper {
+    padding: 10px;
+    font-family: 'Kalimati', sans-serif;
+}
+
+.summary-section h4 {
+    color: #2c5282;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 8px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+}
+
+.summary-item {
+    background: #f8fafc;
+    padding: 5px 15px;
+    border-radius: 10px;
+    border: 1px solid #edf2f7;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s ease;
+}
+
+.summary-item:hover {
+    background: #edf2f7;
+    transform: translateY(-2px);
 }

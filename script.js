@@ -910,7 +910,10 @@ async function loadData() {
 
     const loadingOverlay = document.getElementById("loadingOverlay");
     const loadingText = loadingOverlay?.querySelector(".loading-text");
-    if (loadingOverlay) loadingOverlay.style.display = "flex";
+    if (loadingOverlay) {
+        if (loadingText) loadingText.textContent = "डाटा अपडेट हुँदैछ, कृपया केही समय पर्खनुहोस्...";
+        loadingOverlay.style.display = "flex";
+    }
     
     // इन्टरनेट जडान जाँच गर्ने र अफलाइन मोड अपडेट गर्ने
     function updateOnlineStatus() {
@@ -1250,7 +1253,11 @@ document.getElementById("submitMonitoring")?.addEventListener("click", async fun
     payload.m_pradesh = PROVINCE[payload.m_pradesh] || payload.m_pradesh;
 
     const loadingOverlay = document.getElementById("loadingOverlay");
-    if (loadingOverlay) loadingOverlay.style.display = "flex";
+    const loadingText = loadingOverlay?.querySelector(".loading-text");
+    if (loadingOverlay) {
+        if (loadingText) loadingText.textContent = "डाटा सुरक्षित हुँदैछ, कृपया केही समय पर्खनुहोस्...";
+        loadingOverlay.style.display = "flex";
+    }
 
     try {
         // Local storage मा सेभ गर्ने
@@ -1305,7 +1312,7 @@ function addAttendanceRow() {
         <td><input type="text" name="emp_symbol[]" placeholder="संकेत नं."></td>
         <td><input type="text" name="emp_name[]" placeholder="कर्मचारीको नाम"></td>
         <td><input type="text" name="emp_extra[]" placeholder="कैफियत/मिति"></td>
-        <td><button type="button" onclick="this.closest('tr').remove()" style="background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; font-size: 0.84rem;">हटाउने</button></td>
+        <td><button type="button" onclick="this.closest('tr').remove()" style="background:#e74c3c; color:white; border:none; padding:3px 8px; border-radius:4px; font-size: 0.84rem;">हटाउने</button></td>
     `;
     tbody.appendChild(tr);
 }
@@ -1401,7 +1408,11 @@ document.getElementById("submitAttendance")?.addEventListener("click", async fun
     }
 
     const loadingOverlay = document.getElementById("loadingOverlay");
-    if (loadingOverlay) loadingOverlay.style.display = "flex";
+    const loadingText = loadingOverlay?.querySelector(".loading-text");
+    if (loadingOverlay) {
+        if (loadingText) loadingText.textContent = "डाटा सुरक्षित हुँदैछ, कृपया केही समय पर्खनुहोस्...";
+        loadingOverlay.style.display = "flex";
+    }
 
     try {
         allAttendanceMonitorings.unshift(payload);
@@ -3102,6 +3113,161 @@ document.getElementById("resetFilter")?.addEventListener("click", () => {
     refreshDashboard();
 });
 
+// 'स्थिति सारांश' बटन थप्ने लजिक
+document.addEventListener("DOMContentLoaded", function() {
+    const resetBtn = document.getElementById("resetFilter");
+    if (resetBtn) {
+        const summaryBtn = document.createElement("button");
+        summaryBtn.id = "statusSummaryBtn";
+        summaryBtn.type = "button";
+        summaryBtn.className = "tab-btn";
+        summaryBtn.style.marginLeft = "8px";
+        summaryBtn.style.background = "#27ae60";
+        summaryBtn.style.color = "white";
+        summaryBtn.innerHTML = '<i class="fas fa-chart-pie"></i> स्थिति सारांश';
+        summaryBtn.onclick = openCurrentDashboardSummary;
+        resetBtn.parentNode.insertBefore(summaryBtn, resetBtn.nextSibling);
+    }
+});
+
+/**
+ * फिल्टर गरिएको डेटाको स्थिति सारांश देखाउने फङ्सन
+ */
+function showStatusSummary() {
+    const container = document.getElementById("dynamicDetailTableContainer");
+    const titleEl = document.getElementById("detailTableTitle");
+    const table = document.getElementById("dynamicDetailTable");
+    
+    if (!container || !table) return;
+
+    // फिल्टरमा छनौट भएको स्थानका आधारमा शीर्षक परिवर्तन गर्ने
+    const pSel = document.getElementById("filterPradesh");
+    const dSel = document.getElementById("filterDistrict");
+    const sSel = document.getElementById("filterSthaaniya");
+    const pLabel = pSel && pSel.value ? pSel.options[pSel.selectedIndex].text : "";
+    const dLabel = dSel && dSel.value ? dSel.options[dSel.selectedIndex].text : "";
+    const sLabel = sSel && sSel.value ? sSel.options[sSel.selectedIndex].text : "";
+    let titleParts = [];
+    if (pLabel) titleParts.push(pLabel);
+    if (dLabel && dLabel !== "सबै") titleParts.push(dLabel);
+    if (sLabel && sLabel !== "सबै") titleParts.push(sLabel);
+
+    titleEl.textContent = titleParts.length > 0 
+        ? `स्थिति सारांश - ${titleParts.join(' - ')}` 
+        : "फिल्टर लागू भएको क्षेत्रको स्थिति सारांश";
+
+    container.style.display = "flex";
+    document.body.style.overflow = "hidden";
+
+    // टेबल लुकाउने र सारांश कन्टेनर देखाउने
+    table.style.display = "none";
+    let summaryDiv = container.querySelector(".summary-content-wrapper");
+    if (!summaryDiv) {
+        summaryDiv = document.createElement("div");
+        summaryDiv.className = "summary-content-wrapper";
+        table.parentNode.appendChild(summaryDiv);
+    }
+    summaryDiv.style.display = "block";
+
+    // सहयोगी फङ्सन: एरे वा स्ट्रिङबाट कारणहरू गणना गर्न
+    const countReasons = (data, field) => {
+        let counts = {};
+        data.forEach(d => {
+            let val = d[field] || "";
+            if (val) {
+                val.split(",").forEach(r => {
+                    let reason = r.trim();
+                    if (reason) counts[reason] = (counts[reason] || 0) + 1;
+                });
+            }
+        });
+        return Object.entries(counts).map(([k, v]) => `${k} (${toNepaliDigits(v)})`).join(", ") || "उपलब्ध छैन";
+    };
+
+    let html = "";
+
+    if (currentDashboardView === 'monitoring') {
+        const data = currentFilteredMonitorings;
+        const totalPosts = data.reduce((s, r) => s + Number(r.d_total || 0), 0);
+        const vacantPosts = data.reduce((s, r) => s + Number(r.d_vacant || 0), 0);
+        
+        html = `
+            <div class="summary-section">
+                <h4><i class="fas fa-search-location"></i> कार्यालय/नागरिक बडापत्र अनुगमन</h4>
+                <div class="summary-grid">
+                    <div class="summary-item"><span>कुल कार्यालय अनुगमन:</span> <strong>${toNepaliDigits(data.length)}</strong></div>
+                    <div class="summary-item"><span>कुल दरबन्दी:</span> <strong>${toNepaliDigits(totalPosts)}</strong></div>
+                    <div class="summary-item"><span>रिक्त दरबन्दी:</span> <strong>${toNepaliDigits(vacantPosts)}</strong></div>
+                    <div class="summary-item"><span>नागरिक बडापत्र (स्पष्ट):</span> <strong>${toNepaliDigits(data.filter(d => (d.m_q1 || "").includes("स्पष्ट")).length)}</strong></div>
+                    <div class="summary-item"><span>सेवा प्रक्रिया, कागजात, लागत र समय (स्पष्ट):</span> <strong>${toNepaliDigits(data.filter(d => (d.m_q2 || "").includes("स्पष्ट")).length)}</strong></div>
+                    <div class="summary-item"><span>मध्यस्थकर्ता (देखिएको):</span> <strong>${toNepaliDigits(data.filter(d => d.m_q5 === "देखियो").length)}</strong></div>
+                    <div class="summary-item"><span>कर्मचारीहरु तोकिएको कार्यकक्षमा रहेको (भेटिएको):</span> <strong>${toNepaliDigits(data.filter(d => d.m_q10 === "भेटियो").length)}</strong></div>
+                    <div class="summary-item"><span>सरसफाइ (राम्रो):</span> <strong>${toNepaliDigits(data.filter(d => d.m_q12 === "राम्रो").length)}</strong></div>
+                    <div class="summary-item"><span>सेवाग्राही सहायता कक्ष (भएको):</span> <strong>${toNepaliDigits(data.filter(d => d.f_1 === "छ").length)}</strong></div>
+                </div>
+            </div>`;
+    } else if (currentDashboardView === 'survey') {
+        const data = currentFilteredSubmissions;
+        const suggestions = data.filter(d => d.sujhaw && d.sujhaw.trim() !== "").map(d => `<li><strong>${d.mukhya_karyalay || 'अज्ञात'}:</strong> ${d.sujhaw}</li>`).join("");
+
+        html = `
+            <div class="summary-section">
+                <h4><i class="fas fa-poll-h"></i> सेवाग्राही सर्वेक्षण</h4>
+                <div class="summary-grid">
+                    <div class="summary-item"><span>बडापत्रको जानकारी:</span> <strong>${toNepaliDigits(data.filter(d => getVal(d, 'santushti_janakari', 'नागरिक बडापत्रको जानकारी') === "छ").length)}</strong></div>
+                    <div class="summary-item"><span>तोकिएको समयमा काम भएको:</span> <strong>${toNepaliDigits(data.filter(d => getVal(d, 'tokiyeko_samaya', 'तोकिएको समयमा काम भएको') === "भयो").length)}</strong></div>
+                    <div class="summary-item"><span>बाहिरी व्यक्तिको सहयोग (लिनु परेको):</span> <strong>${toNepaliDigits(data.filter(d => d.sahayog_parera === "पर्‍यो").length)}</strong></div>
+                    <div class="summary-item"><span>अतिरिक्त रकम (घुस) (तिर्नु परेको):</span> <strong>${toNepaliDigits(data.filter(d => d.ghus_parera === "पर्‍यो").length)}</strong></div>
+                    <div class="summary-item"><span>सन्तुष्ट संख्या:</span> <strong>${toNepaliDigits(data.filter(d => d.satisfaction_flag === "सन्तुष्ट").length)}</strong></div>
+                    <div class="summary-item"><span>असन्तुष्ट संख्या:</span> <strong>${toNepaliDigits(data.filter(d => d.satisfaction_flag === "असन्तुष्ट").length)}</strong></div>
+                    <div class="summary-item"><span>योजनाबाट सन्तुष्टि (भएको):</span> <strong>${toNepaliDigits(data.filter(d => getVal(d, 'yojana_santushti', 'योजनाबाट सन्तुष्टि') === "सन्तुष्ट").length)}</strong></div>
+                </div>
+                
+                <div style="margin-top:20px; border:1px solid #edf2f7; border-radius:10px; padding:15px; background:#fff;">
+                    <p style="margin-bottom:8px;"><strong><i class="fas fa-thumbs-up"></i> सन्तुष्टिको कारण:</strong> ${countReasons(data, 'santushti_positive')}</p>
+                    <p style="margin-bottom:8px;"><strong><i class="fas fa-thumbs-down"></i> असन्तुष्टिको कारण (सेवा):</strong> ${countReasons(data, 'santushti_negative')}</p>
+                    <p style="margin-bottom:0;"><strong><i class="fas fa-exclamation-triangle"></i> असन्तुष्टिको कारण (योजना):</strong> ${countReasons(data, 'asantushti_karan_yojana')}</p>
+                </div>
+
+                <div style="margin-top:20px;">
+                    <h5><i class="fas fa-comment-dots"></i> सेवाग्राहीका सुझावहरु:</h5>
+                    <div style="max-height: 200px; overflow-y: auto; background: #fdfdfd; padding: 10px; border: 1px solid #eee; border-radius: 8px; margin-top: 8px;">
+                        <ul style="padding-left: 20px; font-size: 0.9rem;">
+                            ${suggestions || '<li>कुनै सुझाव उपलब्ध छैन।</li>'}
+                        </ul>
+                    </div>
+                </div>
+            </div>`;
+    } else if (currentDashboardView === 'attendance') {
+        const data = currentFilteredAttendance;
+        html = `
+            <div class="summary-section">
+                <h4><i class="fas fa-user-check"></i> समय पालना/पोशाक अनुगमन</h4>
+                <div class="summary-grid">
+                    <div class="summary-item"><span>अनुगमन मितिमा अनुपस्थित/ढिला आउने:</span> <strong>${toNepaliDigits(data.filter(d => d.category === 'अनुगमन मितिमा अनुपस्थित/ढिला आउने').length)}</strong></div>
+                    <div class="summary-item"><span>अघिल्लो मितिमा अनुपस्थित/ढिला:</span> <strong>${toNepaliDigits(data.filter(d => d.category === 'अघिल्लो मितिमा अनुपस्थित/ढिला').length)}</strong></div>
+                    <div class="summary-item"><span>तोकिएको पोशाक नलगाएको:</span> <strong>${toNepaliDigits(data.filter(d => d.category === 'तोकिएको पोशाक नलगाएको').length)}</strong></div>
+                    <div class="summary-item"><span>हाजिर भई कार्यकक्षमा नभेटिएको:</span> <strong>${toNepaliDigits(data.filter(d => d.category === 'हाजिर भई कार्यकक्षमा नभेटिएको').length)}</strong></div>
+                </div>
+            </div>`;
+    }
+
+    summaryDiv.innerHTML = html;
+}
+
+// साविकको विवरण तालिका खोल्दा सारांश लुकाउने अपडेट
+const originalShowDetailedTable = showDetailedTable;
+showDetailedTable = function(data, title, viewType) {
+    const container = document.getElementById("dynamicDetailTableContainer");
+    if (container) {
+        const summaryDiv = container.querySelector(".summary-content-wrapper");
+        if (summaryDiv) summaryDiv.style.display = "none";
+        const table = document.getElementById("dynamicDetailTable");
+        if (table) table.style.display = "table";
+    }
+    originalShowDetailedTable(data, title, viewType);
+};
+
 
 /**
  * पेजिनेसन कन्ट्रोलहरू रेन्डर गर्ने फङ्सन
@@ -3118,7 +3284,7 @@ function renderPaginationUI(totalItems) {
     const firstBtn = document.createElement("button");
     firstBtn.innerHTML = '<i class="fas fa-angle-double-left"></i>';
     firstBtn.className = "tab-btn";
-    firstBtn.style.padding = "4px 10px";
+    firstBtn.style.padding = "3px 10px";
     firstBtn.style.marginRight = "2px";
     firstBtn.disabled = currentPage === 1;
     firstBtn.onclick = () => { currentPage = 1; refreshDashboard(); };
@@ -3128,7 +3294,7 @@ function renderPaginationUI(totalItems) {
     const prevBtn = document.createElement("button");
     prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
     prevBtn.className = "tab-btn";
-    prevBtn.style.padding = "4px 10px";
+    prevBtn.style.padding = "3px 10px";
     prevBtn.disabled = currentPage === 1;
     prevBtn.onclick = () => { currentPage--; refreshDashboard(); };
     container.appendChild(prevBtn);
@@ -3145,7 +3311,7 @@ function renderPaginationUI(totalItems) {
     const nextBtn = document.createElement("button");
     nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
     nextBtn.className = "tab-btn";
-    nextBtn.style.padding = "4px 10px";
+    nextBtn.style.padding = "3px 10px";
     nextBtn.disabled = currentPage === totalPages;
     nextBtn.onclick = () => { currentPage++; refreshDashboard(); };
     container.appendChild(nextBtn);
@@ -3154,7 +3320,7 @@ function renderPaginationUI(totalItems) {
     const lastBtn = document.createElement("button");
     lastBtn.innerHTML = '<i class="fas fa-angle-double-right"></i>';
     lastBtn.className = "tab-btn";
-    lastBtn.style.padding = "4px 10px";
+    lastBtn.style.padding = "3px 10px";
     lastBtn.style.marginLeft = "2px";
     lastBtn.disabled = currentPage === totalPages;
     lastBtn.onclick = () => { currentPage = totalPages; refreshDashboard(); };
@@ -3676,3 +3842,509 @@ refreshDashboard = function() {
 };
 
 loadData();
+
+// Status Summary Modal Functions
+function calculateMonitoringSummary(filteredData) {
+    const summary = {
+        total_count: filteredData.length,
+        total_staff: 0,
+        vacant_staff: 0,
+        charter_clear: 0,
+        charter_not_clear: 0,
+        charter_difficult: 0,
+        charter_none: 0,
+        process_clear: 0,
+        process_not_mentioned: 0,
+        process_partial: 0,
+        process_none: 0,
+        broker_seen: 0,
+        broker_not_seen: 0,
+        staff_found: 0,
+        staff_not_found: 0,
+        staff_partial: 0,
+        cleaning_good: 0,
+        cleaning_bad: 0,
+        cleaning_ok: 0,
+        helpdesk_yes: 0,
+        helpdesk_no: 0,
+        helpdesk_normal: 0
+    };
+
+    filteredData.forEach(item => {
+        // Total staff and vacant staff
+        const d_total = parseInt(getVal(item, 'd_total', 'कुल दरबन्दी')) || 0;
+        const d_vacant = parseInt(getVal(item, 'd_vacant', 'रिक्त')) || 0;
+        summary.total_staff += d_total;
+        summary.vacant_staff += d_vacant;
+
+        // Citizen charter (m_q1)
+        const m_q1 = getVal(item, 'm_q1', 'नागरिक बडापत्र');
+        if (m_q1 === 'स्पष्ट बुझिने') summary.charter_clear++;
+        else if (m_q1 === 'स्पष्ट नबुझिने') summary.charter_not_clear++;
+        else if (m_q1 === 'पढ्न झन्झटिलो') summary.charter_difficult++;
+        else if (m_q1 === 'नभएको') summary.charter_none++;
+
+        // Service process (m_q2)
+        const m_q2 = getVal(item, 'm_q2', 'सेवा प्रक्रिया');
+        if (m_q2 === 'स्पष्ट उल्लेख भएको') summary.process_clear++;
+        else if (m_q2 === 'उल्लेख नभएको') summary.process_not_mentioned++;
+        else if (m_q2 === 'आंशिक') summary.process_partial++;
+        else if (m_q2 === 'नभएको') summary.process_none++;
+
+        // Broker (m_q5)
+        const m_q5 = getVal(item, 'm_q5', 'मध्यस्थकर्ताको प्रवेश');
+        if (m_q5 === 'देखियो') summary.broker_seen++;
+        else if (m_q5 === 'देखिएन') summary.broker_not_seen++;
+
+        // Staff in workroom (m_q10)
+        const m_q10 = getVal(item, 'm_q10', 'कर्मचारीहरु तोकिएको कार्यकक्षमा रहेको');
+        if (m_q10 === 'भेटियो') summary.staff_found++;
+        else if (m_q10 === 'भेटिएन') summary.staff_not_found++;
+        else if (m_q10 === 'आंशिक') summary.staff_partial++;
+
+        // Cleaning status (m_q12)
+        const m_q12 = getVal(item, 'm_q12', 'कार्यालयको सरसफाइको अवस्था');
+        if (m_q12 === 'राम्रो') summary.cleaning_good++;
+        else if (m_q12 === 'नराम्रो') summary.cleaning_bad++;
+        else if (m_q12 === 'ठीकै') summary.cleaning_ok++;
+
+        // Help desk (f_1)
+        const f_1 = getVal(item, 'f_1', 'सेवाग्राही सहायता कक्ष');
+        if (f_1 === 'छ') summary.helpdesk_yes++;
+        else if (f_1 === 'छैन') summary.helpdesk_no++;
+        else if (f_1 === 'सामान्य') summary.helpdesk_normal++;
+    });
+
+    return summary;
+}
+
+function calculateSurveySummary(filteredData) {
+    const summary = {
+        charter_info_yes: 0,
+        charter_info_no: 0,
+        work_done_yes: 0,
+        work_done_no: 0,
+        helper_yes: 0,
+        helper_no: 0,
+        ghus_yes: 0,
+        ghus_no: 0,
+        satisfied: 0,
+        unsatisfied: 0,
+        sat_time: 0,
+        sat_fee: 0,
+        sat_quality: 0,
+        sat_process: 0,
+        sat_behavior: 0,
+        sat_other: 0,
+        unsat_time: 0,
+        unsat_fee: 0,
+        unsat_quality: 0,
+        unsat_process: 0,
+        unsat_behavior: 0,
+        unsat_ghus: 0,
+        unsat_other: 0,
+        yojana_sat: 0,
+        yojana_unsat: 0,
+        yojana_unsat_time: 0,
+        yojana_unsat_quality: 0,
+        yojana_unsat_standard: 0,
+        yojana_unsat_other: 0
+    };
+
+    filteredData.forEach(item => {
+        // Charter info
+        const janakari_chha = getVal(item, 'janakari_chha', 'नागरिक बडापत्रको जानकारी');
+        if (janakari_chha === 'छ') summary.charter_info_yes++;
+        else if (janakari_chha === 'छैन') summary.charter_info_no++;
+
+        // Work done
+        const kaam_bhayeko = getVal(item, 'kaam_bhayeko', 'तोकिएको समयमा काम भएको');
+        if (kaam_bhayeko === 'भयो') summary.work_done_yes++;
+        else if (kaam_bhayeko === 'भएन') summary.work_done_no++;
+
+        // Helper
+        const sahayog_parera = getVal(item, 'sahayog_parera', 'बाहिरी व्यक्तिको सहयोग');
+        if (sahayog_parera === 'पर्‍यो') summary.helper_yes++;
+        else if (sahayog_parera === 'परेन') summary.helper_no++;
+
+        // Ghus
+        const ghus_parera = getVal(item, 'ghus_parera', 'अतिरिक्त रकम (घुस)');
+        if (ghus_parera === 'पर्‍यो') summary.ghus_yes++;
+        else if (ghus_parera === 'परेन') summary.ghus_no++;
+
+        // Satisfaction
+        const main_satisfaction = getVal(item, 'main_satisfaction', 'सन्तुष्ट/असन्तुष्ट');
+        if (main_satisfaction === 'सन्तुष्ट') summary.satisfied++;
+        else if (main_satisfaction === 'असन्तुष्ट') summary.unsatisfied++;
+
+        // Satisfaction reasons (checkbox)
+        const santushti_positive = getVal(item, 'santushti_positive', 'सन्तुष्टिको कारण');
+        if (santushti_positive) {
+            if (santushti_positive.includes('समयमै काम भएको')) summary.sat_time++;
+            if (santushti_positive.includes('सेवा शुल्क उचित भएको')) summary.sat_fee++;
+            if (santushti_positive.includes('सेवा गुणस्तरीय भएको')) summary.sat_quality++;
+            if (santushti_positive.includes('प्रक्रिया सहज भएको')) summary.sat_process++;
+            if (santushti_positive.includes('कर्मचारीको व्यवहार राम्रो रहेको')) summary.sat_behavior++;
+            if (santushti_positive.includes('अन्य')) summary.sat_other++;
+        }
+
+        // Dissatisfaction reasons (checkbox)
+        const santushti_negative = getVal(item, 'santushti_negative', 'असन्तुष्टिको कारण');
+        if (santushti_negative) {
+            if (santushti_negative.includes('समयमा काम नभएको')) summary.unsat_time++;
+            if (santushti_negative.includes('सेवा शुल्क बढी भएको')) summary.unsat_fee++;
+            if (santushti_negative.includes('सेवा गुणस्तरीय नभएको')) summary.unsat_quality++;
+            if (santushti_negative.includes('प्रक्रिया झन्झटिलो भएको')) summary.unsat_process++;
+            if (santushti_negative.includes('कर्मचारीको व्यवहार राम्रो नरहेको')) summary.unsat_behavior++;
+            if (santushti_negative.includes('अतिरिक्त रकम दिनुपरेकोले')) summary.unsat_ghus++;
+            if (santushti_negative.includes('अन्य')) summary.unsat_other++;
+        }
+
+        // Yojana satisfaction
+        const yojana_santushti = getVal(item, 'yojana_santushti', 'योजनाबाट सन्तुष्टि');
+        if (yojana_santushti === 'सन्तुष्ट') summary.yojana_sat++;
+        else if (yojana_santushti === 'असन्तुष्ट') summary.yojana_unsat++;
+
+        // Yojana dissatisfaction reasons (checkbox)
+        const asantushti_karan_yojana = getVal(item, 'asantushti_karan_yojana', 'योजना असन्तुष्टिको कारण');
+        if (asantushti_karan_yojana) {
+            if (asantushti_karan_yojana.includes('तोकिएको समयमा योजना सम्पन्न नभएकोले')) summary.yojana_unsat_time++;
+            if (asantushti_karan_yojana.includes('गुणस्तर कमजोर भएकोले')) summary.yojana_unsat_quality++;
+            if (asantushti_karan_yojana.includes('मापदण्ड विपरीत भएकोले')) summary.yojana_unsat_standard++;
+            if (asantushti_karan_yojana.includes('अन्य')) summary.yojana_unsat_other++;
+        }
+    });
+
+    return summary;
+}
+
+function calculateAttendanceSummary(filteredData) {
+    const summary = { absent_today: 0, absent_prev: 0, no_uniform: 0, not_in_room: 0 };
+    filteredData.forEach(item => {
+        const processRow = (r) => {
+            const cat = getVal(r, 'category', 'विवरण प्रकार');
+            if (cat === 'अनुगमन मितिमा अनुपस्थित/ढिला आउने') summary.absent_today++;
+            else if (cat === 'अघिल्लो मितिमा अनुपस्थित/ढिला') summary.absent_prev++;
+            else if (cat === 'तोकिएको पोशाक नलगाएको') summary.no_uniform++;
+            else if (cat === 'हाजिर भई कार्यकक्षमा नभेटिएको') summary.not_in_room++;
+        };
+        if (item.rows && Array.isArray(item.rows)) item.rows.forEach(processRow);
+        else processRow(item);
+    });
+    return summary;
+}
+
+/**
+ * स्थिति सारांश (Status Summary) लाई PDF मा निर्यात गर्ने फङ्सन
+ */
+async function downloadStatusSummaryPDF() {
+    const content = document.getElementById('statusSummaryContent');
+    if (!content) return;
+
+    const modal = document.getElementById('statusSummaryModal');
+    const title = modal?.querySelector('.modal-title')?.textContent || "Status Summary";
+
+    // PDF जेनेरेट गर्दा स्टाइलिङका लागि अस्थायी एलिमेन्ट बनाउने
+    const element = document.createElement('div');
+    element.style.padding = '30px';
+    element.style.fontFamily = "'Kalimati', sans-serif";
+    
+    // हेडर थप्ने
+    const header = document.createElement('div');
+    header.style.textAlign = 'center';
+    header.style.marginBottom = '20px';
+    header.innerHTML = `
+        <h2 style="color: #306a95; margin-bottom: 5px;">${title}</h2>
+        <p style="margin: 0; font-size: 1.1rem;">राष्ट्रिय सतर्कता केन्द्र</p>
+        <hr style="border: 0; border-top: 2px solid #306a95; margin: 15px 0;">
+    `;
+    element.appendChild(header);
+
+    // कन्टेन्ट थप्ने (क्लोन गरेर)
+    const clone = content.cloneNode(true);
+    // Grid layout लाई PDF मा मिलाउन ब्लक बनाउने
+    clone.querySelectorAll('.summary-grid').forEach(grid => {
+        grid.style.display = 'block';
+    });
+    clone.querySelectorAll('.summary-item').forEach(item => {
+        item.style.padding = '8px 0';
+        item.style.borderBottom = '1px solid #eee';
+        item.style.display = 'flex';
+        item.style.justifyContent = 'space-between';
+    });
+    element.appendChild(clone);
+
+    const opt = {
+        margin: 0.5,
+        filename: title.replace(/\s+/g, '_') + '.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(element).save();
+}
+
+function openStatusSummaryModal(showAll = true) {
+    const modal = document.getElementById('statusSummaryModal');
+    if (!modal) return;
+
+    // Get current filter values
+    const pradeshFilter = (document.getElementById("filterPradesh")?.value || "").trim();
+    const districtFilter = (document.getElementById("filterDistrict")?.value || "").trim();
+    const sthaaniyaFilter = (document.getElementById("filterSthaaniya")?.value || "").trim();
+    const officeFilter = (document.getElementById("filterOffice")?.value || "").toLowerCase().trim();
+
+    // छनौट गरिएको फिल्टर (प्रदेश-जिल्ला-स्थानीय तह) अनुसार मोडलको शीर्षक परिवर्तन गर्ने
+    const pSel = document.getElementById("filterPradesh");
+    const dSel = document.getElementById("filterDistrict");
+    const sSel = document.getElementById("filterSthaaniya");
+    const pLabel = pSel && pSel.value ? pSel.options[pSel.selectedIndex].text : "";
+    const dLabel = dSel && dSel.value ? dSel.options[dSel.selectedIndex].text : "";
+    const sLabel = sSel && sSel.value ? sSel.options[sSel.selectedIndex].text : "";
+
+    let titleParts = [];
+    if (pLabel) titleParts.push(pLabel);
+    if (dLabel && dLabel !== "सबै") titleParts.push(dLabel);
+    if (sLabel && sLabel !== "सबै") titleParts.push(sLabel);
+
+    const modalTitleEl = modal.querySelector('.modal-title');
+    if (modalTitleEl) {
+        const titleText = titleParts.length > 0 
+            ? `स्थिति सारांश - ${titleParts.join(' - ')}` 
+            : "स्थिति सारांश - सम्पूर्ण क्षेत्र";
+            
+        let span = modalTitleEl.querySelector('.title-text');
+        if (!span) {
+            // पहिलो पटक खोल्दा टाइटल स्ट्रक्चर मिलाउने
+            modalTitleEl.innerHTML = '';
+            span = document.createElement('span');
+            span.className = 'title-text';
+            modalTitleEl.appendChild(span);
+            
+            // PDF डाउनलोड बटन थप्ने (टाइटलकै लाइनमा दायाँतर्फ)
+            const pdfBtn = document.createElement('button');
+            pdfBtn.id = 'downloadSummaryPDF';
+            pdfBtn.className = 'tab-btn';
+            pdfBtn.style.background = '#e74c3c';
+            pdfBtn.style.color = 'white';
+            pdfBtn.style.fontSize = '0.85rem';
+            pdfBtn.style.padding = '2px 10px';
+            pdfBtn.style.border = 'none';
+            pdfBtn.innerHTML = '<i class="fas fa-file-pdf"></i> PDF रिपोर्ट';
+            pdfBtn.onclick = downloadStatusSummaryPDF;
+            modalTitleEl.appendChild(pdfBtn);
+        }
+        span.textContent = titleText;
+    }
+
+    // Always use raw data arrays and apply filters based on current filter values
+    // This ensures consistency: if no filters, show all data; if filters applied, show filtered data
+    
+    // Filter survey data using getVal for smart field mapping
+    let surveyData = allSubmissions.filter(r => {
+        const rPradesh = getVal(r, 'pradesh', 'प्रदेश');
+        const rJilla = getVal(r, 'jilla', 'जिल्ला');
+        const rSthaaniya = getVal(r, 'sthaaniya_taha', 'स्थानीय तह');
+        const rOffice = getVal(r, 'mukhya_karyalay', 'कार्यालय');
+        
+        let pradeshMatch = !pradeshFilter;
+        if (pradeshFilter) {
+            const provinceName = PROVINCE[pradeshFilter];
+            pradeshMatch = (rPradesh == pradeshFilter || rPradesh === provinceName);
+        }
+        
+        const districtMatch = !districtFilter || rJilla === districtFilter;
+        const sthaaniyaMatch = !sthaaniyaFilter || rSthaaniya === sthaaniyaFilter;
+        const officeMatch = !officeFilter || (rOffice || "").toLowerCase().includes(officeFilter);
+        
+        return pradeshMatch && districtMatch && sthaaniyaMatch && officeMatch;
+    });
+
+    // Filter monitoring data using getVal for smart field mapping
+    let monitoringData = allMonitorings.filter(r => {
+        const rPradesh = getVal(r, 'pradesh', 'प्रदेश');
+        const rJilla = getVal(r, 'jilla', 'जिल्ला');
+        const rSthaaniya = getVal(r, 'sthaaniya_taha', 'स्थानीय तह');
+        const rOffice = getVal(r, 'm_office', 'कार्यालय');
+        
+        let pradeshMatch = !pradeshFilter;
+        if (pradeshFilter) {
+            const provinceName = PROVINCE[pradeshFilter];
+            pradeshMatch = (rPradesh == pradeshFilter || rPradesh === provinceName);
+        }
+        
+        const districtMatch = !districtFilter || rJilla === districtFilter;
+        const sthaaniyaMatch = !sthaaniyaFilter || rSthaaniya === sthaaniyaFilter;
+        const officeMatch = !officeFilter || (rOffice || "").toLowerCase().includes(officeFilter);
+        
+        return pradeshMatch && districtMatch && sthaaniyaMatch && officeMatch;
+    });
+
+    // Filter attendance data using getVal for smart field mapping
+    let attendanceData = allAttendanceMonitorings.filter(r => {
+        const rPradesh = getVal(r, 'pradesh', 'प्रदेश');
+        const rJilla = getVal(r, 'jilla', 'जिल्ला');
+        const rSthaaniya = getVal(r, 'sthaaniya_taha', 'स्थानीय तह');
+        const rOffice = getVal(r, 'office', 'कार्यालय');
+        
+        let pradeshMatch = !pradeshFilter;
+        if (pradeshFilter) {
+            const provinceName = PROVINCE[pradeshFilter];
+            pradeshMatch = (rPradesh == pradeshFilter || rPradesh === provinceName);
+        }
+        
+        const districtMatch = !districtFilter || rJilla === districtFilter;
+        const sthaaniyaMatch = !sthaaniyaFilter || rSthaaniya === sthaaniyaFilter;
+        const officeMatch = !officeFilter || (rOffice || "").toLowerCase().includes(officeFilter);
+        
+        return pradeshMatch && districtMatch && sthaaniyaMatch && officeMatch;
+    });
+
+    // Calculate summaries based on showAll parameter
+    let monitoringSummary, surveySummary, attendanceSummary;
+    
+    if (showAll) {
+        // Show all three sections
+        monitoringSummary = calculateMonitoringSummary(monitoringData);
+        surveySummary = calculateSurveySummary(surveyData);
+        attendanceSummary = calculateAttendanceSummary(attendanceData);
+    } else {
+        // Show only current dashboard section
+        if (currentDashboardView === 'survey') {
+            monitoringSummary = { total_count: 0, total_staff: 0, vacant_staff: 0, charter_clear: 0, charter_not_clear: 0, charter_difficult: 0, charter_none: 0, process_clear: 0, process_not_mentioned: 0, process_partial: 0, process_none: 0, broker_seen: 0, broker_not_seen: 0, staff_found: 0, staff_not_found: 0, staff_partial: 0, cleaning_good: 0, cleaning_bad: 0, cleaning_ok: 0, helpdesk_yes: 0, helpdesk_no: 0, helpdesk_normal: 0 };
+            surveySummary = calculateSurveySummary(surveyData);
+            attendanceSummary = { absent_today: 0, absent_prev: 0, no_uniform: 0, not_in_room: 0 };
+        } else if (currentDashboardView === 'monitoring') {
+            monitoringSummary = calculateMonitoringSummary(monitoringData);
+            surveySummary = { charter_info_yes: 0, charter_info_no: 0, work_done_yes: 0, work_done_no: 0, helper_yes: 0, helper_no: 0, ghus_yes: 0, ghus_no: 0, satisfied: 0, unsatisfied: 0, sat_time: 0, sat_fee: 0, sat_quality: 0, sat_process: 0, sat_behavior: 0, sat_other: 0, unsat_time: 0, unsat_fee: 0, unsat_quality: 0, unsat_process: 0, unsat_behavior: 0, unsat_ghus: 0, unsat_other: 0, yojana_sat: 0, yojana_unsat: 0, yojana_unsat_time: 0, yojana_unsat_quality: 0, yojana_unsat_standard: 0, yojana_unsat_other: 0 };
+            attendanceSummary = { absent_today: 0, absent_prev: 0, no_uniform: 0, not_in_room: 0 };
+        } else if (currentDashboardView === 'attendance') {
+            monitoringSummary = { total_count: 0, total_staff: 0, vacant_staff: 0, charter_clear: 0, charter_not_clear: 0, charter_difficult: 0, charter_none: 0, process_clear: 0, process_not_mentioned: 0, process_partial: 0, process_none: 0, broker_seen: 0, broker_not_seen: 0, staff_found: 0, staff_not_found: 0, staff_partial: 0, cleaning_good: 0, cleaning_bad: 0, cleaning_ok: 0, helpdesk_yes: 0, helpdesk_no: 0, helpdesk_normal: 0 };
+            surveySummary = { charter_info_yes: 0, charter_info_no: 0, work_done_yes: 0, work_done_no: 0, helper_yes: 0, helper_no: 0, ghus_yes: 0, ghus_no: 0, satisfied: 0, unsatisfied: 0, sat_time: 0, sat_fee: 0, sat_quality: 0, sat_process: 0, sat_behavior: 0, sat_other: 0, unsat_time: 0, unsat_fee: 0, unsat_quality: 0, unsat_process: 0, unsat_behavior: 0, unsat_ghus: 0, unsat_other: 0, yojana_sat: 0, yojana_unsat: 0, yojana_unsat_time: 0, yojana_unsat_quality: 0, yojana_unsat_standard: 0, yojana_unsat_other: 0 };
+            attendanceSummary = calculateAttendanceSummary(attendanceData);
+        }
+    }
+
+    // Show/hide sections based on showAll parameter
+    const monitoringSection = document.querySelector('#statusSummaryContent .summary-section:nth-child(1)');
+    const surveySection = document.querySelector('#statusSummaryContent .summary-section:nth-child(2)');
+    const attendanceSection = document.querySelector('#statusSummaryContent .summary-section:nth-child(3)');
+
+    if (showAll) {
+        if (monitoringSection) monitoringSection.style.display = 'block';
+        if (surveySection) surveySection.style.display = 'block';
+        if (attendanceSection) attendanceSection.style.display = 'block';
+    } else {
+        if (currentDashboardView === 'survey') {
+            if (monitoringSection) monitoringSection.style.display = 'none';
+            if (surveySection) surveySection.style.display = 'block';
+            if (attendanceSection) attendanceSection.style.display = 'none';
+        } else if (currentDashboardView === 'monitoring') {
+            if (monitoringSection) monitoringSection.style.display = 'block';
+            if (surveySection) surveySection.style.display = 'none';
+            if (attendanceSection) attendanceSection.style.display = 'none';
+        } else if (currentDashboardView === 'attendance') {
+            if (monitoringSection) monitoringSection.style.display = 'none';
+            if (surveySection) surveySection.style.display = 'none';
+            if (attendanceSection) attendanceSection.style.display = 'block';
+        }
+    }
+
+    // Update monitoring summary UI
+    document.getElementById('m_total_count').textContent = toNepaliDigits(monitoringSummary.total_count);
+    document.getElementById('m_total_staff').textContent = toNepaliDigits(monitoringSummary.total_staff);
+    document.getElementById('m_vacant_staff').textContent = toNepaliDigits(monitoringSummary.vacant_staff);
+    document.getElementById('m_charter_clear').textContent = toNepaliDigits(monitoringSummary.charter_clear);
+    document.getElementById('m_charter_not_clear').textContent = toNepaliDigits(monitoringSummary.charter_not_clear);
+    document.getElementById('m_charter_difficult').textContent = toNepaliDigits(monitoringSummary.charter_difficult);
+    document.getElementById('m_charter_none').textContent = toNepaliDigits(monitoringSummary.charter_none);
+    document.getElementById('m_process_clear').textContent = toNepaliDigits(monitoringSummary.process_clear);
+    document.getElementById('m_process_not_mentioned').textContent = toNepaliDigits(monitoringSummary.process_not_mentioned);
+    document.getElementById('m_process_partial').textContent = toNepaliDigits(monitoringSummary.process_partial);
+    document.getElementById('m_process_none').textContent = toNepaliDigits(monitoringSummary.process_none);
+    document.getElementById('m_broker_seen').textContent = toNepaliDigits(monitoringSummary.broker_seen);
+    document.getElementById('m_broker_not_seen').textContent = toNepaliDigits(monitoringSummary.broker_not_seen);
+    document.getElementById('m_staff_found').textContent = toNepaliDigits(monitoringSummary.staff_found);
+    document.getElementById('m_staff_not_found').textContent = toNepaliDigits(monitoringSummary.staff_not_found);
+    document.getElementById('m_staff_partial').textContent = toNepaliDigits(monitoringSummary.staff_partial);
+    document.getElementById('m_cleaning_good').textContent = toNepaliDigits(monitoringSummary.cleaning_good);
+    document.getElementById('m_cleaning_bad').textContent = toNepaliDigits(monitoringSummary.cleaning_bad);
+    document.getElementById('m_cleaning_ok').textContent = toNepaliDigits(monitoringSummary.cleaning_ok);
+    document.getElementById('m_helpdesk_yes').textContent = toNepaliDigits(monitoringSummary.helpdesk_yes);
+    document.getElementById('m_helpdesk_no').textContent = toNepaliDigits(monitoringSummary.helpdesk_no);
+    document.getElementById('m_helpdesk_normal').textContent = toNepaliDigits(monitoringSummary.helpdesk_normal);
+
+    // Update survey summary UI
+    document.getElementById('s_charter_info_yes').textContent = toNepaliDigits(surveySummary.charter_info_yes);
+    document.getElementById('s_charter_info_no').textContent = toNepaliDigits(surveySummary.charter_info_no);
+    document.getElementById('s_work_done_yes').textContent = toNepaliDigits(surveySummary.work_done_yes);
+    document.getElementById('s_work_done_no').textContent = toNepaliDigits(surveySummary.work_done_no);
+    document.getElementById('s_helper_yes').textContent = toNepaliDigits(surveySummary.helper_yes);
+    document.getElementById('s_helper_no').textContent = toNepaliDigits(surveySummary.helper_no);
+    document.getElementById('s_ghus_yes').textContent = toNepaliDigits(surveySummary.ghus_yes);
+    document.getElementById('s_ghus_no').textContent = toNepaliDigits(surveySummary.ghus_no);
+    document.getElementById('s_satisfied').textContent = toNepaliDigits(surveySummary.satisfied);
+    document.getElementById('s_unsatisfied').textContent = toNepaliDigits(surveySummary.unsatisfied);
+    document.getElementById('s_sat_time').textContent = toNepaliDigits(surveySummary.sat_time);
+    document.getElementById('s_sat_fee').textContent = toNepaliDigits(surveySummary.sat_fee);
+    document.getElementById('s_sat_quality').textContent = toNepaliDigits(surveySummary.sat_quality);
+    document.getElementById('s_sat_process').textContent = toNepaliDigits(surveySummary.sat_process);
+    document.getElementById('s_sat_behavior').textContent = toNepaliDigits(surveySummary.sat_behavior);
+    document.getElementById('s_sat_other').textContent = toNepaliDigits(surveySummary.sat_other);
+    document.getElementById('s_unsat_time').textContent = toNepaliDigits(surveySummary.unsat_time);
+    document.getElementById('s_unsat_fee').textContent = toNepaliDigits(surveySummary.unsat_fee);
+    document.getElementById('s_unsat_quality').textContent = toNepaliDigits(surveySummary.unsat_quality);
+    document.getElementById('s_unsat_process').textContent = toNepaliDigits(surveySummary.unsat_process);
+    document.getElementById('s_unsat_behavior').textContent = toNepaliDigits(surveySummary.unsat_behavior);
+    document.getElementById('s_unsat_ghus').textContent = toNepaliDigits(surveySummary.unsat_ghus);
+    document.getElementById('s_unsat_other').textContent = toNepaliDigits(surveySummary.unsat_other);
+    document.getElementById('s_yojana_sat').textContent = toNepaliDigits(surveySummary.yojana_sat);
+    document.getElementById('s_yojana_unsat').textContent = toNepaliDigits(surveySummary.yojana_unsat);
+    document.getElementById('s_yojana_unsat_time').textContent = toNepaliDigits(surveySummary.yojana_unsat_time);
+    document.getElementById('s_yojana_unsat_quality').textContent = toNepaliDigits(surveySummary.yojana_unsat_quality);
+    document.getElementById('s_yojana_unsat_standard').textContent = toNepaliDigits(surveySummary.yojana_unsat_standard);
+    document.getElementById('s_yojana_unsat_other').textContent = toNepaliDigits(surveySummary.yojana_unsat_other);
+
+    // Update attendance summary UI
+    document.getElementById('a_absent_today').textContent = toNepaliDigits(attendanceSummary.absent_today);
+    document.getElementById('a_absent_prev').textContent = toNepaliDigits(attendanceSummary.absent_prev);
+    document.getElementById('a_no_uniform').textContent = toNepaliDigits(attendanceSummary.no_uniform);
+    document.getElementById('a_not_in_room').textContent = toNepaliDigits(attendanceSummary.not_in_room);
+
+    // Show modal
+    modal.style.display = 'flex';
+}
+
+// Function to show only current dashboard data
+function openCurrentDashboardSummary() {
+    openStatusSummaryModal(false);
+}
+
+// Event listeners for status summary modal
+document.addEventListener('DOMContentLoaded', function() {
+    // Open modal on button click (first button - shows all data)
+    const statusSummaryAllBtn = document.getElementById('statusSummaryAllBtn');
+    if (statusSummaryAllBtn) {
+        statusSummaryAllBtn.addEventListener('click', openStatusSummaryModal);
+    }
+
+    // Close modal on close button click
+    const closeStatusSummary = document.getElementById('closeStatusSummary');
+    if (closeStatusSummary) {
+        closeStatusSummary.addEventListener('click', function() {
+            const modal = document.getElementById('statusSummaryModal');
+            if (modal) modal.style.display = 'none';
+        });
+    }
+
+    // Close modal on outside click
+    const statusSummaryModal = document.getElementById('statusSummaryModal');
+    if (statusSummaryModal) {
+        statusSummaryModal.addEventListener('click', function(e) {
+            if (e.target === statusSummaryModal) {
+                statusSummaryModal.style.display = 'none';
+            }
+        });
+    }
+});

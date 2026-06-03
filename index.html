@@ -571,11 +571,11 @@
             <div class="dashboard-card">
                 <!-- View Toggles -->
                 <div style="display: flex; gap: 10px; margin-bottom: 20px; justify-content: center;">
-                    <button id="showSurveyView" class="tab-btn" style="flex: 1; max-width: 300px; padding: 7px 20px;">सेवाग्राही सर्वेक्षण</button>
-                    <button id="showMonitoringView" class="tab-btn active" style="flex: 1; max-width: 300px; padding: 7px 20px;">कार्यालय/नागरिक बडापत्र अनुगमन</button>
-                    <button id="showAttendanceView" class="tab-btn" style="flex: 1; max-width: 300px; padding: 7px 20px;">समय पालना/पोशाक अनुगमन</button>
-                    <button id="toggleMapBtn" class="tab-btn" onclick="toggleMapVisibility()" style="background: #e67e22; color: white; border-color: #d35400; padding: 3px 10px; font-size: 0.8rem; display: flex; align-items: center; justify-content: center;"><i class="fas fa-map-marked-alt"></i> नक्सामा हेर्नुहोस्</button>
-                    <button id="toggleAlertsVisibilityBtn" class="tab-btn" onclick="toggleAlertsVisibility()" style="display: none; background: #de3053; color: white; border-color: #c03e37; padding: 3px 10px; font-size: 0.8rem; display: flex; align-items: center; justify-content: center;"><i class="fas fa-bell"></i> अलर्ट लुकाउनुहोस्</button>
+                    <button id="showSurveyView" class="tab-btn" style="flex: 1; max-width: 300px; padding: 6px 20px;">सेवाग्राही सर्वेक्षण</button>
+                    <button id="showMonitoringView" class="tab-btn active" style="flex: 1; max-width: 300px; padding: 6px 20px;">कार्यालय/नागरिक बडापत्र अनुगमन</button>
+                    <button id="showAttendanceView" class="tab-btn" style="flex: 1; max-width: 300px; padding: 6px 20px;">समय पालना/पोशाक अनुगमन</button>
+                    <button id="toggleMapBtn" class="tab-btn" onclick="toggleMapVisibility()" style="background: #e67e22; color: white; border-color: #d35400; padding: 2px 10px; font-size: 0.8rem; display: flex; align-items: center; justify-content: center;"><i class="fas fa-map-marked-alt"></i> नक्सामा हेर्नुहोस्</button>
+                    <button id="toggleAlertsVisibilityBtn" class="tab-btn" onclick="toggleAlertsVisibility()" style="display: none; background: #de3053; color: white; border-color: #c03e37; padding: 2px 10px; font-size: 0.8rem; display: flex; align-items: center; justify-content: center;"><i class="fas fa-bell"></i> अलर्ट लुकाउनुहोस्</button>
                 </div>
 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; cursor: pointer; padding: 0 5px;" id="filterToggleHeader">
@@ -665,6 +665,7 @@
                     </div>
                     <button id="applyFilter" style="background:#0c3c89; border:none; border-radius:6px; color:white; cursor:pointer;">फिल्टर लागू गर्नुहोस्</button>
                     <button id="resetFilter" style="background:#ba2845; border:none; border-radius:6px; color:white; cursor:pointer;">रिसेट</button>
+                    <button id="statusSummaryAllBtn" style="background:#8b5cf6; border:none; border-radius:6px; color:white; cursor:pointer; font-family: 'Kalimati', sans-serif;">सम्पूर्ण स्थिति सारांश</button>
                     <button id="downloadAttendancePDF" style="display: none; background:#27ae60; border:none; border-radius:6px; color:white; cursor:pointer; font-family: 'Kalimati', sans-serif;">PDF रिपोर्ट</button>
                     <button id="exportAttendanceExcel" style="display: none; background:#1d6f42; border:none; border-radius:6px; color:white; cursor:pointer; font-family: 'Kalimati', sans-serif;">Excel Export</button>
                 </div>
@@ -874,7 +875,7 @@
                 <div id="monitoringDetailsSection" style="display: none; margin-top: 20px; padding: 12px; background: #f8fafc; border: 1px solid #e8eef5; border-radius: 10px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #306a95;">
                         <h4 style="font-family:'Kalimati', sans-serif; color: #306995c3; margin-bottom: 0; display: inline-block;">अनुगमनका विस्तृत विवरणहरू</h4>
-                        <button id="downloadMonitoringReport" style="background: #27ae3d9f; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-family: 'Kalimati', sans-serif;">रिपोर्ट डाउनलोड गर्नुहोस्</button>
+                        <button id="downloadMonitoringReport" style="background: #27ae3d9f; color: white; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-family: 'Kalimati', sans-serif;">रिपोर्ट डाउनलोड गर्नुहोस्</button>
                     </div>
                     <div id="monitoringDetailsList" style="display: flex; flex-direction: column; gap: 15px;"></div>
                 </div>
@@ -905,13 +906,142 @@
         </div>
     </div>
 
+    <!-- Status Summary Modal -->
+    <div id="statusSummaryModal" class="modal-overlay">
+        <div class="modal-content">
+            <button type="button" id="closeStatusSummary" class="modal-close-btn"><i class="fas fa-times"></i></button>
+            <h4 class="modal-title">स्थिति सारांश - फिल्टर लागू भएको क्षेत्र</h4>
+            
+            <div id="statusSummaryContent" style="display: flex; flex-direction: column; gap: 20px;">
+                
+                <!-- Section 1: कार्यालय/नागरिक बडापत्र अनुगमन सम्बन्धी विवरण -->
+                <div class="summary-section">
+                    <h5 class="summary-subtitle" style="font-size: 1rem; border-bottom: 2px solid #3182ce; padding-bottom: 5px; margin-bottom: 12px; color: #2c5282;">कार्यालय/नागरिक बडापत्र अनुगमन सम्बन्धी विवरण</h5>
+                    <div class="summary-grid" id="monitoringSummary">
+                        <div class="summary-item"><span class="summary-label">कुल कार्यालय अनुगमन:</span><span class="summary-value" id="m_total_count">०</span></div>
+                        <div class="summary-item"><span class="summary-label">कुल दरबन्दी:</span><span class="summary-value" id="m_total_staff">०</span></div>
+                        <div class="summary-item"><span class="summary-label">रिक्त दरबन्दी:</span><span class="summary-value" id="m_vacant_staff">०</span></div>
+                        
+                        <div class="summary-subsection">
+                            <span class="summary-subtitle">नागरिक बडापत्र:</span>
+                            <div class="summary-item"><span class="summary-label">स्पष्ट बुझिने:</span><span class="summary-value" id="m_charter_clear">०</span></div>
+                            <div class="summary-item"><span class="summary-label">स्पष्ट नबुझिने:</span><span class="summary-value" id="m_charter_not_clear">०</span></div>
+                            <div class="summary-item"><span class="summary-label">पढ्न झन्झटिलो:</span><span class="summary-value" id="m_charter_difficult">०</span></div>
+                            <div class="summary-item"><span class="summary-label">नभएको:</span><span class="summary-value" id="m_charter_none">०</span></div>
+                        </div>
+                        
+                        <div class="summary-subsection">
+                            <span class="summary-subtitle">सेवा प्रक्रिया, कागजात, लागत र समय:</span>
+                            <div class="summary-item"><span class="summary-label">स्पष्ट उल्लेख भएको:</span><span class="summary-value" id="m_process_clear">०</span></div>
+                            <div class="summary-item"><span class="summary-label">उल्लेख नभएको:</span><span class="summary-value" id="m_process_not_mentioned">०</span></div>
+                            <div class="summary-item"><span class="summary-label">आंशिक:</span><span class="summary-value" id="m_process_partial">०</span></div>
+                            <div class="summary-item"><span class="summary-label">नभएको:</span><span class="summary-value" id="m_process_none">०</span></div>
+                        </div>
+                        
+                        <div class="summary-subsection">
+                            <span class="summary-subtitle">मध्यस्थकर्ताको प्रवेश:</span>
+                            <div class="summary-item"><span class="summary-label">देखियो:</span><span class="summary-value" id="m_broker_seen">०</span></div>
+                            <div class="summary-item"><span class="summary-label">देखिएन:</span><span class="summary-value" id="m_broker_not_seen">०</span></div>
+                        </div>
+                        
+                        <div class="summary-subsection">
+                            <span class="summary-subtitle">कर्मचारीहरु तोकिएको कार्यकक्षमा रहेको:</span>
+                            <div class="summary-item"><span class="summary-label">भेटियो:</span><span class="summary-value" id="m_staff_found">०</span></div>
+                            <div class="summary-item"><span class="summary-label">भेटिएन:</span><span class="summary-value" id="m_staff_not_found">०</span></div>
+                            <div class="summary-item"><span class="summary-label">आंशिक:</span><span class="summary-value" id="m_staff_partial">०</span></div>
+                        </div>
+                        
+                        <div class="summary-subsection">
+                            <span class="summary-subtitle">कार्यालयको सरसफाइको अवस्था:</span>
+                            <div class="summary-item"><span class="summary-label">राम्रो:</span><span class="summary-value" id="m_cleaning_good">०</span></div>
+                            <div class="summary-item"><span class="summary-label">नराम्रो:</span><span class="summary-value" id="m_cleaning_bad">०</span></div>
+                            <div class="summary-item"><span class="summary-label">ठीकै:</span><span class="summary-value" id="m_cleaning_ok">०</span></div>
+                        </div>
+                        
+                        <div class="summary-subsection">
+                            <span class="summary-subtitle">सेवाग्राही सहायता कक्ष:</span>
+                            <div class="summary-item"><span class="summary-label">छ:</span><span class="summary-value" id="m_helpdesk_yes">०</span></div>
+                            <div class="summary-item"><span class="summary-label">छैन:</span><span class="summary-value" id="m_helpdesk_no">०</span></div>
+                            <div class="summary-item"><span class="summary-label">सामान्य:</span><span class="summary-value" id="m_helpdesk_normal">०</span></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Section 2: सेवाग्राही सर्वेक्षणको प्रतिक्रिया -->
+                <div class="summary-section">
+                    <h5 class="summary-subtitle" style="font-size: 1rem; border-bottom: 2px solid #27ae60; padding-bottom: 5px; margin-bottom: 12px; color: #27ae60;">सेवाग्राही सर्वेक्षणको प्रतिक्रिया</h5>
+                    <div class="summary-grid" id="surveySummary">
+                        <div class="summary-item"><span class="summary-label">नागरिक बडापत्रको जानकारी (छ):</span><span class="summary-value" id="s_charter_info_yes">०</span></div>
+                        <div class="summary-item"><span class="summary-label">नागरिक बडापत्रको जानकारी (छैन):</span><span class="summary-value" id="s_charter_info_no">०</span></div>
+                        
+                        <div class="summary-item"><span class="summary-label">तोकिएको समयमा काम भएको (भयो):</span><span class="summary-value" id="s_work_done_yes">०</span></div>
+                        <div class="summary-item"><span class="summary-label">तोकिएको समयमा काम भएको (भएन):</span><span class="summary-value" id="s_work_done_no">०</span></div>
+                        
+                        <div class="summary-item"><span class="summary-label">बाहिरी व्यक्तिको सहयोग (पर्‍यो):</span><span class="summary-value" id="s_helper_yes">०</span></div>
+                        <div class="summary-item"><span class="summary-label">बाहिरी व्यक्तिको सहयोग (परेन):</span><span class="summary-value" id="s_helper_no">०</span></div>
+                        
+                        <div class="summary-item"><span class="summary-label">अतिरिक्त रकम (घुस) (पर्‍यो):</span><span class="summary-value" id="s_ghus_yes">०</span></div>
+                        <div class="summary-item"><span class="summary-label">अतिरिक्त रकम (घुस) (परेन):</span><span class="summary-value" id="s_ghus_no">०</span></div>
+                        
+                        <div class="summary-item"><span class="summary-label">सन्तुष्ट:</span><span class="summary-value" id="s_satisfied">०</span></div>
+                        <div class="summary-item"><span class="summary-label">असन्तुष्ट:</span><span class="summary-value" id="s_unsatisfied">०</span></div>
+                        
+                        <div class="summary-subsection">
+                            <span class="summary-subtitle">सन्तुष्टिको कारण:</span>
+                            <div class="summary-item"><span class="summary-label">समयमै काम भएको:</span><span class="summary-value" id="s_sat_time">०</span></div>
+                            <div class="summary-item"><span class="summary-label">सेवा शुल्क उचित भएको:</span><span class="summary-value" id="s_sat_fee">०</span></div>
+                            <div class="summary-item"><span class="summary-label">सेवा गुणस्तरीय भएको:</span><span class="summary-value" id="s_sat_quality">०</span></div>
+                            <div class="summary-item"><span class="summary-label">प्रक्रिया सहज भएको:</span><span class="summary-value" id="s_sat_process">०</span></div>
+                            <div class="summary-item"><span class="summary-label">कर्मचारीको व्यवहार राम्रो रहेको:</span><span class="summary-value" id="s_sat_behavior">०</span></div>
+                            <div class="summary-item"><span class="summary-label">अन्य:</span><span class="summary-value" id="s_sat_other">०</span></div>
+                        </div>
+                        
+                        <div class="summary-subsection">
+                            <span class="summary-subtitle">असन्तुष्टिको कारण:</span>
+                            <div class="summary-item"><span class="summary-label">समयमा काम नभएको:</span><span class="summary-value" id="s_unsat_time">०</span></div>
+                            <div class="summary-item"><span class="summary-label">सेवा शुल्क बढी भएको:</span><span class="summary-value" id="s_unsat_fee">०</span></div>
+                            <div class="summary-item"><span class="summary-label">सेवा गुणस्तरीय नभएको:</span><span class="summary-value" id="s_unsat_quality">०</span></div>
+                            <div class="summary-item"><span class="summary-label">प्रक्रिया झन्झटिलो भएको:</span><span class="summary-value" id="s_unsat_process">०</span></div>
+                            <div class="summary-item"><span class="summary-label">कर्मचारीको व्यवहार राम्रो नरहेको:</span><span class="summary-value" id="s_unsat_behavior">०</span></div>
+                            <div class="summary-item"><span class="summary-label">अतिरिक्त रकम दिनुपरेकोले:</span><span class="summary-value" id="s_unsat_ghus">०</span></div>
+                            <div class="summary-item"><span class="summary-label">अन्य:</span><span class="summary-value" id="s_unsat_other">०</span></div>
+                        </div>
+                        
+                        <div class="summary-item"><span class="summary-label">योजनाबाट सन्तुष्टि (सन्तुष्ट):</span><span class="summary-value" id="s_yojana_sat">०</span></div>
+                        <div class="summary-item"><span class="summary-label">योजनाबाट सन्तुष्टि (असन्तुष्ट):</span><span class="summary-value" id="s_yojana_unsat">०</span></div>
+                        
+                        <div class="summary-subsection">
+                            <span class="summary-subtitle">योजना असन्तुष्टिको कारण:</span>
+                            <div class="summary-item"><span class="summary-label">तोकिएको समयमा योजना सम्पन्न नभएकोले:</span><span class="summary-value" id="s_yojana_unsat_time">०</span></div>
+                            <div class="summary-item"><span class="summary-label">गुणस्तर कमजोर भएकोले:</span><span class="summary-value" id="s_yojana_unsat_quality">०</span></div>
+                            <div class="summary-item"><span class="summary-label">मापदण्ड विपरीत भएकोले:</span><span class="summary-value" id="s_yojana_unsat_standard">०</span></div>
+                            <div class="summary-item"><span class="summary-label">अन्य:</span><span class="summary-value" id="s_yojana_unsat_other">०</span></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Section 3: समय पालना/पोशाक अनुगमनबाट देखिएको स्थिति -->
+                <div class="summary-section">
+                    <h5 class="summary-subtitle" style="font-size: 1rem; border-bottom: 2px solid #e67e22; padding-bottom: 5px; margin-bottom: 12px; color: #e67e22;">समय पालना/पोशाक अनुगमनबाट देखिएको स्थिति</h5>
+                    <div class="summary-grid" id="attendanceSummary">
+                        <div class="summary-item"><span class="summary-label">अनुगमन मितिमा अनुपस्थित/ढिला आउने:</span><span class="summary-value" id="a_absent_today">०</span></div>
+                        <div class="summary-item"><span class="summary-label">अघिल्लो मितिमा अनुपस्थित/ढिला:</span><span class="summary-value" id="a_absent_prev">०</span></div>
+                        <div class="summary-item"><span class="summary-label">तोकिएको पोशाक नलगाएको:</span><span class="summary-value" id="a_no_uniform">०</span></div>
+                        <div class="summary-item"><span class="summary-label">हाजिर भई कार्यकक्षमा नभेटिएको:</span><span class="summary-value" id="a_not_in_room">०</span></div>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+
     <!-- Update Indicator Toast -->
     <div id="updateIndicator" class="update-toast"><i class="fas fa-sync-alt fa-spin"></i> तथ्याङ्क अद्यावधिक हुँदैछ...</div>
 
     <!-- Loading Overlay -->
     <div id="loadingOverlay" class="loading-overlay">
         <div class="spinner"></div>
-        <div class="loading-text">डाटा सुरक्षित हुँदैछ, कृपया केही समय पर्खनुहोस्...</div>
+        <div class="loading-text">डाटा अपडेट हुँदैछ, कृपया केही समय पर्खनुहोस्...</div>
     </div>
 
     <!-- Sync Indicator -->
