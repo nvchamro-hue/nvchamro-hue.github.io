@@ -19,6 +19,14 @@
     <!-- Leaflet GIS Map CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+    <!-- Gemini AI SDK -->
+    <script type="importmap">
+        {
+          "imports": {
+            "@google/generative-ai": "https://esm.run/@google/generative-ai"
+          }
+        }
+    </script>
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -912,6 +920,16 @@
             <button type="button" id="closeStatusSummary" class="modal-close-btn"><i class="fas fa-times"></i></button>
             <h4 class="modal-title">स्थिति सारांश - फिल्टर लागू भएको क्षेत्र</h4>
             
+            <!-- AI Analysis Section -->
+            <div id="aiAnalysisSection" style="margin-bottom: 20px; display: none;">
+                <div style="background: linear-gradient(135deg, #f6f9fc 0%, #edf2f7 100%); border-left: 4px solid #387ae6; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                    <h5 style="color: #2c5282; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-robot"></i> Gemini AI स्थिति विश्लेषण रिपोर्ट
+                    </h5>
+                    <div id="aiAnalysisContent" style="font-size: 0.9rem; color: #2d3748; line-height: 1.7; white-space: pre-wrap;">AI विश्लेषण तयार हुँदैछ...</div>
+                </div>
+            </div>
+
             <div id="statusSummaryContent" style="display: flex; flex-direction: column; gap: 20px;">
                 
                 <!-- Section 1: कार्यालय/नागरिक बडापत्र अनुगमन सम्बन्धी विवरण -->

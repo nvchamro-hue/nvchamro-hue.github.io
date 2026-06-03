@@ -1,5 +1,9 @@
 // Google Apps Script Web App URL (Replace with actual deployed URL)
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz-JpXGExJWgiTueg9xC-xObZXrUySk6c_7aKTJbV-fmr-wIjloGqjx2W7v9Zmwigmy/exec"; 
+
+// Gemini API Key (Use cautiously in frontend)
+const GEMINI_API_KEY = "AQ.Ab8RN6IHbLdseGlFJXjtKCcqjRSoRPdjbGsZiTwN0Xh7tn9jfQ"; 
+
 let allSubmissions = [];
 let allMonitorings = []; // अनुगमन डाटाको लागि
 let allAttendanceMonitorings = []; // समय पालना/पोशाक डाटाको लागि
@@ -4035,6 +4039,93 @@ function calculateAttendanceSummary(filteredData) {
 }
 
 /**
+ * स्कोर अनुसार स्थिति वर्गीकरण गर्ने (app.js बाट साभार)
+ */
+function classifyStatus(score) {
+    if (score >= 90) return "उत्कृष्ट";
+    if (score >= 75) return "राम्रो";
+    if (score >= 60) return "सुधार आवश्यक";
+    if (score >= 40) return "गम्भीर समीक्षा र सुधार आवश्यक";
+    return "तत्काल हस्तक्षेपको आवश्यकता";
+}
+
+/**
+ * Gemini AI प्रयोग गरेर स्थिति विश्लेषण गर्ने फङ्सन
+ */
+async function getAIStatusAnalysis(location, mSummary, sSummary, aSummary) {
+    const aiSection = document.getElementById('aiAnalysisSection');
+    const aiContent = document.getElementById('aiAnalysisContent');
+    if (!aiSection || !aiContent) return;
+
+    // API Key जाँच (Gemini Key प्राय: AIza बाट सुरु हुन्छ)
+    if (!GEMINI_API_KEY || !GEMINI_API_KEY.startsWith("AIza")) {
+        aiSection.style.display = "block";
+        aiContent.innerHTML = `
+            <div style="color: #e53e3e; background: #fff5f5; padding: 10px; border-radius: 5px; border: 1px solid #feb2b2;">
+                ⚠️ <strong>API Key त्रुटि:</strong> कृपया <a href="https://aistudio.google.com/" target="_blank">Google AI Studio</a> बाट वैध API Key लिएर <code>script.js</code> को सुरुमा राख्नुहोस्।
+            </div>`;
+        return;
+    }
+
+    aiSection.style.display = "block";
+    aiContent.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gemini AI ले डेटा विश्लेषण गर्दैछ, कृपया केही समय पर्खनुहोस्...';
+
+    try {
+        const { GoogleGenerativeAI } = await import("@google/generative-ai");
+        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+        
+        // v1beta को सट्टा stable v1 प्रयोग गर्न सकिन्छ, तर SDK ले आफैं व्यवस्थापन गर्छ
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); 
+
+        // app.js को लजिक अनुसार विस्तृत स्कोर गणना
+        const mScore = mSummary.total_count > 0 ? Number(((mSummary.charter_clear + mSummary.process_clear + mSummary.staff_found) / (mSummary.total_count * 3) * 100).toFixed(2)) : 0;
+        const sScore = (sSummary.satisfied + sSummary.unsatisfied) > 0 ? Number((sSummary.satisfied / (sSummary.satisfied + sSummary.unsatisfied) * 100).toFixed(2)) : 0;
+        const aScore = 100 - (aSummary.absent_today * 10 + aSummary.no_uniform * 5); // नमुना कटौती लजिक
+        
+        const overallScore = Number(((mScore + sScore + (aScore > 0 ? aScore : 0)) / 3).toFixed(2));
+        const classification = classifyStatus(overallScore);
+
+        const prompt = `
+तपाईं राष्ट्रिय सतर्कता केन्द्रको "सार्वजनिक सेवा तथा सुशासन अनुगमन विश्लेषक" हुनुहुन्छ।
+निम्न क्षेत्रको नतिजाको प्रशासनिक भाषामा नेपालीमा विश्लेषण गर्नुहोस्।
+
+क्षेत्र: ${location}
+
+डेटा विवरण:
+१. कार्यालय अनुगमन (${mSummary.total_count} कार्यालय):
+- बडापत्र स्पष्ट: ${mSummary.charter_clear}, अस्पष्ट: ${mSummary.charter_not_clear}
+- मध्यस्थकर्ता देखियो: ${mSummary.broker_seen}, देखिएन: ${mSummary.broker_not_seen}
+- रिक्त पद: ${mSummary.vacant_staff} / कुल: ${mSummary.total_staff}
+
+२. सेवाग्राही सर्वेक्षण:
+- सन्तुष्ट: ${sSummary.satisfied}, असन्तुष्ट: ${sSummary.unsatisfied}
+- अतिरिक्त रकम (घुस) पर्‍यो: ${sSummary.ghus_yes}, परेन: ${sSummary.ghus_no}
+
+३. समय पालना:
+- अनुपस्थित/ढिला: ${aSummary.absent_today}, पोशाक नलगाएको: ${aSummary.no_uniform}
+
+गणना गरिएको स्कोर र वर्गीकरण:
+१. कार्यालय अनुगमन = ${mScore}%
+२. सेवाग्राही सर्वेक्षण = ${sScore}%
+३. समय पालना/पोशाक = ${aScore}%
+४. समग्र स्कोर = ${overallScore}%
+५. श्रेणी = ${classification}
+
+कृपया निम्न शीर्षकमा विश्लेषण लेख्नुहोस्:
+१. समग्र अवस्था, २. कार्यालय अनुगमन विश्लेषण, ३. समय/पोशाक विश्लेषण, ४. सेवाग्राही सर्वेक्षण विश्लेषण, ५. मुख्य समस्याहरू, ६. सुधारका लागि ठोस सुझावहरू, ७. निष्कर्ष
+
+भाषा: नेपाली (प्रशासनिक र औपचारिक)`;
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        aiContent.textContent = response.text();
+    } catch (error) {
+        console.error("AI Analysis Error:", error);
+        aiContent.innerHTML = "❌ AI विश्लेषण गर्दा प्राविधिक समस्या आयो। कृपया फेरि प्रयास गर्नुहोस्।";
+    }
+}
+
+/**
  * स्थिति सारांश (Status Summary) लाई PDF मा निर्यात गर्ने फङ्सन
  */
 async function downloadStatusSummaryPDF() {
@@ -4109,6 +4200,10 @@ function openStatusSummaryModal(showAll = true) {
     if (sLabel && sLabel !== "सबै") titleParts.push(sLabel);
 
     const modalTitleEl = modal.querySelector('.modal-title');
+    const locationText = titleParts.length > 0 
+        ? titleParts.join(' - ') 
+        : "सम्पूर्ण क्षेत्र";
+
     if (modalTitleEl) {
         const titleText = titleParts.length > 0 
             ? `स्थिति सारांश - ${titleParts.join(' - ')}` 
@@ -4314,6 +4409,9 @@ function openStatusSummaryModal(showAll = true) {
 
     // Show modal
     modal.style.display = 'flex';
+
+    // AI विश्लेषण सुरु गर्ने
+    getAIStatusAnalysis(locationText, monitoringSummary, surveySummary, attendanceSummary);
 }
 
 // Function to show only current dashboard data
