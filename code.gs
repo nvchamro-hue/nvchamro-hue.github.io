@@ -11,6 +11,11 @@ function doPost(e) {
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     var data = JSON.parse(e.postData.contents);
     
+    // AI विश्लेषण रिक्वेस्ट सम्हाल्ने
+    if (data.action === 'analyze') {
+      return handleAIAnalysis(data);
+    }
+
     // बहु-विकल्प (Arrays) लाई मिलाउने (String बनाउने)
     Object.keys(data).forEach(function(key) {
       // 'rows' लाई स्ट्रिङमा नबदल्ने ताकि कर्मचारी विवरणहरू सुरक्षित रहून्
@@ -69,6 +74,78 @@ function doPost(e) {
     return ContentService.createTextOutput("Success").setMimeType(ContentService.MimeType.TEXT);
   } catch (err) {
     return ContentService.createTextOutput("Error: " + err.message).setMimeType(ContentService.MimeType.TEXT);
+  }
+}
+
+/**
+ * Gemini AI मार्फत प्राप्त डाटाको विश्लेषण गर्ने
+ */
+function handleAIAnalysis(input) {
+  var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!apiKey) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error',
+      message: 'API Key not found. Please set GEMINI_API_KEY in Script Properties.'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var m = input.officeMonitoring;
+  var s = input.serviceSurvey;
+  var a = input.timeDressMonitoring;
+
+  // स्कोर गणना लजिक (Frontend को गणनासँग मेल खाने गरी)
+  var mScore = m.total_count > 0 ? ((m.charter_clear + m.process_clear + m.staff_found) / (m.total_count * 3) * 100).toFixed(2) : 0;
+  var sScore = (s.satisfied + s.unsatisfied) > 0 ? (s.satisfied / (s.satisfied + s.unsatisfied) * 100).toFixed(2) : 0;
+  var aScore = Math.max(0, 100 - (a.absent_today * 10 + a.no_uniform * 5)).toFixed(2);
+  
+  var overall = ((parseFloat(mScore) + parseFloat(sScore) + parseFloat(aScore)) / 3).toFixed(2);
+  var level = "";
+  if (overall >= 90) level = "उत्कृष्ट";
+  else if (overall >= 75) level = "राम्रो";
+  else if (overall >= 60) level = "सुधार आवश्यक";
+  else if (overall >= 40) level = "गम्भीर समीक्षा र सुधार आवश्यक";
+  else level = "तत्काल हस्तक्षेपको आवश्यकता";
+
+  // AI को लागि प्रम्प्ट तयार गर्ने
+  var prompt = "तपाईं राष्ट्रिय सतर्कता केन्द्रको 'सार्वजनिक सेवा तथा सुशासन अनुगमन विश्लेषक' हुनुहुन्छ। " +
+               "निम्न क्षेत्रको नतिजाको प्रशासनिक भाषामा नेपालीमा विश्लेषण गर्नुहोस्।\n\n" +
+               "क्षेत्र: " + input.location + "\n\n" +
+               "डेटा सारांश:\n" +
+               "१. कार्यालय अनुगमन: " + mScore + "%\n" +
+               "२. सेवाग्राही सर्वेक्षण: " + sScore + "%\n" +
+               "३. समय पालना/पोशाक: " + aScore + "%\n\n" +
+               "समग्र स्कोर: " + overall + "%\n" +
+               "श्रेणी: " + level + "\n\n" +
+               "कृपया निम्न शीर्षकमा विस्तृत विश्लेषण लेख्नुहोस्:\n" +
+               "१. समग्र अवस्था, २. कार्यालय अनुगमन विश्लेषण, ३. समय/पोशाक विश्लेषण, ४. सेवाग्राही सर्वेक्षण विश्लेषण, ५. मुख्य समस्याहरू, ६. सुधारका लागि ठोस सुझावहरू, ७. निष्कर्ष\n\n" +
+               "भाषा: नेपाली (प्रशासनिक र औपचारिक)";
+
+  var url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey;
+  var payload = {
+    "contents": [{ "parts": [{ "text": prompt }] }]
+  };
+
+  var options = {
+    "method": "post",
+    "contentType": "application/json",
+    "payload": JSON.stringify(payload),
+    "muteHttpExceptions": true
+  };
+
+  try {
+    var response = UrlFetchApp.fetch(url, options);
+    var json = JSON.parse(response.getContentText());
+    var aiText = json.candidates[0].content.parts[0].text;
+    
+    return ContentService.createTextOutput(JSON.stringify({
+      'status': 'success',
+      'analysis': aiText
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      'status': 'error',
+      'message': 'AI Error: ' + err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
   }
 }
 

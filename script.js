@@ -1,5 +1,5 @@
 // Google Apps Script Web App URL (Replace with actual deployed URL)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz-JpXGExJWgiTueg9xC-xObZXrUySk6c_7aKTJbV-fmr-wIjloGqjx2W7v9Zmwigmy/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz1rbnhJdHkahyumh9wRNxSptsA5CqmMsB1rbmhaXEOzkpfhC40NDQ9LmuHqWdB6TV6/exec"; 
 
 // सुरक्षाका लागि API Key अब backend (app.js) मा स्थानान्तरण गरिएको छ।
 
@@ -4129,20 +4129,26 @@ async function getAIStatusAnalysis(location, mSummary, sSummary, aSummary) {
     aiContent.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gemini AI ले डेटा विश्लेषण गर्दैछ, कृपया केही समय पर्खनुहोस्...';
 
     try {
-        // Backend API लाई POST request पठाउने
-        const response = await fetch('http://localhost:3000/api/analyze', {
+        // Apps Script (Server-side) लाई डेटा पठाउने
+        const payload = {
+            action: 'analyze',
+            location: location,
+            officeMonitoring: mSummary,
+            serviceSurvey: sSummary,
+            timeDressMonitoring: aSummary
+        };
+
+        const response = await fetch(SCRIPT_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                location,
-                officeMonitoring: mSummary,
-                serviceSurvey: sSummary,
-                timeDressMonitoring: aSummary
-            })
+            body: JSON.stringify(payload)
         });
 
-        const data = await response.json();
-        aiContent.textContent = data.analysis;
+        const result = await response.json();
+        if (result.status === 'success') {
+            aiContent.textContent = result.analysis;
+        } else {
+            throw new Error(result.message);
+        }
     } catch (error) {
         console.error("AI Analysis Error:", error);
         aiContent.innerHTML = "❌ AI विश्लेषण गर्दा प्राविधिक समस्या आयो। कृपया फेरि प्रयास गर्नुहोस्।";
