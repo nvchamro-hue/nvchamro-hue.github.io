@@ -1,0 +1,10 @@
+# Environment Variables
+.env
+
+# Node dependencies
+node_modules/
+
+# Local logs
+*.log
+npm-debug.log*
+.DS_Store
