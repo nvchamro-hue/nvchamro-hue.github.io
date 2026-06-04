@@ -1,5 +1,5 @@
 // Google Apps Script Web App URL (Replace with actual deployed URL)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxgaxY_x3ikA8xVxza7QEdFzPNFWq7_gyoaegp464BiLhWOA1xIGKqaQ4H7iPoqmTIV/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyu4TPWElxu-hOnKv3eSzvPKKcdurNIwzaMeETVvy227zbtKyce0JUSU7SdNSZLxExk/exec"; 
 
 // सुरक्षाका लागि API Key अब backend (app.js) मा स्थानान्तरण गरिएको छ।
 
@@ -246,7 +246,7 @@ function countWords(str) {
 
 const NEPALI_DIGITS = ['०','१','२','३','४','५','६','७','८','९'];
 const BS_MONTHS = ["बैशाख", "जेठ", "असार", "श्रावण", "भाद्र", "आश्विन", "कार्तिक", "मंसिर", "पौष", "माघ", "फाल्गुन", "चैत्र"];
-const NEPALI_MONTH_LENGTHS = [31, 31, 31, 31, 31, 30, 30, 30, 29, 30, 29, 30];
+const NEPALI_MONTH_LENGTHS = [31, 32, 31, 32, 31, 30, 30, 30, 30, 29, 30, 30];
 const NEPALI_PICKER_YEAR_RANGE = { start: 2070, end: 2090 };
 
 function toNepaliDigits(value) {
@@ -307,11 +307,11 @@ function getStandardDate(nepStr) {
 }
 
 function estimateCurrentBsDate() {
-    // आजको वास्तविक मिति: २०८३ जेठ ३ (May 17, 2026)
+    // आजको वास्तविक मिति: २०८३ जेठ २० (June 3, 2026)
     
     const today = new Date();
-    const anchorAD = new Date(2026, 4, 17); // मे १७, २०२६ (JS मा मे को इन्डेक्स ४ हुन्छ)
-    const anchorBS = { year: 2083, month: 2, day: 3 }; // जेठ ३, २०८३
+    const anchorAD = new Date(2026, 5, 3); // जुन ३, २०२६ (JS मा जुन को इन्डेक्स ५ हुन्छ)
+    const anchorBS = { year: 2083, month: 2, day: 20 }; // जेठ २०, २०८३
 
     const msPerDay = 24 * 60 * 60 * 1000;
     // समय हटाएर केवल दिनको फरक गणना गर्ने
@@ -381,7 +381,7 @@ function updateNepaliPickerOptions() {
     const monthSelect = overlay.querySelector('#nepaliPickerMonth');
     const daySelect = overlay.querySelector('#nepaliPickerDay');
     const selectedMonth = Number(monthSelect.value) - 1;
-    const days = getDaysInNepaliMonth(selectedMonth);
+    const days = getDaysInNepaliMonth(selectedMonth, Number(yearSelect.value));
     daySelect.innerHTML = '';
     for (let i = 1; i <= days; i++) {
         const option = document.createElement('option');
@@ -4129,10 +4129,14 @@ async function getAIStatusAnalysis(location, mSummary, sSummary, aSummary) {
     aiContent.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gemini AI ले डेटा विश्लेषण गर्दैछ, कृपया केही समय पर्खनुहोस्...';
 
     try {
+        const today = estimateCurrentBsDate();
+        const nepaliDate = formatNepaliDateParts(today.year, today.month, today.day);
+
         // Apps Script (Server-side) लाई डेटा पठाउने
         const payload = {
             action: 'analyze',
             location: location,
+            currentDate: nepaliDate,
             officeMonitoring: mSummary,
             serviceSurvey: sSummary,
             timeDressMonitoring: aSummary
@@ -4143,12 +4147,40 @@ async function getAIStatusAnalysis(location, mSummary, sSummary, aSummary) {
             body: JSON.stringify(payload)
         });
 
-        const result = await response.json();
-        if (result.status === 'success') {
-            aiContent.textContent = result.analysis;
-        } else {
-            throw new Error(result.message);
+        if (!response.ok) throw new Error('Network response was not ok');
+
+        let resultText = await response.text();
+        
+        let analysisText = "";
+        try {
+            // यदि प्राप्त नतिजा JSON स्ट्रिङ हो भने त्यसलाई बुझ्ने (Parse गर्ने)
+            const jsonRes = JSON.parse(resultText);
+            analysisText = jsonRes.analysis || jsonRes.message || resultText;
+        } catch (e) {
+            analysisText = resultText;
         }
+
+        // Markdown र प्रशासनिक ढाँचा मिलाउने (Headings, Subheadings, Bullets)
+        let tempText = analysisText.trim();
+
+        // १. मुख्य शीर्षकहरू र उप-शीर्षकहरू (१. २. वा # ##) लाई प्रशासनिक शैलीमा ढाल्ने
+        tempText = tempText.replace(/^([\u0966-\u096F\d]+\.\s+.*$)/gm, '<h4 style="color:#1a365d; border-bottom:1.5px solid #cbd5e0; padding-bottom:5px; margin-top:22px; margin-bottom:10px; font-weight:700; font-size:1.1rem;">$1</h4>');
+        tempText = tempText.replace(/^#+\s+(.*$)/gm, '<h5 style="color:#2c5282; border-left:4px solid #387ae6; padding-left:10px; margin-top:18px; margin-bottom:8px;">$1</h5>');
+
+        // २. बुलेट पोइन्टहरूलाई सूचीको रूपमा (Alignment र Indentation सहित)
+        tempText = tempText.replace(/^\s*[\*\-•]\s+(.*$)/gm, '<div style="display:flex; margin-bottom:6px; padding-left:20px;"><span style="margin-right:10px; color:#387ae6;">•</span><span>$1</span></div>');
+
+        // ३. बोल्ड टेक्स्ट (Inline strong - display:block हटाइएको ताकि वाक्यको बीचमा लाइन ब्रेक नहोस्)
+        tempText = tempText.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#1a365d;">$1</strong>');
+
+        // ४. हरफ (Paragraph) विभाजन र लाइन ब्रेकहरू मिलाउने
+        const formattedHtml = tempText.split(/\n\n+/).map(para => {
+            if (para.trim().startsWith('<h') || para.trim().startsWith('<div')) return para;
+            return `<p style="margin-bottom:12px;">${para.replace(/\n/g, '<br>')}</p>`;
+        }).join('');
+
+        aiContent.innerHTML = `<div style="text-align:justify; line-height:1.7; color:#2d3748;">${formattedHtml}</div>`;
+
     } catch (error) {
         console.error("AI Analysis Error:", error);
         aiContent.innerHTML = "❌ AI विश्लेषण गर्दा प्राविधिक समस्या आयो। कृपया फेरि प्रयास गर्नुहोस्।";
