@@ -149,6 +149,15 @@ function handleAIAnalysis(input) {
   }
 }
 
+/**
+ * अनुमति प्रदान गर्नका लागि यो फङ्सन एक पटक म्यानुअल रूपमा चलाउनुहोस्
+ */
+function authorizeExternalRequests() {
+  // यसले मात्र अनुमति माग्ने विन्डो खोल्न मद्दत गर्छ
+  var response = UrlFetchApp.fetch("https://www.google.com");
+  Logger.log("अनुमति प्राप्त भयो: " + response.getResponseCode());
+}
+
 function doGet() {
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   

@@ -1,5 +1,5 @@
 // Google Apps Script Web App URL (Replace with actual deployed URL)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz1rbnhJdHkahyumh9wRNxSptsA5CqmMsB1rbmhaXEOzkpfhC40NDQ9LmuHqWdB6TV6/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxgaxY_x3ikA8xVxza7QEdFzPNFWq7_gyoaegp464BiLhWOA1xIGKqaQ4H7iPoqmTIV/exec"; 
 
 // सुरक्षाका लागि API Key अब backend (app.js) मा स्थानान्तरण गरिएको छ।
 
