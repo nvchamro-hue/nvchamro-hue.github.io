@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>राष्ट्रिय सतर्कता केन्द्र - कार्यालय अनुगमन/सेवाग्राही सर्वेक्षण </title>
+    <title>राष्ट्रिय सतर्कता केन्द्र - सेवाग्राही सर्वेक्षण </title>
     <link rel="icon" type="image/png" href="coa.png">
     <!-- Google Fonts & Chart.js CDN -->
     <link href="https://fonts.googleapis.com/css2?family=Mukta:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -28,99 +28,35 @@
           }
         }
     </script>
-    
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#2b6cb0',
-                        glass: 'rgba(255, 255, 255, 0.7)',
-                    },
-                    fontFamily: {
-                        sans: ['Kalimati', 'Mukta', 'sans-serif'],
-                    }
-                }
-            }
-        }
-    </script>
     <link rel="stylesheet" href="style.css">
 </head>
 
-
-<body class="bg-slate-50 text-slate-800 antialiased overflow-hidden font-sans">
-    <div class="flex h-screen w-full relative">
-        
-        <!-- Mobile Sidebar Backdrop -->
-        <div id="sidebarBackdrop" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden transition-opacity opacity-0 backdrop-blur-sm"></div>
-
-        <!-- Sidebar -->
-        <aside class="fixed md:static inset-y-0 left-0 w-60 transition-all duration-300 ease-in-out bg-gradient-to-b from-slate-900 via-blue-900 to-slate-900 text-white shadow-2xl z-50 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out flex flex-col border-r border-white/10" id="sidebar">
-            <div class="p-6 flex flex-col items-center border-b border-white/10 bg-white/5 relative">
-                <button id="closeMobileMenuBtn" class="md:hidden absolute top-4 right-4 text-white/70 hover:text-white p-2">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
-                <img src="coa.png" alt="Coat of Arms" class="w-14 h-14 mb-2 drop-shadow-xl hover:scale-105 transition-transform duration-300">
-                <h5 class="font-bold text-[10px] text-blue-200 tracking-wide sidebar-text">नेपाल सरकार</h5>
-                <h1 class="font-bold text-[16px] text-center leading-tight mb-1 text-white drop-shadow-md sidebar-text">राष्ट्रिय सतर्कता केन्द्र</h1>
-                <p class="text-[9px] text-blue-200/80 text-center leading-tight sidebar-text">कार्यालय अनुगमन र सेवाग्राही सर्वेक्षण</p>
-                <span id="offlineBadge" class="sidebar-text mt-3 bg-red-500/90 backdrop-blur-sm border border-red-400 text-white text-xs px-3 py-1 rounded-full hidden shadow-lg animate-pulse">अफ्लाइन मोड सक्रिय</span>
-            </div>
-            
-            <nav class="flex-1 px-4 py-6 space-y-3 overflow-y-auto custom-scrollbar" id="sidebar-nav">
-                <button class="w-full flex items-center gap-2 px-3 py-2 text-xs bg-blue-600/30 hover:bg-blue-500/40 rounded-xl transition-all font-medium border border-blue-400/30 shadow-[0_0_15px_rgba(59,130,246,0.15)] nav-btn active group" data-tab="dashboard-tab">
-                    <div class="bg-blue-500/20 p-1 rounded-md group-hover:bg-blue-500/40 transition-colors"><i class="fas fa-chart-pie text-blue-300 text-sm"></i></div> <span class="sidebar-text whitespace-nowrap">ड्यासबोर्ड / तथ्याङ्क</span>
-                </button>
-                <button class="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/5 rounded-xl transition-all font-medium border border-transparent hover:border-white/10 text-slate-300 hover:text-white nav-btn group" data-tab="form-tab">
-                    <div class="bg-white/5 p-1 rounded-md group-hover:bg-white/10 transition-colors"><i class="fas fa-poll-h text-slate-400 group-hover:text-blue-300 text-sm"></i></div> <span class="sidebar-text whitespace-nowrap">सर्वेक्षण फारम</span>
-                </button>
-                <button class="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/5 rounded-xl transition-all font-medium border border-transparent hover:border-white/10 text-slate-300 hover:text-white nav-btn group" data-tab="monitoring-tab">
-                    <div class="bg-white/5 p-1 rounded-md group-hover:bg-white/10 transition-colors"><i class="fas fa-clipboard-check text-slate-400 group-hover:text-blue-300 text-sm"></i></div> <span class="sidebar-text whitespace-nowrap">अनुगमन फारम</span>
-                </button>
-                <button class="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/5 rounded-xl transition-all font-medium border border-transparent hover:border-white/10 text-slate-300 hover:text-white nav-btn group" data-tab="attendance-tab">
-                    <div class="bg-white/5 p-1 rounded-md group-hover:bg-white/10 transition-colors"><i class="fas fa-user-clock text-slate-400 group-hover:text-blue-300 text-sm"></i></div> <span class="sidebar-text whitespace-nowrap">समय पालना/पोशाक अनुगमन</span>
-                </button>
-            </nav>
-            
-            
-        </aside>
-
-        <!-- Main Content Area -->
-        <main class="flex-1 flex flex-col h-screen overflow-hidden relative bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMCwwLDAsMC4wNCkiLz48L3N2Zz4=')]">
-            
-            <!-- Mobile Header -->
-            <header class="flex items-center justify-between px-4 py-2 bg-gradient-to-r from-sky-100 via-white to-blue-100 backdrop-blur-md shadow-sm border-b z-30">
-                <div class="flex items-center gap-4">
-                    <!-- Desktop Toggle -->
-                    <button id="desktopToggleBtn" class="hidden md:block text-xl p-1.5 text-slate-600 hover:text-blue-600 focus:outline-none transition-colors">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <!-- Mobile Toggle -->
-                    <button id="mobileMenuBtn" class="md:hidden text-2xl p-2 text-slate-600 hover:text-blue-600 focus:outline-none transition-colors">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    
-                    <div class="md:hidden flex items-center gap-3">
-                        <img src="coa.png" alt="Logo" class="w-10 h-10 drop-shadow-sm">
-                        <div>
-                            <h1 class="font-bold text-sm leading-tight text-slate-800">राष्ट्रिय सतर्कता केन्द्र</h1>
-                            <p class="text-[10px] text-slate-500 font-medium">सेवाग्राही सर्वेक्षण</p>
-                        </div>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-content">
+                <img src="coa.png" alt="Coat of Arms" class="coa-logo">
+                <div class="header-text">
+                    <h5 class="gov-text">नेपाल सरकार</h5>
+                    <div style="display: flex; align-items: center; flex-wrap: wrap;">
+                        <h1>राष्ट्रिय सतर्कता केन्द्र</h1>
+                        <span id="offlineBadge" class="offline-badge">अफ्लाइन मोड सक्रिय</span>
                     </div>
+                    <p>सेवाग्राही सर्वेक्षण - सार्वजनिक संस्थाको सेवा प्रवाह अनुगमन</p>
                 </div>
-                
-                <!-- Nepal Flag Top Right -->
-                <div class="flex items-center">
-                    <img src="./nepal-flag.gif" alt="Flag of Nepal" class="h-10 drop-shadow-md">
-                </div>
-            </header>
+            </div>
+            <div class="flag-container">
+                <img src="./nepal-flag.gif" alt="Flag of Nepal" class="nepal-flag">
+            </div>
+        </div>
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="dashboard-tab"><i class="fas fa-chart-pie"></i> ड्यासबोर्ड / तथ्याङ्क</button>
+            <button class="tab-btn" data-tab="form-tab"><i class="fas fa-poll-h"></i> सर्वेक्षण फारम</button>
+            <button class="tab-btn" data-tab="monitoring-tab"><i class="fas fa-clipboard-check"></i> अनुगमन फारम</button>
+            <button class="tab-btn" data-tab="attendance-tab"><i class="fas fa-user-clock"></i> समय पालना/पोशाक</button>
+        </div>
 
-            <!-- Scrollable Content Container -->
-            <div class="flex-1 overflow-y-auto p-3 md:p-6 scroll-smooth" id="main-scroll-area">
-                <div id="main-content-wrapper" class="max-w-[95%] mx-auto w-full glass-panel transition-all duration-300">
-<!-- FORM PANEL -->
+        <!-- FORM PANEL -->
         <div id="form-tab" class="panel">
             <div class="survey-card">
                 <form id="surveyForm">
@@ -643,27 +579,12 @@
         <div id="dashboard-tab" class="panel active-panel">
             <div class="dashboard-card">
                 <!-- View Toggles -->
-                <div class="toggle-row" style="display: flex; gap: 10px; margin-bottom: 20px; justify-content: center;">
-                    <button id="showSurveyView" class="view-toggle-btn" aria-label="सेवाग्राही सर्वेक्षण" style="flex: 1; max-width: 300px; padding: 6px 20px;">
-                        <span class="btn-icon"><i class="fas fa-clipboard-list"></i></span>
-                        <span class="btn-label">सेवाग्राही सर्वेक्षण</span>
-                    </button>
-                    <button id="showMonitoringView" class="view-toggle-btn active" aria-label="कार्यालय/नागरिक बडापत्र अनुगमन" style="flex: 1; max-width: 300px; padding: 6px 20px;">
-                        <span class="btn-icon"><i class="fas fa-eye"></i></span>
-                        <span class="btn-label">कार्यालय/नागरिक बडापत्र अनुगमन</span>
-                    </button>
-                    <button id="showAttendanceView" class="view-toggle-btn" aria-label="समय पालना/पोशाक अनुगमन" style="flex: 1; max-width: 300px; padding: 6px 20px;">
-                        <span class="btn-icon"><i class="fas fa-clock"></i></span>
-                        <span class="btn-label">समय पालना/पोशाक अनुगमन</span>
-                    </button>
-                    <button id="toggleMapBtn" class="view-toggle-btn" aria-label="नक्सामा हेर्नुहोस्" onclick="toggleMapVisibility()" style="background: #e67e22; color: white; border-color: #d35400; padding: 2px 10px; font-size: 0.8rem; display: flex; align-items: center; justify-content: center;">
-                        <span class="btn-icon"><i class="fas fa-map-marked-alt"></i></span>
-                        <span class="btn-label">नक्सामा हेर्नुहोस्</span>
-                    </button>
-                    <button id="toggleAlertsVisibilityBtn" class="view-toggle-btn nav-btn" aria-label="अलर्ट लुकाउनुहोस्" onclick="toggleAlertsVisibility()" style="display: none; background: #de3053; color: white; border-color: #c03e37; padding: 2px 10px; font-size: 0.8rem; display: flex; align-items: center; justify-content: center;">
-                        <span class="btn-icon"><i class="fas fa-bell"></i></span>
-                        <span class="btn-label">अलर्ट लुकाउनुहोस्</span>
-                    </button>
+                <div style="display: flex; gap: 10px; margin-bottom: 20px; justify-content: center;">
+                    <button id="showSurveyView" class="tab-btn" style="flex: 1; max-width: 300px; padding: 6px 20px;">सेवाग्राही सर्वेक्षण</button>
+                    <button id="showMonitoringView" class="tab-btn active" style="flex: 1; max-width: 300px; padding: 6px 20px;">कार्यालय/नागरिक बडापत्र अनुगमन</button>
+                    <button id="showAttendanceView" class="tab-btn" style="flex: 1; max-width: 300px; padding: 6px 20px;">समय पालना/पोशाक अनुगमन</button>
+                    <button id="toggleMapBtn" class="tab-btn" onclick="toggleMapVisibility()" style="background: #e67e22; color: white; border-color: #d35400; padding: 2px 10px; font-size: 0.8rem; display: flex; align-items: center; justify-content: center;"><i class="fas fa-map-marked-alt"></i> नक्सामा हेर्नुहोस्</button>
+                    <button id="toggleAlertsVisibilityBtn" class="tab-btn" onclick="toggleAlertsVisibility()" style="display: none; background: #de3053; color: white; border-color: #c03e37; padding: 2px 10px; font-size: 0.8rem; display: flex; align-items: center; justify-content: center;"><i class="fas fa-bell"></i> अलर्ट लुकाउनुहोस्</button>
                 </div>
 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; cursor: pointer; padding: 0 5px;" id="filterToggleHeader">
@@ -807,21 +728,21 @@
 
                 <!-- शीर्ष ३ असन्तुष्ट र सन्तुष्ट कार्यालयहरू - एउटै रो मा -->
                 <div id="topOfficesRow" style="display: none; flex-wrap: wrap; gap: 15px; margin-bottom: 10px;">
-                    <div id="topUnsatisfiedContainer" style="flex: 1; min-width: 300px; padding: 8px; background: #fff1f0; border-radius: 8px; border: 1px solid #ffa39e;">
-                        <h4 style="font-family:'Kalimati', sans-serif; color: #cb2748; margin-bottom: 6px; font-size: 1rem; border-bottom: 2px solid #de3053; display: inline-block;">असन्तुष्टि देखिएका शीर्ष ३ कार्यालयहरू</h4>
-                        <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-                            <div id="topUnsatisfiedList" style="flex: 1; display: flex; flex-direction: column; gap: 5px; min-width: 220px;"></div>
-                            <div style="flex: 1; min-width: 250px; height: 120px;">
+                    <div id="topUnsatisfiedContainer" style="flex: 1; min-width: 300px; padding: 10px; background: #fff1f0; border-radius: 8px; border: 1px solid #ffa39e;">
+                        <h4 style="font-family:'Kalimati', sans-serif; color: #cb2748; margin-bottom: 8px; font-size: 1rem; border-bottom: 2px solid #de3053; display: inline-block;">असन्तुष्टि देखिएका शीर्ष ३ कार्यालयहरू</h4>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                            <div id="topUnsatisfiedList" style="flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 220px;"></div>
+                            <div style="flex: 1; min-width: 250px; height: 150px;">
                                 <canvas id="topUnsatisfiedChart"></canvas>
                             </div>
                         </div>
                     </div>
 
-                    <div id="topSatisfiedContainer" style="flex: 1; min-width: 300px; padding: 8px; background: #f0fff4; border-radius: 8px; border: 1px solid #b7eb8f;">
-                        <h4 style="font-family:'Kalimati', sans-serif; color: #149530c1; margin-bottom: 6px; font-size: 1rem; border-bottom: 2px solid #27ae44a6; display: inline-block;">सन्तुष्टि देखिएका शीर्ष ३ कार्यालयहरू</h4>
-                        <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-                            <div id="topSatisfiedList" style="flex: 1; display: flex; flex-direction: column; gap: 5px; min-width: 220px;"></div>
-                            <div style="flex: 1; min-width: 250px; height: 120px;">
+                    <div id="topSatisfiedContainer" style="flex: 1; min-width: 300px; padding: 10px; background: #f0fff4; border-radius: 8px; border: 1px solid #b7eb8f;">
+                        <h4 style="font-family:'Kalimati', sans-serif; color: #149530c1; margin-bottom: 8px; font-size: 1rem; border-bottom: 2px solid #27ae44a6; display: inline-block;">सन्तुष्टि देखिएका शीर्ष ३ कार्यालयहरू</h4>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                            <div id="topSatisfiedList" style="flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 220px;"></div>
+                            <div style="flex: 1; min-width: 250px; height: 150px;">
                                 <canvas id="topSatisfiedChart"></canvas>
                             </div>
                         </div>
@@ -848,12 +769,9 @@
                 </div>
 
                 <!-- अनुगमन अलर्ट सेक्सन (रिक्त पद धेरै भएका कार्यालयहरू) -->
-                <div id="monitoringAlertsSection" style="display: none; margin-bottom: 10px; padding: 10px; background: #fff1f0; border: 1px solid #ffa39e; border-radius: 10px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 2px solid #de5030; padding-bottom: 4px;">
-                        <h4 style="font-family:'Kalimati', sans-serif; color: #c03e37; margin-bottom: 0;">⚠️ रिक्त पद धेरै भएका कार्यालयहरू</h4>
-                        <div id="alertsActionContainer" style="display: flex; gap: 8px; align-items: center;"></div>
-                    </div>
-                    <div id="alertsList" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+                <div id="monitoringAlertsSection" style="display: none; margin-bottom: 10px; padding: 12px; background: #fff1f0; border: 1px solid #ffa39e; border-radius: 10px;">
+                    <h4 style="font-family:'Kalimati', sans-serif; color: #c03e37; margin-bottom: 10px; border-bottom: 2px solid #de5030; display: inline-block;">⚠️ रिक्त पद धेरै भएका कार्यालयहरू</h4>
+                    <div id="alertsList" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
                 </div>
 
                 <!-- अनुगमन फारमका लागि चार्टहरू -->
@@ -1153,106 +1071,5 @@
 
     <script src="metadata.js"></script>
     <script src="script.js" defer></script>
-
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <!-- Mobile Menu Script -->
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const sidebar = document.getElementById('sidebar');
-            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-            const closeMobileMenuBtn = document.getElementById('closeMobileMenuBtn');
-            const sidebarBackdrop = document.getElementById('sidebarBackdrop');
-            const tabBtns = document.querySelectorAll('.nav-btn');
-
-            function openSidebar() {
-                sidebar.classList.remove('-translate-x-full');
-                sidebarBackdrop.classList.remove('hidden');
-                // Small delay to allow display:block to apply before changing opacity
-                setTimeout(() => sidebarBackdrop.classList.remove('opacity-0'), 10);
-            }
-
-            function closeSidebar() {
-                sidebar.classList.add('-translate-x-full');
-                sidebarBackdrop.classList.add('opacity-0');
-                setTimeout(() => sidebarBackdrop.classList.add('hidden'), 300);
-            }
-
-            if(mobileMenuBtn) mobileMenuBtn.addEventListener('click', openSidebar);
-            if(closeMobileMenuBtn) closeMobileMenuBtn.addEventListener('click', closeSidebar);
-            if(sidebarBackdrop) sidebarBackdrop.addEventListener('click', closeSidebar);
-
-            // Desktop Sidebar Toggle Logic
-            const desktopToggleBtn = document.getElementById('desktopToggleBtn');
-            if(desktopToggleBtn) {
-                desktopToggleBtn.addEventListener('click', () => {
-                    // For desktop, toggle between w-60 and w-20
-                    sidebar.classList.toggle('w-60');
-                    sidebar.classList.toggle('w-20');
-                    
-                    // Sidebar सानो हुँदा मुख्य कन्टेन्टलाई १००% चौडाइमा लैजाने
-                    const wrapper = document.getElementById('main-content-wrapper');
-                    const scrollArea = document.getElementById('main-scroll-area');
-                    const sidebarHeader = sidebar.querySelector('div');
-
-                    if(wrapper) {
-                        wrapper.classList.toggle('max-w-[95%]');
-                        wrapper.classList.toggle('max-w-full');
-                    }
-                    if(scrollArea) {
-                        scrollArea.classList.toggle('p-3');
-                        scrollArea.classList.toggle('md:p-6');
-                        scrollArea.classList.toggle('p-0');
-                    }
-                    if(sidebarHeader) {
-                        sidebarHeader.classList.toggle('p-6');
-                        sidebarHeader.classList.toggle('p-2');
-                    }
-
-                    // Hide/show text
-                    document.querySelectorAll('.sidebar-text').forEach(el => el.classList.toggle('hidden'));
-                    
-                    // Adjust padding/justification on buttons
-                    document.querySelectorAll('.nav-btn').forEach(btn => {
-                        btn.classList.toggle('px-3');
-                        btn.classList.toggle('justify-center');
-                    });
-                    
-                    // Hide the offline badge text if it's there
-                    const badge = document.getElementById('offlineBadge');
-                    if(badge) badge.classList.toggle('text-transparent');
-                });
-            }
-
-            // Close sidebar on mobile when a tab is clicked
-            tabBtns.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    if (window.innerWidth < 768) {
-                        closeSidebar();
-                    }
-                    
-                    // Update active state styling for sidebar tabs
-                    tabBtns.forEach(b => {
-                        b.classList.remove('active', 'bg-blue-600/30', 'border-blue-400/30', 'shadow-[0_0_15px_rgba(59,130,246,0.15)]', 'text-white');
-                        b.classList.add('hover:bg-white/5', 'border-transparent', 'text-slate-300');
-                        b.querySelector('div').classList.remove('bg-blue-500/20');
-                        b.querySelector('div').classList.add('bg-white/5');
-                        b.querySelector('i').classList.remove('text-blue-300');
-                        b.querySelector('i').classList.add('text-slate-400');
-                    });
-                    
-                    btn.classList.add('active', 'bg-blue-600/30', 'border-blue-400/30', 'shadow-[0_0_15px_rgba(59,130,246,0.15)]', 'text-white');
-                    btn.classList.remove('hover:bg-white/5', 'border-transparent', 'text-slate-300');
-                    btn.querySelector('div').classList.remove('bg-white/5');
-                    btn.querySelector('div').classList.add('bg-blue-500/20');
-                    btn.querySelector('i').classList.remove('text-slate-400');
-                    btn.querySelector('i').classList.add('text-blue-300');
-                });
-            });
-        });
-    </script>
 </body>
 </html>

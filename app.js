@@ -1,808 +1,349 @@
-import 'dotenv/config';
+﻿import 'dotenv/config';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI(
-  process.env.GEMINI_API_KEY
-);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-/* =====================================================
-   WEIGHT CONFIGURATION
-===================================================== */
-
-const WEIGHTS = {
-
-  officeMonitoring: {
-    total: 45,
-
-    indicators: {
-
-      vacancyRate: 6,
-      citizenCharter: 6,
-      serviceInfo: 7,
-      middlemanEntry: 6,
-      employeePresence: 6,
-      cleanliness: 5,
-      helpDesk: 5,
-      digitalServices: 4,
-      complaintMechanism: 4,
-      publicInfoDisclosure: 3
-    }
+const OFFICE_SCHEMA = {
+  basicAdmin: {
+    citizenCharter: 2,
+    grievanceHearing: 2,
+    infoOfficer: 2,
+    helpDesk: 2,
+    websiteUpdated: 2,
+    socialMedia: 1,
+    CCTV: 1,
+    waitingArea: 1,
+    nursingRoom: 1,
+    accessibility: 1
   },
-
-  serviceSurvey: {
-
-    total: 35,
-
-    indicators: {
-
-      charterAwareness: 6,
-      timelyService: 8,
-      externalSupport: 7,
-      bribery: 8,
-      satisfaction: 6
-    }
+  transparency: {
+    procurementNotice: 3,
+    budgetPublication: 3,
+    annualReport: 2,
+    selfDisclosure: 3,
+    assetDisclosure: 2,
+    infoBoard: 2
   },
-
-  timeDressMonitoring: {
-
-    total: 20,
-
-    indicators: {
-
-      currentAbsenceLate: 6,
-      previousAbsenceLate: 5,
-      dressViolation: 4,
-      absentFromDesk: 5
-    }
+  serviceQuality: {
+    serviceTimeAdherence: 4,
+    staffBehavior: 3,
+    processClarity: 3,
+    serviceAvailability: 3,
+    technologyUse: 2
   }
 };
 
-
-/* =====================================================
-   CLASSIFICATION
-===================================================== */
-
 function classify(score) {
-
   if (score >= 90) return "उत्कृष्ट";
-
   if (score >= 75) return "राम्रो";
-
   if (score >= 60) return "सुधार आवश्यक";
-
-  if (score >= 40)
-    return "गम्भीर रूपमा समीक्षा गरी सुधार गर्नुपर्ने देखिएको";
-
+  if (score >= 40) return "गम्भीर रूपमा समीक्षा गरी सुधार गर्नुपर्ने देखिएको";
   return "तत्काल हस्तक्षेपको आवश्यकता";
 }
 
-
-/* =====================================================
-   SCORE NORMALIZATION
-===================================================== */
-
-// Positive Indicator
-function positive(percent) {
-
-  return Math.max(
-    0,
-    Math.min(100, Number(percent))
-  );
+function getGrade(score) {
+  if (score >= 85) return { grade: "A+", status: "उत्कृष्ट" };
+  if (score >= 75) return { grade: "A", status: "धेरै राम्रो" };
+  if (score >= 65) return { grade: "B+", status: "राम्रो" };
+  if (score >= 50) return { grade: "B", status: "सुधार आवश्यक" };
+  return { grade: "C", status: "कमजोर" };
 }
 
-// Negative Indicator
-function negative(percent) {
-
-  return Math.max(
-    0,
-    100 - Number(percent)
-  );
+function getSampleFactor(sampleSize) {
+  if (typeof sampleSize !== "number") return 1;
+  if (sampleSize < 20) return 0.80;
+  if (sampleSize < 50) return 0.90;
+  if (sampleSize < 100) return 0.95;
+  return 1.00;
 }
 
-// Categorical Indicator
-
-function categorical(value) {
-
-  const map = {
-
-    excellent: 100,
-    good: 100,
-
-    average: 70,
-
-    poor: 30,
-
-    none: 0
-  };
-
-  return map[value] ?? 0;
+function getCoverageFactor(coverageRatio) {
+  if (typeof coverageRatio !== "number" || Number.isNaN(coverageRatio)) return 1;
+  if (coverageRatio < 0.25) return 0.80;
+  if (coverageRatio < 0.50) return 0.90;
+  if (coverageRatio <= 0.75) return 0.95;
+  return 1.00;
 }
 
-
-/* =====================================================
-   RELIABILITY FACTOR
-===================================================== */
-
-function reliabilityFactor(
-  sampleSize,
-  referenceSize = 100
-) {
-
-  return Math.min(
-    1,
-    Math.sqrt(sampleSize / referenceSize)
-  );
+function normalizeScore(value, max = 100) {
+  if (max === 0) return 0;
+  return Number(((Number(value) / Number(max)) * 100).toFixed(2));
 }
 
+function getValue(field, max) {
+  if (field == null) return 0;
+  if (typeof field === "object") {
+    if (field.score !== undefined && field.max !== undefined) {
+      return Math.min(Number(field.score), Number(field.max));
+    }
+    if (field.present !== undefined && field.total !== undefined) {
+      return Number(field.total) ? (Number(field.present) / Number(field.total)) * max : 0;
+    }
+    if (field.compliant !== undefined && field.total !== undefined) {
+      return Number(field.total) ? (Number(field.compliant) / Number(field.total)) * max : 0;
+    }
+  }
+  return Number(field) || 0;
+}
 
-/* =====================================================
-   SAMPLE SIZE WEIGHTED EVALUATION
-===================================================== */
-
-function calculateRegionalScore(
-  offices,
-  regionType // 'province', 'district', 'localLevel'
-) {
-  const totalOfficeMonitoringCount =
-    offices.reduce((sum, o) =>
-      sum + (o.officeMonitoringCount || 1), 0
-    );
-
-  const totalSurveySampleSize =
-    offices.reduce((sum, o) =>
-      sum + (o.sampleSize || 0), 0
-    );
-
-  const weightedOfficeScores = offices.map(o => {
-    const monitoringWeight =
-      (o.officeMonitoringCount || 1) / totalOfficeMonitoringCount;
-    return o.officeScore * monitoringWeight;
+function calculateSectionScore(sectionData, schema) {
+  let total = 0;
+  Object.entries(schema).forEach(([key, max]) => {
+    total += getValue(sectionData?.[key], max);
   });
+  return total;
+}
 
-  const weightedSurveyScores = offices.map(o => {
-    const surveyWeight =
-      (o.sampleSize || 0) / totalSurveySampleSize;
-    return o.surveyScore * surveyWeight;
-  });
-
-  const regionalOfficeScore =
-    weightedOfficeScores.reduce((a, b) => a + b, 0);
-
-  const regionalSurveyScore =
-    weightedSurveyScores.reduce((a, b) => a + b, 0);
-
-  const regionalTimeScore =
-    offices.reduce((sum, o) =>
-      sum + o.timeScore, 0
-    ) / offices.length;
-
-  const regionalReliability =
-    reliabilityFactor(
-      totalOfficeMonitoringCount + totalSurveySampleSize,
-      100
-    );
+function calculateOfficeMonitoringPercent(officeMonitoring) {
+  const basicAdmin = calculateSectionScore(officeMonitoring?.basicAdmin, OFFICE_SCHEMA.basicAdmin);
+  const transparency = calculateSectionScore(officeMonitoring?.transparency, OFFICE_SCHEMA.transparency);
+  const serviceQuality = calculateSectionScore(officeMonitoring?.serviceQuality, OFFICE_SCHEMA.serviceQuality);
+  const totalOffice = basicAdmin + transparency + serviceQuality;
 
   return {
-    regionType,
-    totalOffices: offices.length,
-    totalOfficeMonitoringCount,
-    totalSurveySampleSize,
-    regionalOfficeScore,
-    regionalSurveyScore,
-    regionalTimeScore,
-    regionalReliability,
-    finalRegionalScore:
-      regionalOfficeScore +
-      regionalSurveyScore +
-      regionalTimeScore,
-    classification: classify(
-      regionalOfficeScore +
-      regionalSurveyScore +
-      regionalTimeScore
-    )
+    rawOfficeScore: Number(totalOffice.toFixed(2)),
+    officePercent: Number(((totalOffice / 45) * 100).toFixed(2)),
+    basicAdmin,
+    transparency,
+    serviceQuality
   };
 }
 
+function calculateSurveyPercent(serviceSurvey) {
+  let values = [];
+  if (Array.isArray(serviceSurvey?.questions)) {
+    values = serviceSurvey.questions.map(q => typeof q === "object" ? Number(q.score || 0) : Number(q));
+  } else {
+    values = Object.values(serviceSurvey || {}).map(v => typeof v === "object" ? Number(v.score || 0) : Number(v));
+  }
+  values = values.filter(v => !Number.isNaN(v));
+  if (values.length === 0) return 0;
 
-/* =====================================================
-   WEIGHTED SECTION SCORE
-===================================================== */
-
-function calculateSectionScore(
-  sectionData,
-  sectionWeights
-) {
-
-  let score = 0;
-
-  Object.keys(
-    sectionWeights.indicators
-  ).forEach(key => {
-
-    const weight =
-      sectionWeights.indicators[key];
-
-    const indicatorScore =
-      Number(sectionData[key] || 0);
-
-    score +=
-      (indicatorScore / 100) * weight;
-  });
-
-  return Number(
-    score.toFixed(2)
-  );
+  const average = values.reduce((sum, value) => sum + value, 0) / values.length;
+  return Number(average.toFixed(2));
 }
 
+function calculateTimeDressPercent(timeDressMonitoring) {
+  const attendance = getValue(timeDressMonitoring?.attendance, 10);
+  const dress = getValue(timeDressMonitoring?.dressCode, 5);
+  const total = Math.min(attendance + dress, 15);
+  return Number(((total / 15) * 100).toFixed(2));
+}
 
-/* =====================================================
-   OFFICE SCORE
-===================================================== */
-
-function calculateOfficeScore(data) {
-
-  const normalized = {
-
-    vacancyRate:
-      negative(data.vacancyRate),
-
-    citizenCharter:
-      categorical(data.citizenCharter),
-
-    serviceInfo:
-      categorical(data.serviceInfo),
-
-    middlemanEntry:
-      negative(data.middlemanEntry),
-
-    employeePresence:
-      positive(data.employeePresence),
-
-    cleanliness:
-      categorical(data.cleanliness),
-
-    helpDesk:
-      categorical(data.helpDesk),
-
-    digitalServices:
-      categorical(data.digitalServices || 'none'),
-
-    complaintMechanism:
-      categorical(data.complaintMechanism || 'none'),
-
-    publicInfoDisclosure:
-      categorical(data.publicInfoDisclosure || 'none')
+function calculateAccountabilityIndex(officeMonitoring) {
+  const accountabilitySchema = {
+    grievanceHearing: 2,
+    infoOfficer: 2,
+    annualReport: 2,
+    helpDesk: 2,
+    infoBoard: 2
   };
+  const total = calculateSectionScore({
+    ...officeMonitoring?.basicAdmin,
+    ...officeMonitoring?.transparency
+  }, accountabilitySchema);
+  return Number(((total / 10) * 100).toFixed(2));
+}
 
-  return calculateSectionScore(
-    normalized,
-    WEIGHTS.officeMonitoring
+function calculateGovernanceIndices(officeMonitoring, serviceSurvey, timeDressMonitoring, coverageFactor = 1, sampleFactor = 1) {
+  const officeResult = calculateOfficeMonitoringPercent(officeMonitoring);
+  const surveyPercent = calculateSurveyPercent(serviceSurvey);
+  const timePercent = calculateTimeDressPercent(timeDressMonitoring);
+
+  const transparencyIndex = Number(((officeResult.transparency / 15) * 100).toFixed(2));
+  const accountabilityIndex = calculateAccountabilityIndex(officeMonitoring);
+  const serviceDeliveryIndex = Number(((officeResult.serviceQuality / 15) * 100).toFixed(2));
+  const disciplineIndex = timePercent;
+  const satisfactionIndex = surveyPercent;
+
+  // तपाईंको सूत्र अनुसार GGI गणना: 
+  // GGI = 0.25×Transparency + 0.20×Accountability + 0.25×Service Delivery + 0.10×Discipline + 0.20×Satisfaction
+  const rawGGI = (
+    (transparencyIndex * 0.25) +
+    (accountabilityIndex * 0.20) +
+    (serviceDeliveryIndex * 0.25) +
+    (disciplineIndex * 0.10) +
+    (satisfactionIndex * 0.20)
   );
-}
 
-
-/* =====================================================
-   SURVEY SCORE
-===================================================== */
-
-function calculateSurveyScore(
-  data,
-  sampleSize,
-  nationalAverage = 70
-) {
-
-  const normalized = {
-
-    charterAwareness:
-      positive(data.charterAwareness),
-
-    timelyService:
-      positive(data.timelyService),
-
-    externalSupport:
-      negative(data.externalSupport),
-
-    bribery:
-      negative(data.bribery),
-
-    satisfaction:
-      positive(data.satisfaction)
-  };
-
-  const rawScore =
-    calculateSectionScore(
-      normalized,
-      WEIGHTS.serviceSurvey
-    );
-
-  const reliability =
-    reliabilityFactor(
-      sampleSize,
-      100
-    );
-
-  const adjustedScore =
-    rawScore * reliability +
-    nationalAverage *
-      (1 - reliability);
-
-  return Number(
-    adjustedScore.toFixed(2)
-  );
-}
-
-
-/* =====================================================
-   TIME / DRESS SCORE
-===================================================== */
-
-function calculateTimeScore(
-  data
-) {
-
-  const normalized = {
-
-    currentAbsenceLate:
-      negative(
-        data.currentAbsenceLate
-      ),
-
-    previousAbsenceLate:
-      negative(
-        data.previousAbsenceLate
-      ),
-
-    dressViolation:
-      negative(
-        data.dressViolation
-      ),
-
-    absentFromDesk:
-      negative(
-        data.absentFromDesk
-      )
-  };
-
-  return calculateSectionScore(
-    normalized,
-    WEIGHTS.timeDressMonitoring
-  );
-}
-
-
-/* =====================================================
-   FINAL SCORE
-===================================================== */
-
-function calculateFinalScore(
-  officeScore,
-  surveyScore,
-  timeScore
-) {
-
-  return Number(
-    (
-      officeScore +
-      surveyScore +
-      timeScore
-    ).toFixed(2)
-  );
-}
-
-
-/* =====================================================
-   RISK IDENTIFICATION
-===================================================== */
-
-function identifyRisks(office) {
-  const risks = [];
-
-  if (office.officeMonitoring?.vacancyRate > 30) {
-    risks.push("उच्च रिक्त दरबन्दी");
-  }
-
-  if (office.serviceSurvey?.bribery > 5) {
-    risks.push("घुस सम्बन्धी संकेत");
-  }
-
-  if (office.officeMonitoring?.middlemanEntry > 10) {
-    risks.push("मध्यस्थकर्ता सक्रिय");
-  }
-
-  if (office.finalScore < 40) {
-    risks.push("तत्काल हस्तक्षेप आवश्यक");
-  }
-
-  if (office.officeMonitoring?.employeePresence < 60) {
-    risks.push("कर्मचारी उपस्थिति कम");
-  }
-
-  if (office.serviceSurvey?.timelyService < 50) {
-    risks.push("समयमै सेवा नपुग्ने");
-  }
-
-  if (office.timeDressMonitoring?.currentAbsenceLate > 20) {
-    risks.push("अनुशासन समस्या");
-  }
-
-  return risks;
-}
-
-
-/* =====================================================
-   DASHBOARD STATISTICS
-===================================================== */
-
-function dashboardSummary(offices) {
-  const scores = offices.map(o => o.finalScore);
-
-  const avg =
-    scores.reduce((a, b) => a + b, 0) / scores.length;
+  const goodGovernanceIndex = Number(rawGGI.toFixed(2));
+  const adjustedGI = Number((goodGovernanceIndex * coverageFactor * sampleFactor).toFixed(2));
 
   return {
-    totalOffices: offices.length,
-    averageScore: avg.toFixed(2),
-    highest: Math.max(...scores),
-    lowest: Math.min(...scores),
-    excellent: scores.filter(s => s >= 90).length,
-    good: scores.filter(s => s >= 75 && s < 90).length,
-    improvement: scores.filter(s => s >= 60 && s < 75).length,
-    critical: scores.filter(s < 60).length
+    officePercent: officeResult.officePercent,
+    officeRawScore: officeResult.rawOfficeScore,
+    surveyPercent,
+    timePercent,
+    rawGGI: goodGovernanceIndex,
+    adjustedGI,
+    coverageFactor,
+    sampleFactor,
+    transparencyIndex,
+    accountabilityIndex,
+    serviceDeliveryIndex,
+    employeeDisciplineIndex: disciplineIndex,
+    citizenSatisfactionIndex: satisfactionIndex,
+    goodGovernanceIndex,
+    basicAdmin: officeResult.basicAdmin,
+    transparencySection: officeResult.transparency,
+    serviceQualitySection: officeResult.serviceQuality
   };
 }
 
+function buildGovernancePrompt(indices, rawData, regionType, regionName, currentDate) {
+  return `
+तपाईं राष्ट्रिय सतर्कता केन्द्रको सुशासन तथा सेवा प्रवाह विश्लेषक हुनुहुन्छ।
 
-/* =====================================================
-   TOP/BOTTOM RANKING
-===================================================== */
+क्षेत्र: ${regionType}
+नाम: ${regionName}
+${currentDate ? `मिति: ${currentDate}` : ""}
 
-function getTopBottomRankings(offices, limit = 5) {
-  const sorted = [...offices].sort(
-    (a, b) => b.finalScore - a.finalScore
-  );
+तथ्यांक:
+${JSON.stringify(rawData, null, 2)}
 
-  return {
-    topPerformers: sorted.slice(0, limit).map(o => ({
-      name: o.location.name,
-      level: o.location.level,
-      score: o.finalScore,
-      classification: classify(o.finalScore)
-    })),
-    bottomPerformers: sorted.slice(-limit).reverse().map(o => ({
-      name: o.location.name,
-      level: o.location.level,
-      score: o.finalScore,
-      classification: classify(o.finalScore)
-    }))
-  };
-}
+  **गणना गरिएका सूचकहरू (Indices):**
+  - Transparency Index: ${indices.transparencyIndex}/100
+  - Accountability Index: ${indices.accountabilityIndex}/100
+  - Service Delivery Index: ${indices.serviceDeliveryIndex}/100
+  - Employee Discipline Index: ${indices.employeeDisciplineIndex}/100
+  - Citizen Satisfaction Index: ${indices.citizenSatisfactionIndex}/100
+  - **Good Governance Index (GGI): ${indices.goodGovernanceIndex}/100**
 
+निम्न शीर्षकमा विश्लेषण दिनुहोस्:
+1. समग्र सुशासन स्कोर (GGI) र यसको व्याख्या
+2. सेवा प्रवाहको अवस्था
+3. पारदर्शिता तथा सूचना व्यवस्थापन
+4. गुनासो व्यवस्थापन
+5. कर्मचारी अनुशासन तथा समय पालना
+6. सेवाग्राही सन्तुष्टि स्तर
+7. प्रमुख सबल पक्षहरू
+8. प्रमुख कमजोरीहरू
+9. उच्च जोखिम क्षेत्रहरू
+10. सुधार गर्नुपर्ने शीर्ष 10 सिफारिसहरू
+11. जिल्लाभित्र अन्य कार्यालयसँग तुलना
+12. प्रदेश औसतसँग तुलना
+13. राष्ट्रिय औसतसँग तुलना
+14. Governance Grade (A+,A,B+,B,C)
+15. Executive Summary (200 शब्द)
 
-/* =====================================================
-   NATIONAL BENCHMARK
-===================================================== */
-
-function calculateNationalBenchmark(offices) {
-  const summary = dashboardSummary(offices);
-
-  const officeScores = offices.map(o => o.officeScore);
-  const surveyScores = offices.map(o => o.surveyScore);
-  const timeScores = offices.map(o => o.timeScore);
-
-  return {
-    nationalAverage: parseFloat(summary.averageScore),
-    officeMonitoringAverage:
-      officeScores.reduce((a, b) => a + b, 0) / officeScores.length,
-    serviceSurveyAverage:
-      surveyScores.reduce((a, b) => a + b, 0) / surveyScores.length,
-    timeDressAverage:
-      timeScores.reduce((a, b) => a + b, 0) / timeScores.length,
-    performanceDistribution: {
-      excellent: summary.excellent,
-      good: summary.good,
-      improvement: summary.improvement,
-      critical: summary.critical
-    },
-    benchmarkClassification: classify(parseFloat(summary.averageScore))
-  };
-}
-
-
-/* =====================================================
-   RELIABILITY WEIGHTED RANKING
-===================================================== */
-
-function reliabilityWeightedRanking(offices) {
-  return offices.map(office => {
-    const monitoringReliability =
-      reliabilityFactor(office.officeMonitoringCount || 1, 50);
-    const surveyReliability =
-      reliabilityFactor(office.sampleSize || 0, 100);
-
-    const combinedReliability =
-      (monitoringReliability + surveyReliability) / 2;
-
-    const weightedScore =
-      office.finalScore * combinedReliability;
-
-    return {
-      ...office,
-      monitoringReliability: monitoringReliability.toFixed(2),
-      surveyReliability: surveyReliability.toFixed(2),
-      combinedReliability: combinedReliability.toFixed(2),
-      weightedScore: weightedScore.toFixed(2),
-      reliabilityAdjustedClassification: classify(weightedScore)
-    };
-  }).sort((a, b) => b.weightedScore - a.weightedScore);
-}
-
-
-/* =====================================================
-   GENERATE ANALYSIS
-===================================================== */
-
-async function generateAnalysis(
-  input
-) {
-
-  const officeScore =
-    calculateOfficeScore(
-      input.officeMonitoring
-    );
-
-  const surveyScore =
-    calculateSurveyScore(
-      input.serviceSurvey,
-      input.sampleSize
-    );
-
-  const timeScore =
-    calculateTimeScore(
-      input.timeDressMonitoring
-    );
-
-  const finalScore =
-    calculateFinalScore(
-      officeScore,
-      surveyScore,
-      timeScore
-    );
-
-  const classification =
-    classify(finalScore);
-
-  const officeData = {
-    officeMonitoring: input.officeMonitoring,
-    serviceSurvey: input.serviceSurvey,
-    timeDressMonitoring: input.timeDressMonitoring,
-    officeScore,
-    surveyScore,
-    timeScore,
-    finalScore
-  };
-
-  const risks = identifyRisks(officeData);
-
-  const model =
-    genAI.getGenerativeModel({
-      model: "gemini-1.5-flash"
-    });
-
-  const prompt = `
-
-तपाईं राष्ट्रिय सतर्कता केन्द्रको
-अनुगमन विश्लेषक हुनुहुन्छ।
-
-मूल्याङ्कन विधि:
-
-१. कार्यालय/नागरिक बडापत्र अनुगमन = ४५ अंक (१० सूचक)
-   - रिक्त दरबन्दी (६ अंक)
-   - नागरिक बडापत्र (६ अंक)
-   - सेवा प्रक्रिया, कागजात, लागत र समय (७ अंक)
-   - मध्यस्थकर्ताको प्रवेश (६ अंक)
-   - कर्मचारी उपस्थिति (६ अंक)
-   - कार्यालय सरसफाइ (५ अंक)
-   - सेवाग्राही सहायता कक्ष (५ अंक)
-   - डिजिटल सेवा (४ अंक)
-   - गुनासो निवारण व्यवस्था (४ अंक)
-   - सार्वजनिक सूचना प्रकाशन (३ अंक)
-
-२. सेवाग्राही सर्वेक्षण = ३५ अंक
-   - नागरिक बडापत्रको जानकारी (६ अंक)
-   - तोकिएको समयमा काम भएको (८ अंक)
-   - बाहिरी व्यक्तिको सहयोग (७ अंक)
-   - अतिरिक्त रकम/घुस (८ अंक)
-   - सन्तुष्ट/असन्तुष्ट (६ अंक)
-
-३. समय पालना/पोशाक अनुगमन = २० अंक
-   - अनुगमन मितिमा अनुपस्थित/ढिला (६ अंक)
-   - अघिल्लो मितिमा अनुपस्थित/ढिला (५ अंक)
-   - तोकिएको पोशाक नलगाएको (४ अंक)
-   - हाजिर भई कार्यकक्षमा नभेटिएको (५ अंक)
-
-कुल = १०० अंक
-
-Negative Indicators (Score = 100 - प्रतिशत):
-- रिक्त दरबन्दी
-- मध्यस्थकर्ता
-- बाहिरी व्यक्तिको सहयोग
-- अतिरिक्त रकम/घुस
-- अनुपस्थित/ढिला
-- पोशाक नलगाएको
-- कार्यकक्षमा नभेटिएको
-
-Positive Indicators (Score = प्रतिशत):
-- कर्मचारी उपस्थिति
-- नागरिक बडापत्रको जानकारी
-- समयमै काम भएको
-- सन्तुष्ट
-
-Categorical Indicators:
-- स्पष्ट बुझिने/स्पष्ट उल्लेख = १००
-- आंशिक/सामान्य = ७०
-- स्पष्ट नबुझिने/पढ्न झन्झटिलो = ३०
-- नभएको = ०
-
-Sample Reliability:
-Reliability = √(sampleSize/100)
-छोटो sample size को प्रभाव घटाउन adjustment गरिएको छ।
-
-Regional Evaluation:
-प्रदेश, जिल्ला, स्थानीय तहको मूल्याङ्कन गर्दा:
-- कुल कार्यालय अनुगमन संख्यालाई आधार मानेर कार्यालय स्कोर वजन गरिन्छ
-- कुल सेवाग्राही सर्वेक्षण संख्यालाई आधार मानेर सर्वेक्षण स्कोर वजन गरिन्छ
-- समय पालना स्कोर सरल औसत लिइन्छ
-- Sample reliability factor ले समग्र स्कोरलाई समायोजन गर्छ
-
-कार्यालय:
-${input.location.name}
-
-स्तर:
-${input.location.level}
-
-कार्यालय अनुगमन संख्या:
-${input.officeMonitoringCount || 1}
-
-सेवाग्राही सर्वेक्षण संख्या:
-${input.sampleSize}
-
-कार्यालय स्कोर:
-${officeScore}/45
-
-सेवाग्राही स्कोर:
-${surveyScore}/35
-
-अनुशासन स्कोर:
-${timeScore}/20
-
-अन्तिम स्कोर:
-${finalScore}/100
-
-श्रेणी:
-${classification}
-
-पहिचान गरिएका जोखिमहरू:
-${risks.length > 0 ? risks.join(', ') : 'कुनै ठूलो जोखिम छैन'}
-
-निम्न शीर्षकमा विस्तृत प्रशासनिक विश्लेषण लेख:
-
-१. अंक गणनाको विधि र तौल
-२. समग्र अवस्था
-३. कार्यालय अनुगमन विश्लेषण (१० सूचक)
-४. सेवाग्राही सर्वेक्षण विश्लेषण (५ सूचक)
-५. समय पालना विश्लेषण (४ सूचक)
-६. Sample size को प्रभाव
-७. पहिचान गरिएका जोखिमहरू
-८. प्रमुख समस्या र कारणहरू
-९. सुधारका उपाय
-१०. निष्कर्ष
-११. अन्तिम वर्गीकरण
-
-भाषा:
-औपचारिक नेपाली
+विश्लेषण गर्दा:
+- संख्यात्मक तथ्याङ्क प्रयोग गर्नुहोस्।
+- कमजोर सूचकहरू पहिचान गर्नुहोस्।
+- सेवाग्राहीको धारणा र कार्यालय अनुगमन दुवैलाई आधार बनाउनुहोस्।
+- यदि स्कोर 60 भन्दा कम छ भने उच्च जोखिम उल्लेख गर्नुहोस्।
+- यदि स्कोर 85 भन्दा माथि छ भने उत्कृष्ट अभ्यासहरू उल्लेख गर्नुहोस्।
+- नतिजा नेपाली भाषामा दिनुहोस्।
 `;
-
-  const result =
-    await model.generateContent(
-      prompt
-    );
-
-  return {
-
-    officeScore,
-
-    surveyScore,
-
-    timeScore,
-
-    finalScore,
-
-    classification,
-
-    risks,
-
-    analysis:
-      result.response.text()
-  };
 }
 
+async function generateAnalysis(input) {
+  const coverageRatio = input.coverageRatio ??
+    (input.officeMonitoring?.coverageAudited != null && input.officeMonitoring?.coverageTotal != null
+      ? Number(input.officeMonitoring.coverageAudited) / Number(input.officeMonitoring.coverageTotal)
+      : undefined);
 
-/* =====================================================
-   EXAMPLE DATA
-===================================================== */
+  const sampleSize = input.sampleSize ?? input.serviceSurvey?.sampleSize;
+  const sampleFactor = input.sampleFactor ?? getSampleFactor(sampleSize);
+  const coverageFactor = input.coverageFactor ?? getCoverageFactor(coverageRatio);
+
+  const indices = calculateGovernanceIndices(
+    input.officeMonitoring,
+    input.serviceSurvey,
+    input.timeDressMonitoring,
+    coverageFactor,
+    sampleFactor
+  );
+
+  const grade = getGrade(indices.adjustedGI);
+  const prompt = buildGovernancePrompt(
+    indices,
+    {
+      officeMonitoring: input.officeMonitoring,
+      serviceSurvey: input.serviceSurvey,
+      timeDressMonitoring: input.timeDressMonitoring,
+      coverageRatio: coverageRatio == null ? undefined : Number((coverageRatio * 100).toFixed(2)) + "%",
+      sampleSize,
+      coverageFactor,
+      sampleFactor,
+      scoreBreakdown: {
+        officePercent: indices.officePercent,
+        surveyPercent: indices.surveyPercent,
+        timePercent: indices.timePercent
+      }
+    },
+    input.location?.level || "अन्य",
+    input.location?.name || "अज्ञात",
+    input.currentDate
+  );
+
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+  const response = await model.generateContent(prompt);
+  const analysis = await response.response.text();
+
+  return {
+    ...indices,
+    coverageRatio,
+    sampleSize,
+    grade,
+    classification: classify(indices.adjustedGI),
+    analysis
+  };
+}
 
 const monitoringData = {
-
   location: {
-
     level: "स्थानीय तह",
-
-    name:
-      "जनकपुर उपमहानगरपालिका"
+    name: "जनकपुर उपमहानगरपालिका"
   },
-
-  officeMonitoringCount: 5,
-
-  sampleSize: 120,
-
+  currentDate: "2026-06-04",
+  sampleSize: 30,
   officeMonitoring: {
-
-    vacancyRate: 15,
-
-    citizenCharter:
-      "good",
-
-    serviceInfo:
-      "good",
-
-    middlemanEntry: 5,
-
-    employeePresence: 90,
-
-    cleanliness:
-      "good",
-
-    helpDesk:
-      "average",
-
-    digitalServices:
-      "average",
-
-    complaintMechanism:
-      "good",
-
-    publicInfoDisclosure:
-      "average"
+    basicAdmin: {
+      citizenCharter: 2,
+      grievanceHearing: 2,
+      infoOfficer: 2,
+      helpDesk: 2,
+      websiteUpdated: 2,
+      socialMedia: 1,
+      CCTV: 1,
+      waitingArea: 1,
+      nursingRoom: 1,
+      accessibility: 1
+    },
+    transparency: {
+      procurementNotice: 3,
+      budgetPublication: 3,
+      annualReport: 2,
+      selfDisclosure: 3,
+      assetDisclosure: 2,
+      infoBoard: 2
+    },
+    serviceQuality: {
+      serviceTimeAdherence: 4,
+      staffBehavior: 3,
+      processClarity: 3,
+      serviceAvailability: 3,
+      technologyUse: 2
+    },
+    coverageAudited: 15,
+    coverageTotal: 20
   },
-
-  serviceSurvey: {
-
-    charterAwareness: 80,
-
-    timelyService: 75,
-
-    externalSupport: 12,
-
-    bribery: 2,
-
-    satisfaction: 85
-  },
-
   timeDressMonitoring: {
-
-    currentAbsenceLate: 10,
-
-    previousAbsenceLate: 8,
-
-    dressViolation: 5,
-
-    absentFromDesk: 7
+    attendance: { present: 43, total: 50 },
+    dressCode: { compliant: 40, total: 50 }
+  },
+  serviceSurvey: {
+    sampleSize: 30,
+    questions: [82, 75, 68, 80, 77, 73, 79, 84, 71, 69, 76, 78, 72, 74, 78]
   }
 };
 
-
-generateAnalysis(
-  monitoringData
-)
-.then(console.log)
-.catch(console.error);
+generateAnalysis(monitoringData)
+  .then(result => {
+    console.log("Classification:", result.classification);
+    console.log("Grade:", result.grade);
+    console.log("Adjusted GI:", result.adjustedGI);
+    console.log("Indices:", result);
+    console.log(result.analysis);
+  })
+  .catch(console.error);

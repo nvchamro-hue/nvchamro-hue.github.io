@@ -1,5 +1,5 @@
 // Google Apps Script Web App URL (Replace with actual deployed URL)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyu4TPWElxu-hOnKv3eSzvPKKcdurNIwzaMeETVvy227zbtKyce0JUSU7SdNSZLxExk/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzHZrqbZvp3ZDoD7wwsyV-3wsvlZdEnthe6o8f5VOBeDFBgyW8OVvxJU2tZTsSZDt3QYQ/exec"; 
 
 // सुरक्षाका लागि API Key अब backend (app.js) मा स्थानान्तरण गरिएको छ।
 
@@ -16,6 +16,7 @@ let currentPage = 1;
 let itemsPerPage = 10;
 let activeTagId = null; 
 let dismissedAlerts = new Set(JSON.parse(localStorage.getItem("dismissedAlerts_nsc") || "[]"));
+let showAllAlertsMode = false;
 
 
 const TAG_CONFIG = [
@@ -544,6 +545,18 @@ function updateFilterMunicipalities() {
 
 // Initialize dropdowns and datepicker
 document.addEventListener("DOMContentLoaded", function () {
+    // dashboard-tab को top-bottom margin/padding ८०% ले घटाउनको लागि CSS इन्जेक्सन
+    const dashboardSpacingStyle = document.createElement('style');
+    dashboardSpacingStyle.textContent = `
+        #dashboard-tab {
+            padding-top: 0.5rem !important;
+            padding-bottom: 0.5rem !important;
+            margin-top: 0.25rem !important;
+            margin-bottom: 0.25rem !important;
+        }
+    `;
+    document.head.appendChild(dashboardSpacingStyle);
+
     // Local file fetch (CORS) fix: Use global variable from metadata.js
     // This allows the app to run via file:// protocol without a web server
     if (typeof METADATA !== 'undefined') {
@@ -1244,7 +1257,7 @@ document.getElementById("submitSurvey").addEventListener("click", async function
 
     // सफलतापूर्वक सेभ भएपछि २ सेकेन्डमा ड्यासबोर्डमा आफैं लैजाने
     setTimeout(() => {
-        const dashboardBtn = document.querySelector('.tab-btn[data-tab="dashboard-tab"]');
+        const dashboardBtn = document.querySelector('.nav-btn[data-tab="dashboard-tab"]');
         if (dashboardBtn) {
             dashboardBtn.click();
         }
@@ -1343,7 +1356,7 @@ document.getElementById("submitMonitoring")?.addEventListener("click", async fun
 
         // सफलतापूर्वक सेभ भएपछि २ सेकेन्डमा ड्यासबोर्डमा आफैं लैजाने
         setTimeout(() => {
-            const dashboardBtn = document.querySelector('.tab-btn[data-tab="dashboard-tab"]');
+            const dashboardBtn = document.querySelector('.nav-btn[data-tab="dashboard-tab"]');
             if (dashboardBtn) {
                 dashboardBtn.click(); // यसले ट्याब स्विच र स्क्रोल टप दुबै गर्छ
             }
@@ -1496,7 +1509,7 @@ document.getElementById("submitAttendance")?.addEventListener("click", async fun
 
         // सफलतापूर्वक सेभ भएपछि २ सेकेन्डमा ड्यासबोर्डमा आफैं लैजाने
         setTimeout(() => {
-            const dashboardBtn = document.querySelector('.tab-btn[data-tab="dashboard-tab"]');
+            const dashboardBtn = document.querySelector('.nav-btn[data-tab="dashboard-tab"]');
             if (dashboardBtn) {
                 dashboardBtn.click();
             }
@@ -1994,7 +2007,8 @@ function exportAttendanceToExcel() {
 function updateMonitoringAlerts(data) {
     const alertsSection = document.getElementById("monitoringAlertsSection");
     const alertsList = document.getElementById("alertsList");
-    if (!alertsSection || !alertsList) return;
+    const actionContainer = document.getElementById("alertsActionContainer");
+    if (!alertsSection || !alertsList || !actionContainer) return;
 
     const toggleBtn = document.getElementById("toggleAlertsVisibilityBtn");
     const isSectionDismissed = localStorage.getItem("alertSectionDismissed_nsc") === "true";
@@ -2018,42 +2032,50 @@ function updateMonitoringAlerts(data) {
         return;
     }
 
-    // २०% भन्दा बढी रिक्तता दर (Vacancy Rate) भएका कार्यालयहरू फिल्टर गर्ने
-    const highVacancyOffices = data.filter(d => {
-        const total = Number(getVal(d, 'd_total', 'कुल दरबन्दी') || 0);
-        const vacant = Number(getVal(d, 'd_vacant', 'रिक्त') || 0);
-        if (total <= 0) return false; // शून्य दरबन्दी भएका कार्यालयलाई नदेखाउने
-        const rate = (vacant / total) * 100;
-        return rate > 20;
-    });
+    // रिक्तता प्रतिशत गणना गर्ने र क्रमबद्ध (Descending) गर्ने
+    const allHighVacancyOffices = data
+        .map(d => {
+            const total = Number(getVal(d, 'd_total', 'कुल दरबन्दी') || 0);
+            const vacant = Number(getVal(d, 'd_vacant', 'रिक्त') || 0);
+            const rate = total > 0 ? (vacant / total) * 100 : 0;
+            return { ...d, rate };
+        })
+        .filter(d => d.rate > 20)
+        .sort((a, b) => b.rate - a.rate);
     
     // प्रयोगकर्ताले हटाएका अलर्टहरू फिल्टर गर्ने
-    const activeAlerts = highVacancyOffices.filter(d => !dismissedAlerts.has(d.m_office));
+    const activeAlerts = allHighVacancyOffices.filter(d => !dismissedAlerts.has(d.m_office));
 
-    // रिसेट बटन व्यवस्थापन (यदि कुनै अलर्ट हटाइएको छ भने मात्र देखाउने)
-    let resetBtn = document.getElementById("resetAlertsBtn");
-    if (dismissedAlerts.size > 0 && highVacancyOffices.length > 0) {
-        if (!resetBtn) {
-            resetBtn = document.createElement("button");
-            resetBtn.id = "resetAlertsBtn";
-            resetBtn.type = "button";
-            resetBtn.className = "reset-alerts-btn";
-            resetBtn.innerHTML = "🔄 अलर्ट रिसेट";
-            resetBtn.onclick = resetAlerts;
-            const title = alertsSection.querySelector('h4');
-            if (title) {
-                title.style.display = "flex";
-                title.style.justifyContent = "space-between";
-                title.style.alignItems = "center";
-                title.appendChild(resetBtn);
-            }
-        }
-    } else if (resetBtn) {
-        resetBtn.remove();
+    // एक्सन कन्टेनर क्लियर गर्ने
+    actionContainer.innerHTML = '';
+
+    // १. 'सबै हेर्नुहोस्' / 'कम हेर्नुहोस्' बटन
+    if (activeAlerts.length > 10) {
+        const viewAllBtn = document.createElement("button");
+        viewAllBtn.type = "button";
+        viewAllBtn.className = "reset-alerts-btn";
+        viewAllBtn.style.background = showAllAlertsMode ? "#718096" : "#387ae6";
+        viewAllBtn.style.color = "white";
+        viewAllBtn.innerHTML = showAllAlertsMode ? '<i class="fas fa-minus-circle"></i> कम हेर्नुहोस्' : '<i class="fas fa-list"></i> सबै हेर्नुहोस् (' + toNepaliDigits(activeAlerts.length) + ')';
+        viewAllBtn.onclick = () => {
+            showAllAlertsMode = !showAllAlertsMode;
+            refreshDashboard();
+        };
+        actionContainer.appendChild(viewAllBtn);
+    }
+
+    // २. 'अलर्ट रिसेट' बटन
+    if (dismissedAlerts.size > 0) {
+        const resetBtn = document.createElement("button");
+        resetBtn.type = "button";
+        resetBtn.className = "reset-alerts-btn";
+        resetBtn.innerHTML = "🔄 रिसेट";
+        resetBtn.onclick = resetAlerts;
+        actionContainer.appendChild(resetBtn);
     }
 
     if (activeAlerts.length === 0) {
-        if (dismissedAlerts.size > 0 && highVacancyOffices.length > 0) {
+        if (dismissedAlerts.size > 0 && allHighVacancyOffices.length > 0) {
             alertsSection.style.setProperty('display', 'block', 'important');
             alertsList.innerHTML = `<div style="padding:10px; color:#718096; font-size:0.85rem; width:100%; text-align:center;">सबै अलर्टहरू हेरिसकिएको छ।</div>`;
         } else {
@@ -2063,14 +2085,14 @@ function updateMonitoringAlerts(data) {
     }
 
     alertsSection.style.setProperty('display', 'block', 'important');
-    alertsList.innerHTML = activeAlerts.map(d => {
-        const total = Number(d.d_total || 0);
-        const vacant = Number(d.d_vacant || 0);
-        const rateNum = (vacant / total) * 100;
-        const rateStr = rateNum.toFixed(1);
+    
+    // १० वटा मात्र देखाउने वा सबै देखाउने मोड अनुसार डाटा काट्ने
+    const displayData = showAllAlertsMode ? activeAlerts : activeAlerts.slice(0, 10);
+
+    alertsList.innerHTML = displayData.map(d => {
+        const rateStr = d.rate.toFixed(1);
         
-        // ३०% भन्दा बढी भए "Critical" (रातो), २०-३०% भए "Warning" (सुन्तला)
-        const isCritical = rateNum > 30;
+        const isCritical = d.rate > 30;
         const themeColor = isCritical ? '#de3053' : '#f39c12';
         const borderColor = isCritical ? '#ffa39e' : '#ffd591';
         const bgColor = isCritical ? '#fff5f5' : '#fffaf0';
@@ -2083,7 +2105,7 @@ function updateMonitoringAlerts(data) {
                 <button type="button" class="alert-close-btn" style="color: ${themeColor}; border-color: ${borderColor}" onclick="dismissAlert(event, '${escapedOffice}')" title="हटाउनुहोस्"><i class="fas fa-times"></i></button>
                 <div style="font-weight: 700; color: ${themeColor}; margin-bottom: 4px; font-size: 0.95rem; padding-right: 15px;">${d.m_office || 'अज्ञात कार्यालय'}</div>
                 <div style="font-size: 0.9rem; color: #2d3748;">रिक्तता दर: <span style="font-weight: 800; color: ${themeColor};">${toNepaliDigits(rateStr)}%</span></div>
-                <div style="font-size: 0.8rem; color: #666; margin-top: 3px;">रिक्त संख्या: ${toNepaliDigits(vacant)} / कुल दरबन्दी: ${toNepaliDigits(total)}</div>
+                <div style="font-size: 0.8rem; color: #666; margin-top: 3px;">रिक्त संख्या: ${toNepaliDigits(d.d_vacant)} / कुल दरबन्दी: ${toNepaliDigits(d.d_total)}</div>
             </div>
         `;
     }).join('');
@@ -2961,6 +2983,7 @@ function updateDynamicAnalysis(data) {
 function switchDashboardView(view) {
     currentPage = 1;
     activeTagId = null; // ट्याब फेर्दा ट्याग फिल्टर हटाउने
+    showAllAlertsMode = false; // ट्याब फेर्दा अलर्ट मोड रिसेट गर्ने
     currentDashboardView = view;
 
     // ड्यासबोर्ड ट्याब परिवर्तन गर्दा चार्टहरू रिसेट गर्ने र पुराना इन्स्टेन्स हटाउने (जसले गर्दा पुरानो चार्ट रहिरहँदैन)
@@ -3139,12 +3162,12 @@ document.getElementById("showAttendanceView")?.addEventListener("click", () => s
 document.getElementById("downloadAttendancePDF")?.addEventListener("click", downloadAttendancePDF);
 document.getElementById("exportAttendanceExcel")?.addEventListener("click", exportAttendanceToExcel);
 
-document.querySelectorAll(".tab-btn").forEach(btn => {
+document.querySelectorAll(".nav-btn").forEach(btn => {
     btn.addEventListener("click", () => {
         const targetTab = btn.dataset.tab;
         if (!targetTab) return;
 
-        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
 
         document.querySelectorAll(".panel").forEach(p => p.classList.remove("active-panel"));

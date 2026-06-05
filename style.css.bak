@@ -10,20 +10,16 @@ html {
 
 body, input, select, textarea, button, label {
     font-family: 'Kalimati', 'Mukta', sans-serif !important;
-    font-size: 0.82rem; /* १५% घटाइएको (साविक ०.९५ बाट) */
+    font-size: 0.95rem; /* कम्प्याक्ट बनाउन साइज घटाइएको */
     color: #1a202c; /* अझ गाढा रङ्ग */
     line-height: 1.6; /* हरफ बीचको ग्याप */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
 
-#main-scroll-area {
-    zoom: 0.85; /* सम्पूर्ण कन्टेन्टलाई १५% खुम्च्याउन */
-}
-
 body {
-    /* background: #f0f4f8; Tailwind handles this */ /* हल्का ग्रे-ब्लु ब्याकग्राउन्ड */
-    /* background-image: radial-gradient(#cbd5e0 0.5px, transparent 0.5px); */ /* सूक्ष्म डट प्याटर्न */
+    background: #f0f4f8; /* हल्का ग्रे-ब्लु ब्याकग्राउन्ड */
+    background-image: radial-gradient(#cbd5e0 0.5px, transparent 0.5px); /* सूक्ष्म डट प्याटर्न */
     background-size: 20px 20px;
     padding: 20px;
     min-height: 100vh;
@@ -183,30 +179,13 @@ body {
 /* form style */
 .survey-card,
 .dashboard-card {
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border-radius: 16px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-    padding: 20px; /* १५% घटाइएको (साविक २४ बाट) */
-    margin-bottom: 20px;
-    border: 1px solid rgba(255, 255, 255, 1);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.survey-card:hover,
-.dashboard-card:hover {
-    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.08);
-}
-
-.glass-panel {
-    background: rgba(255, 255, 255, 0.5);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border-radius: 24px;
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
-    padding: 16px;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+    padding: 12px;
+    margin-bottom: 10px;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .form-grid {
@@ -241,8 +220,8 @@ textarea {
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
-    padding: 6px 10px; /* १५% घटाइएको */
-    font-size: 0.75rem; /* १५% घटाइएको */
+    padding: 8px 12px;
+    font-size: 0.85rem;
     flex: 1;
     min-width: 200px;
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
@@ -318,7 +297,7 @@ hr {
     font-weight: 700;
     color: white;
     margin-top: 4px;
-    font-size: 0.72rem; /* १५% घटाइएको */
+    font-size: 0.85rem;
     font-family: 'Kalimati', sans-serif;
     box-shadow: 0 2px 8px rgba(74, 144, 164, 0.2);
 }
@@ -451,7 +430,7 @@ button.submit-btn:active {
 }
 
 .stat-number {
-    font-size: 1rem; /* १५% घटाइएको (साविक १.२ बाट) */
+    font-size: 1.2rem;
     font-weight: 700;
     color: #2d3748;
     margin-bottom: 6px;
@@ -516,40 +495,6 @@ button.submit-btn:active {
 
 canvas {
     max-height: 180px;
-}
-
-#topUnsatisfiedContainer,
-#topSatisfiedContainer {
-    padding: 8px;
-}
-
-#topUnsatisfiedContainer h4,
-#topSatisfiedContainer h4 {
-    margin-bottom: 6px;
-}
-
-#topUnsatisfiedContainer > div,
-#topSatisfiedContainer > div {
-    gap: 8px;
-}
-
-#topUnsatisfiedContainer > div > div:last-child,
-#topSatisfiedContainer > div > div:last-child {
-    min-height: 120px;
-    height: 120px;
-}
-
-#topUnsatisfiedContainer [id$="List"],
-#topSatisfiedContainer [id$="List"] {
-    gap: 5px;
-}
-
-#monitoringAlertsSection {
-    padding: 10px;
-}
-
-#monitoringAlertsSection > div {
-    gap: 8px;
 }
 
 .table-wrapper {
@@ -725,9 +670,7 @@ tr:hover {
     }
 
     .field-group {
-        gap: 8px; /* लेबल र इनपुट बीचको दूरी कम तर स्पष्ट राखिएको */
-        flex-direction: column;
-        align-items: stretch;
+        gap: 0px; /* लेबल र इनपुट बीचको दूरी न्यूनतम बनाइएको */
     }
 
     .field-label {
@@ -882,179 +825,6 @@ tr:hover {
     .modal-content {
         padding: 10px;
         width: 98%;
-    }
-
-    #main-content-wrapper {
-        width: 100%;
-        max-width: 100%;
-        padding: 0 4px;
-        margin: 0 auto;
-    }
-
-    /* Mobile sidebar expanded: show only logo and icons */
-    #sidebar {
-        width: 30vw !important;
-        max-width: 30vw !important;
-        min-width: 30vw !important;
-    }
-
-    #sidebar .sidebar-text {
-        display: none !important;
-    }
-
-    #sidebar nav {
-        padding-left: 0.5rem;
-        padding-right: 0.5rem;
-    }
-
-    #sidebar nav .nav-btn {
-        justify-content: center;
-        gap: 0;
-        width: auto;
-        min-width: 0;
-        padding-left: 0.9rem;
-        padding-right: 0.9rem;
-    }
-
-    #sidebar nav .nav-btn .bg-white\/5,
-    #sidebar nav .nav-btn .bg-blue-500\/20 {
-        margin-right: 0;
-    }
-
-    .survey-card,
-    .dashboard-card {
-        width: 100%;
-        min-width: unset;
-    }
-
-    .view-toggle-btn {
-        width: 100%;
-        max-width: 100%;
-        min-width: 0;
-    }
-
-    .filter-item,
-    .field-group,
-    .field-item {
-        flex: 1 1 100%;
-        width: 100%;
-        min-width: 0;
-    }
-
-    .filter-item {
-        max-width: 100% !important;
-    }
-
-    .field-label {
-        display: block;
-        width: 100%;
-    }
-
-    .field-group input,
-    .field-group select,
-    .field-group textarea,
-    .field-item input {
-        width: 100%;
-        min-width: 0;
-    }
-
-    .voice-input-wrapper {
-        flex-direction: column;
-        width: 100%;
-    }
-
-    .voice-input-wrapper input,
-    .voice-input-wrapper textarea {
-        width: 100%;
-        min-width: 0;
-    }
-
-    .voice-btn,
-    .clear-btn {
-        width: 100%;
-    }
-
-    .table-wrapper {
-        overflow-x: auto;
-    }
-
-    .table-wrapper table {
-        width: 100%;
-        min-width: 100%;
-    }
-
-    .view-toggle-btn,
-    button.submit-btn,
-    #toggleMapBtn,
-    #toggleAlertsVisibilityBtn,
-    #applyFilter,
-    #resetFilter {
-        width: 100%;
-        min-width: 0;
-        padding: 12px 14px !important;
-        margin-bottom: 10px;
-        font-size: 1rem;
-        border-radius: 10px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    }
-
-    .toggle-row {
-        flex-wrap: wrap;
-        gap: 10px;
-        justify-content: center;
-    }
-
-    .view-toggle-btn {
-        text-align: center;
-        justify-content: center;
-    }
-
-    .view-toggle-btn .btn-icon {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0;
-    }
-
-    .view-toggle-btn .btn-label {
-        display: inline;
-    }
-
-    .toggle-row .view-toggle-btn {
-        flex: 0 0 auto;
-        width: 44px;
-        min-width: 44px;
-        height: 44px;
-        padding: 0 !important;
-        border-radius: 50%;
-    }
-
-    .toggle-row .view-toggle-btn .btn-label {
-        display: none;
-    }
-
-    .toggle-row .view-toggle-btn .btn-icon i {
-        margin: 0;
-        font-size: 1.05rem;
-    }
-
-    button.submit-btn {
-        min-height: 48px;
-        line-height: 1.2;
-    }
-
-    .voice-btn,
-    .clear-btn {
-        width: 100%;
-        min-width: 0;
-        padding: 10px 12px;
-        font-size: 1rem;
-        border-radius: 10px;
-    }
-
-    .voice-btn + .clear-btn,
-    .clear-btn + .voice-btn {
-        margin-top: 8px;
     }
 }
 
@@ -1760,40 +1530,4 @@ tr:hover {
 .summary-item:hover {
     background: #edf2f7;
     transform: translateY(-2px);
-}
-/* Custom Scrollbar for Sidebar */
-.custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 10px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.3);
-}
-
-
-.view-toggle-btn {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    color: #4a5568;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    padding: 6px 20px;
-}
-.view-toggle-btn:hover {
-    background: #edf2f7;
-    border-color: #cbd5e0;
-}
-.view-toggle-btn.active {
-    background: linear-gradient(135deg, #3182ce 0%, #2c5282 100%);
-    color: white;
-    border-color: #2b6cb0;
-    box-shadow: 0 4px 12px rgba(49, 130, 206, 0.4);
 }

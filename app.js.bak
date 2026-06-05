@@ -1,0 +1,204 @@
+import 'dotenv/config';
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// प्रतिशत अनुसार वर्गीकरण
+function classify(score) {
+  if (score >= 90) return "उत्कृष्ट";
+  if (score >= 75) return "राम्रो";
+  if (score >= 60) return "सुधार आवश्यक";
+  if (score >= 40) return "गम्भीर रूपमा समीक्षा गरी सुधार गर्नुपर्ने देखिएको";
+  return "तत्काल हस्तक्षेपको आवश्यकता";
+}
+
+function normalizeScore(value, max = 100) {
+  if (max === 0) return 0;
+  return Number(((Number(value) / Number(max)) * 100).toFixed(2));
+}
+
+function calculatePercentage(data) {
+  let total = 0;
+  let achieved = 0;
+
+  Object.values(data).forEach(v => {
+    if (typeof v === "object" && v.score !== undefined && v.max !== undefined) {
+      achieved += Number(v.score);
+      total += Number(v.max);
+    }
+  });
+
+  if (total === 0) return 0;
+  return Number(((achieved / total) * 100).toFixed(2));
+}
+
+function calculateGovernanceIndices(officeMonitoring, serviceSurvey, timeDressMonitoring, coverageFactor = 1, sampleFactor = 1) {
+  const transparencyIndex = normalizeScore(officeMonitoring?.transparency?.score, officeMonitoring?.transparency?.max ?? 100);
+  const serviceDeliveryIndex = normalizeScore(officeMonitoring?.serviceDelivery?.score, officeMonitoring?.serviceDelivery?.max ?? 100);
+
+  const accountabilityRaw =
+    Number(officeMonitoring?.grievance || 0) +
+    Number(officeMonitoring?.infoOfficer || 0) +
+    Number(officeMonitoring?.annualReport || 0);
+  const accountabilityIndex = accountabilityRaw > 0
+    ? Number(((accountabilityRaw / 7) * 100).toFixed(2))
+    : 0;
+
+  const disciplineIndex = calculatePercentage(timeDressMonitoring);
+  const satisfactionIndex = calculatePercentage(serviceSurvey);
+
+  const GGI =
+    (transparencyIndex * 0.25) +
+    (accountabilityIndex * 0.20) +
+    (serviceDeliveryIndex * 0.25) +
+    (disciplineIndex * 0.10) +
+    (satisfactionIndex * 0.20);
+
+  const finalGGI = Number((GGI * coverageFactor * sampleFactor).toFixed(2));
+
+  return {
+    transparencyIndex: Number(transparencyIndex.toFixed(2)),
+    accountabilityIndex: Number(accountabilityIndex.toFixed(2)),
+    serviceDeliveryIndex: Number(serviceDeliveryIndex.toFixed(2)),
+    employeeDisciplineIndex: Number(disciplineIndex.toFixed(2)),
+    citizenSatisfactionIndex: Number(satisfactionIndex.toFixed(2)),
+    goodGovernanceIndex: Number(finalGGI.toFixed(2)),
+    rawGGI: Number(GGI.toFixed(2))
+  };
+}
+
+function buildGovernancePrompt(indices, rawData, regionType, regionName, currentDate) {
+  return `
+तपाईं सार्वजनिक सेवा तथा सुशासन अनुगमन विश्लेषक हुनुहुन्छ।
+
+क्षेत्र: ${regionType}
+नाम: ${regionName}
+${currentDate ? `मिति: ${currentDate}` : ""}
+
+नियम:
+- प्रदेश मात्र छनौट भएमा प्रदेशको विश्लेषण गर्ने, प्रदेश र जिल्ला दुवै छनौट भएमा जिल्लाको विश्लेषण गर्ने, प्रदेश जिल्ला र स्थानीय तह छनौट भएमा स्थानीय तहको विश्लेषण गर्ने, प्रदेश जिल्ला स्थानीय तह र कार्यालय छनौट भएमा कार्यालयको विश्लेषण गर्ने।
+- तथ्यमा आधारित विश्लेषण
+- अनुमान नगर्ने
+- सुधार सुझाव दिने
+- अनुगमन निष्कर्ष स्पष्ट लेख्ने
+- यदि मिति उल्लेख गर्न आवश्यक नपरेको भए मिति नदेखाउने। यदि मिति देखाउनु पर्‍यो भने मात्र प्रदान गरिएको वास्तविक मिति प्रयोग गर्ने।
+- अंक गणनाको विधि (Methodology) स्पष्ट पार्ने: क्षेत्रगत प्रतिशत = (प्राप्त अंकको योग / कुल पूर्णाङ्कको योग) * १०० र समग्र स्कोर = (Good Governance Index)
+
+वर्गीकरण नियम:
+९०+ → उत्कृष्ट
+७५–८९ → राम्रो
+६०–७४ → सुधार आवश्यक
+४०–५९ → गम्भीर रूपमा समीक्षा गरी सुधार गर्नुपर्ने देखिएको
+४० भन्दा कम → तत्काल हस्तक्षेपको आवश्यकता
+
+५ सूचकाङ्क:
+- Transparency Index: ${indices.transparencyIndex}/100
+- Accountability Index: ${indices.accountabilityIndex}/100
+- Service Delivery Index: ${indices.serviceDeliveryIndex}/100
+- Employee Discipline Index: ${indices.employeeDisciplineIndex}/100
+- Citizen Satisfaction Index: ${indices.citizenSatisfactionIndex}/100
+- Good Governance Index (GGI): ${indices.goodGovernanceIndex}/100
+
+कच्चा तथ्यांक:
+${JSON.stringify(rawData, null, 2)}
+
+निम्न शीर्षकमा विश्लेषण लेख्नुहोस्:
+1. अंक गणनाको विधि र आधार
+2. समग्र स्थिति
+3. कार्यालय अनुगमन विश्लेषण
+4. समय/पोशाक व्यवस्थापन विश्लेषण
+5. सेवाग्राही सर्वेक्षण विश्लेषण
+6. मुख्य समस्या
+7. सुधारका सुझाव
+8. निष्कर्ष
+9. अन्तिम वर्गीकरण
+10. Governance Grade (A+ ≥85, A 75-84, B+ 65-74, B 50-64, C <50)
+11. Executive Summary
+
+विश्लेषण नेपालीमा मात्र प्रदान गर्नुहोस् र प्रशासनिक औपचारिक शैली अपनाउनुहोस्।
+`;
+}
+
+// AI विश्लेषण
+async function generateAnalysis(input) {
+  const officeScore = calculatePercentage(input.officeMonitoring);
+  const timeScore = calculatePercentage(input.timeDressMonitoring);
+  const surveyScore = calculatePercentage(input.serviceSurvey);
+
+  const overall = Number(((officeScore + timeScore + surveyScore) / 3).toFixed(2));
+  const indices = calculateGovernanceIndices(
+    input.officeMonitoring,
+    input.serviceSurvey,
+    input.timeDressMonitoring,
+    input.coverageFactor ?? 1,
+    input.sampleFactor ?? 1
+  );
+
+  const level = classify(indices.goodGovernanceIndex);
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+  const prompt = buildGovernancePrompt(
+    indices,
+    {
+      officeMonitoring: input.officeMonitoring,
+      timeDressMonitoring: input.timeDressMonitoring,
+      serviceSurvey: input.serviceSurvey
+    },
+    input.location?.level || "अन्य",
+    input.location?.name || "अज्ञात",
+    input.currentDate
+  );
+
+  const result = await model.generateContent(prompt);
+  const analysis = await result.response.text();
+
+  return {
+    officeScore,
+    timeScore,
+    surveyScore,
+    overallScore: overall,
+    indices,
+    classification: level,
+    analysis
+  };
+}
+
+
+
+// उदाहरण
+const monitoringData = {
+  location: {
+    level: "स्थानीय तह",
+    name: "जनकपुर उपमहानगरपालिका"
+  },
+  currentDate: "2026-06-04",
+  coverageFactor: 0.95,
+  sampleFactor: 1.0,
+  officeMonitoring: {
+    citizenCharter: { score: 85, max: 100 },
+    employeePresence: { score: 80, max: 100 },
+    serviceDelivery: { score: 72, max: 100 },
+    transparency: { score: 90, max: 100 },
+    grievance: 1.5,
+    infoOfficer: 1.8,
+    annualReport: 1.2
+  },
+  timeDressMonitoring: {
+    attendance: { score: 78, max: 100 },
+    dressCode: { score: 65, max: 100 }
+  },
+  serviceSurvey: {
+    satisfaction: { score: 81, max: 100 },
+    timelyService: { score: 70, max: 100 },
+    behavior: { score: 88, max: 100 }
+  }
+};
+
+
+
+generateAnalysis(monitoringData)
+  .then(r => {
+    console.log(r.classification);
+    console.log(r.indices);
+    console.log(r.analysis);
+  })
+  .catch(console.error);
