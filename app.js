@@ -156,8 +156,7 @@ function calculateGovernanceIndices(officeMonitoring, serviceSurvey, timeDressMo
   const disciplineIndex = timePercent;
   const satisfactionIndex = surveyPercent;
 
-  // तपाईंको सूत्र अनुसार GGI गणना: 
-  // GGI = 0.25×Transparency + 0.20×Accountability + 0.25×Service Delivery + 0.10×Discipline + 0.20×Satisfaction
+
   const rawGGI = (
     (transparencyIndex * 0.25) +
     (accountabilityIndex * 0.20) +

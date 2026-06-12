@@ -7,7 +7,7 @@
     <title>राष्ट्रिय सतर्कता केन्द्र - कार्यालय अनुगमन/सेवाग्राही सर्वेक्षण </title>
     <link rel="icon" type="image/png" href="coa.png">
     <!-- Google Fonts & Chart.js CDN -->
-    <link href="https://fonts.googleapis.com/css2?family=Mukta:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Mukta:wght@200..800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Kalimati&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0" defer></script>
@@ -137,6 +137,11 @@
 
                 <!-- Right Side: Nepal Flag -->
                 <div class="flex items-center justify-end w-1/4">
+                    <!-- Theme Toggle Button -->
+                    <button id="themeToggleBtn"
+                        class="mr-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all">
+                        <i class="fas fa-moon"></i>
+                    </button>
                     <img src="./nepal-flag.gif" alt="Flag of Nepal" class="h-10 drop-shadow-md">
                 </div>
             </header>
@@ -977,37 +982,57 @@
                     <!-- DASHBOARD PANEL -->
                     <div id="dashboard-tab" class="panel active-panel">
                         <div class="dashboard-card">
-                            <!-- View Toggles -->
-                            <div class="toggle-row"
-                                style="display: flex; gap: 10px; margin-bottom: 20px; justify-content: center;">
-                                <button id="showSurveyView" class="view-toggle-btn" aria-label="सेवाग्राही सर्वेक्षण"
-                                    style="flex: 1; max-width: 300px; padding: 6px 20px;">
-                                    <span class="btn-icon"><i class="fas fa-clipboard-list"></i></span>
-                                    <span class="btn-label">सेवाग्राही सर्वेक्षण</span>
+                            <!-- Professional Dashboard View Toggles -->
+                            <div class="dashboard-view-selector">
+                                <button id="showSurveyView" class="dash-view-btn dash-view-survey" aria-label="सेवाग्राही सर्वेक्षण">
+                                    <div class="dash-view-icon-wrap">
+                                        <i class="fas fa-clipboard-list"></i>
+                                    </div>
+                                    <div class="dash-view-content">
+                                        <span class="dash-view-title">सेवाग्राही सर्वेक्षण</span>
+                                        <span class="dash-view-desc">सेवाग्राही सन्तुष्टि तथा प्रतिक्रिया</span>
+                                    </div>
+                                    <div class="dash-view-badge">सर्वेक्षण</div>
                                 </button>
-                                <button id="showMonitoringView" class="view-toggle-btn active"
-                                    aria-label="कार्यालय/नागरिक बडापत्र अनुगमन"
-                                    style="flex: 1; max-width: 300px; padding: 6px 20px;">
-                                    <span class="btn-icon"><i class="fas fa-eye"></i></span>
-                                    <span class="btn-label">कार्यालय/नागरिक बडापत्र अनुगमन</span>
+                                <button id="showMonitoringView" class="dash-view-btn dash-view-monitoring active" aria-label="कार्यालय/नागरिक बडापत्र अनुगमन">
+                                    <div class="dash-view-icon-wrap">
+                                        <i class="fas fa-eye"></i>
+                                    </div>
+                                    <div class="dash-view-content">
+                                        <span class="dash-view-title">कार्यालय/नागरिक बडापत्र अनुगमन</span>
+                                        <span class="dash-view-desc">कार्यालय अनुगमन तथा मूल्याङ्कन</span>
+                                    </div>
+                                    <div class="dash-view-badge">अनुगमन</div>
                                 </button>
-                                <button id="showAttendanceView" class="view-toggle-btn"
-                                    aria-label="समय पालना/पोशाक अनुगमन"
-                                    style="flex: 1; max-width: 300px; padding: 6px 20px;">
-                                    <span class="btn-icon"><i class="fas fa-clock"></i></span>
-                                    <span class="btn-label">समय पालना/पोशाक अनुगमन</span>
+                                <button id="showAttendanceView" class="dash-view-btn dash-view-attendance" aria-label="समय पालना/पोशाक अनुगमन">
+                                    <div class="dash-view-icon-wrap">
+                                        <i class="fas fa-clock"></i>
+                                    </div>
+                                    <div class="dash-view-content">
+                                        <span class="dash-view-title">समय पालना/पोशाक अनुगमन</span>
+                                        <span class="dash-view-desc">उपस्थिति तथा ड्रेस कोड जाँच</span>
+                                    </div>
+                                    <div class="dash-view-badge">पोशाक</div>
                                 </button>
-                                <button id="toggleMapBtn" class="view-toggle-btn" aria-label="नक्सामा हेर्नुहोस्"
-                                    onclick="toggleMapVisibility()"
-                                    style="background: #e67e22; color: white; border-color: #d35400; padding: 2px 10px; font-size: 0.8rem; display: flex; align-items: center; justify-content: center;">
-                                    <span class="btn-icon"><i class="fas fa-map-marked-alt"></i></span>
-                                    <span class="btn-label">नक्सामा हेर्नुहोस्</span>
+                                <button id="toggleMapBtn" class="dash-view-btn dash-view-map" aria-label="नक्सामा हेर्नुहोस्" onclick="toggleMapVisibility()">
+                                    <div class="dash-view-icon-wrap">
+                                        <i class="fas fa-map-marked-alt"></i>
+                                    </div>
+                                    <div class="dash-view-content">
+                                        <span class="dash-view-title">नक्सामा हेर्नुहोस्</span>
+                                        <span class="dash-view-desc">भौगोलिक रूपमा डेटा अवलोकन</span>
+                                    </div>
+                                    <div class="dash-view-badge">GIS</div>
                                 </button>
-                                <button id="toggleAlertsVisibilityBtn" class="view-toggle-btn nav-btn"
-                                    aria-label="अलर्ट लुकाउनुहोस्" onclick="toggleAlertsVisibility()"
-                                    style="display: none; background: #de3053; color: white; border-color: #c03e37; padding: 2px 10px; font-size: 0.8rem; display: flex; align-items: center; justify-content: center;">
-                                    <span class="btn-icon"><i class="fas fa-bell"></i></span>
-                                    <span class="btn-label">अलर्ट लुकाउनुहोस्</span>
+                                <button id="toggleAlertsVisibilityBtn" class="dash-view-btn dash-view-alerts" aria-label="अलर्ट लुकाउनुहोस्" onclick="toggleAlertsVisibility()" style="display: none;">
+                                    <div class="dash-view-icon-wrap">
+                                        <i class="fas fa-bell"></i>
+                                    </div>
+                                    <div class="dash-view-content">
+                                        <span class="dash-view-title">अलर्ट लुकाउनुहोस्</span>
+                                        <span class="dash-view-desc">रिक्त पद सूचनाहरू</span>
+                                    </div>
+                                    <div class="dash-view-badge">अलर्ट</div>
                                 </button>
                             </div>
 
@@ -1047,6 +1072,7 @@
                                     <select id="themeSelector">
                                         <option value="default">डिफल्ट (Classic)</option>
                                         <option value="ocean">निलो (Ocean)</option>
+                                        <option value="modern">आधुनिक (Modern)</option>
                                         <option value="forest">हरियो (Forest)</option>
                                         <option value="sunset">सुन्तला/रातो (Sunset)</option>
                                         <option value="vibrant">चम्किलो (Vibrant)</option>
@@ -1371,6 +1397,23 @@
                                 </div>
                                 <div id="monitoringDetailsList"
                                     style="display: flex; flex-direction: column; gap: 15px;"></div>
+                            </div>
+
+                            <!-- AI ड्यासबोर्ड सारांश बक्स -->
+                            <div id="aiDashboardSummaryBox"
+                                style="margin-top: 30px; display: none; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; background: white; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
+                                <div class="section-title"
+                                    style="background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 100%); border: none; margin: 0; border-radius: 0; padding: 12px 20px; font-size: 1rem;">
+                                    <i class="fas fa-robot"></i> AI सारांश र सुधारका सुझावहरू
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 p-5 bg-slate-50/50 border-b border-slate-100"
+                                    id="aiIndicesDisplay">
+                                    <!-- Indices यहाँ थपिनेछन् -->
+                                </div>
+                                <div class="p-6 text-slate-700" id="aiDashboardAnalysisText"
+                                    style="line-height: 1.7; font-size: 0.95rem;">
+                                    <i class="fas fa-spinner fa-spin"></i> फिल्टर अनुसारको तथ्याङ्क विश्लेषण गर्दै...
+                                </div>
                             </div>
                         </div>
                     </div>
