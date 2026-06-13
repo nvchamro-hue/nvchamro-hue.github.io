@@ -1,5 +1,5 @@
 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzHZrqbZvp3ZDoD7wwsyV-3wsvlZdEnthe6o8f5VOBeDFBgyW8OVvxJU2tZTsSZDt3QYQ/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbygb8nTRcxutNnS_mGFw_nUEL6eJNRn5oluZV0emJjFD7xcAA-qVKH6hj97GLqGF1Zi/exec";
 
 
 let allSubmissions = [];
@@ -7,7 +7,7 @@ let allMonitorings = [];
 let allAttendanceMonitorings = [];
 let currentFilteredMonitorings = [];
 let currentFilteredAttendance = [];
-let currentDashboardView = 'monitoring'; 
+let currentDashboardView = 'monitoring';
 let consecutiveErrorCount = 0;
 let currentFilteredSubmissions = [];
 let mapObj = null;
@@ -33,9 +33,9 @@ let MUNICIPALITIES = {};
 
 
 function createGradient(ctx, color, isHorizontal = false, isRadial = false, isHover = false) {
-    
+
     if (isHover && typeof color === 'string' && color.length === 7) {
-        return color + 'dd'; 
+        return color + 'dd';
     }
     return color;
 }
@@ -44,7 +44,7 @@ function createGradient(ctx, color, isHorizontal = false, isRadial = false, isHo
 const shadowPlugin = {
     id: 'shadowPlugin',
     beforeDatasetsDraw(chart, args, options) {
-        
+
         if (!options.enabled) return;
         const { ctx } = chart;
         ctx.save();
@@ -52,7 +52,7 @@ const shadowPlugin = {
         ctx.shadowBlur = options.blur || 8;
     },
     afterDatasetsDraw(chart) {
-        chart.ctx.restore(); 
+        chart.ctx.restore();
     }
 };
 Chart.register(shadowPlugin);
@@ -65,10 +65,10 @@ Chart.defaults.plugins.legend.labels.font = {
     size: 12,
     weight: '600'
 };
-Chart.defaults.plugins.legend.labels.usePointStyle = true; 
+Chart.defaults.plugins.legend.labels.usePointStyle = true;
 
 
-Chart.defaults.scale.grid.color = 'rgba(0, 0, 0, 0.02)'; 
+Chart.defaults.scale.grid.color = 'rgba(0, 0, 0, 0.02)';
 Chart.defaults.scale.grid.drawTicks = false;
 Chart.defaults.scale.border.display = false;
 
@@ -156,7 +156,7 @@ const GLOBAL_DATALABELS_CONFIG = {
     color: '#ffffff',
     font: { family: 'Kalimati', weight: 'bold', size: 11 },
     formatter: (value) => toNepaliDigits(value),
-    
+
     display: (context) => context.dataset.data[context.dataIndex] > 0,
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowBlur: 4,
@@ -166,12 +166,12 @@ const GLOBAL_DATALABELS_CONFIG = {
 
 
 const GLOBAL_CHART_ANIMATION = {
-    duration: 1200,        
-    easing: 'easeOutQuart', 
+    duration: 1200,
+    easing: 'easeOutQuart',
     delay: (context) => {
         let delay = 0;
         if (context.type === 'data' && context.mode === 'default') {
-            delay = context.dataIndex * 150; 
+            delay = context.dataIndex * 150;
         }
         return delay;
     }
@@ -183,7 +183,7 @@ let charterClarityChartObj = null, attendanceChartObj = null, brokerChartObj = n
 let vacantPercentPieChartObj = null;
 
 const CHART_THEMES = {
-    
+
     default: ['#3b82f6', '#14b8a6', '#8b5cf6', '#f97316', '#10b981', '#ec4899', '#06b6d4', '#eab308', '#64748b', '#a855f7'],
     ocean: ['#2563eb', '#0891b2', '#0d9488', '#6366f1', '#7c3aed', '#0284c7', '#06b6d4', '#2dd4bf'],
     modern: ['#60a5fa', '#34d399', '#a78bfa', '#fb923c', '#4ade80', '#f472b6', '#22d3ee', '#facc15', '#94a3b8'],
@@ -197,7 +197,7 @@ let activeTheme = 'default';
 function dampenColor(hex, sReduce = 5, lReduce = 0) {
     if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) return hex;
 
- 
+
     let r = parseInt(hex.slice(1, 3), 16) / 255;
     let g = parseInt(hex.slice(3, 5), 16) / 255;
     let b = parseInt(hex.slice(5, 7), 16) / 255;
@@ -218,11 +218,11 @@ function dampenColor(hex, sReduce = 5, lReduce = 0) {
         h /= 6;
     }
 
-    
-    s = Math.max(0, s * (1 - sReduce / 100));
-    l = l + (1 - l) * (lReduce / 100); 
 
-    
+    s = Math.max(0, s * (1 - sReduce / 100));
+    l = l + (1 - l) * (lReduce / 100);
+
+
     const hue2rgb = (p, q, t) => {
         if (t < 0) t += 1;
         if (t > 1) t -= 1;
@@ -243,9 +243,9 @@ function dampenColor(hex, sReduce = 5, lReduce = 0) {
 }
 
 
-function getThemeColors(opacity = 0.8) {    
+function getThemeColors(opacity = 0.8) {
     const theme = CHART_THEMES[activeTheme] || CHART_THEMES['default'];
-    return theme.map(color => {        
+    return theme.map(color => {
         if (opacity === 1) return color;
         return color + Math.floor(opacity * 255).toString(16).padStart(2, '0');
     });
@@ -268,10 +268,10 @@ const PROVINCE = {
 
 
 function getVal(obj, field, label) {
-    if (!obj) return "";    
-    if (obj[field] !== undefined && obj[field] !== null && obj[field] !== "") return obj[field];    
+    if (!obj) return "";
+    if (obj[field] !== undefined && obj[field] !== null && obj[field] !== "") return obj[field];
     if (obj[label] !== undefined && obj[label] !== null && obj[label] !== "") return obj[label];
-    const keys = Object.keys(obj);    
+    const keys = Object.keys(obj);
     const clean = (s) => String(s || "").replace(/[\s.,0-9०-९?？।()\/\\-]|बारेमा|सम्बन्धमा|सम्बन्धी/g, '').replace(/व/g, 'ब').toLowerCase();
     const cleanLabel = clean(label);
     const cleanField = clean(field);
@@ -280,7 +280,7 @@ function getVal(obj, field, label) {
         const ck = clean(k);
         if (cleanField && ck.includes(cleanField)) return true;
         if (!cleanLabel) return false;
-        
+
         if (cleanLabel.length > 8) {
             return ck.includes(cleanLabel.substring(0, 5)) && ck.includes(cleanLabel.substring(cleanLabel.length - 4));
         }
@@ -358,14 +358,14 @@ function getStandardDate(nepStr) {
 }
 
 function estimateCurrentBsDate() {
-    
+
 
     const today = new Date();
-    const anchorAD = new Date(2026, 5, 3); 
-    const anchorBS = { year: 2083, month: 2, day: 20 }; 
+    const anchorAD = new Date(2026, 5, 3);
+    const anchorBS = { year: 2083, month: 2, day: 20 };
 
     const msPerDay = 24 * 60 * 60 * 1000;
-    
+
     const diffDays = Math.round((new Date(today).setHours(0, 0, 0, 0) - new Date(anchorAD).setHours(0, 0, 0, 0)) / msPerDay);
 
     let y = anchorBS.year;
@@ -402,8 +402,8 @@ function setTodayNepaliDate() {
 function createNepaliPickerOverlay() {
     if (document.getElementById('nepaliPickerOverlay')) return document.getElementById('nepaliPickerOverlay');
     const overlay = document.createElement('div');
-    overlay.id = 'nepaliPickerOverlay'; 
-    overlay.className = 'nepali-picker-overlay'; 
+    overlay.id = 'nepaliPickerOverlay';
+    overlay.className = 'nepali-picker-overlay';
     overlay.style.position = 'absolute';
     overlay.style.zIndex = '9999';
     overlay.style.display = 'none';
@@ -508,7 +508,7 @@ function populateProvinces() {
     const pradeshSelects = [document.getElementById("pradesh"), document.getElementById("filterPradesh"), document.getElementById("m_pradesh"), document.getElementById("a_pradesh")];
     pradeshSelects.forEach(sel => {
         if (!sel) return;
-        sel.innerHTML = '<option value="">प्रदेश छान्नुहोस्</option>'; 
+        sel.innerHTML = '<option value="">प्रदेश छान्नुहोस्</option>';
         for (const [id, name] of Object.entries(PROVINCE)) {
             const option = document.createElement("option");
             option.value = id;
@@ -593,8 +593,253 @@ function updateFilterMunicipalities() {
 }
 
 
+// ========== DARK MODE SYSTEM ==========
+function initDarkMode() {
+    const toggleBtn = document.getElementById('themeToggleBtn');
+    const icon = toggleBtn?.querySelector('i');
+
+    // Load saved preference
+    const savedTheme = localStorage.getItem('nsc_darkMode');
+    if (savedTheme === 'true') {
+        document.body.classList.add('dark-mode');
+        if (icon) {
+            icon.classList.remove('fa-moon');
+            icon.classList.add('fa-sun');
+        }
+    }
+
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function () {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            localStorage.setItem('nsc_darkMode', isDark ? 'true' : 'false');
+
+            if (icon) {
+                if (isDark) {
+                    icon.classList.remove('fa-moon');
+                    icon.classList.add('fa-sun');
+                } else {
+                    icon.classList.remove('fa-sun');
+                    icon.classList.add('fa-moon');
+                }
+            }
+
+            // Play click sound
+            playClickSound();
+
+            // Refresh charts to match theme
+            if (typeof refreshDashboard === 'function') {
+                refreshDashboard();
+            }
+        });
+    }
+}
+
+// ========== ANIMATED COUNTERS ==========
+function animateCounter(el, target, suffix = '') {
+    if (!el) return;
+    const duration = 1500;
+    const start = performance.now();
+    const startVal = 0;
+    const nepaliTarget = toNepaliDigits(target);
+
+    function update(currentTime) {
+        const elapsed = currentTime - start;
+        const progress = Math.min(elapsed / duration, 1);
+        // Ease out cubic
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const current = Math.floor(eased * target);
+        el.textContent = toNepaliDigits(current) + suffix;
+
+        if (progress < 1) {
+            requestAnimationFrame(update);
+        } else {
+            el.textContent = nepaliTarget + suffix;
+        }
+    }
+
+    requestAnimationFrame(update);
+}
+
+// ========== SMOOTH TAB TRANSITIONS ==========
+function initSmoothTabTransitions() {
+    const tabBtns = document.querySelectorAll('.nav-btn[data-tab]');
+    const panels = {
+        'dashboard-tab': document.getElementById('dashboard-tab'),
+        'form-tab': document.getElementById('form-tab'),
+        'monitoring-tab': document.getElementById('monitoring-tab'),
+        'attendance-tab': document.getElementById('attendance-tab')
+    };
+
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', function (e) {
+            const tabId = this.dataset.tab;
+            const targetPanel = panels[tabId];
+            if (!targetPanel) return;
+
+            // Hide all panels with slide-out animation
+            Object.values(panels).forEach(panel => {
+                if (panel && panel !== targetPanel && panel.classList.contains('active-panel')) {
+                    panel.style.animation = 'fadeOut 0.2s ease forwards';
+                    setTimeout(() => {
+                        panel.classList.remove('active-panel');
+                        panel.style.animation = '';
+                    }, 200);
+                }
+            });
+
+            // Show target panel with slide-in animation
+            setTimeout(() => {
+                targetPanel.classList.add('active-panel');
+                targetPanel.style.animation = 'slideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards';
+                setTimeout(() => {
+                    targetPanel.style.animation = '';
+                }, 400);
+            }, 150);
+
+            // Switch dashboard view if dashboard tab
+            if (tabId === 'dashboard-tab' && typeof switchDashboardView === 'function') {
+                setTimeout(() => switchDashboardView(currentDashboardView), 300);
+            }
+        });
+    });
+}
+
+// ========== TOAST NOTIFICATION SYSTEM ==========
+function showToast(message, type = 'info', duration = 3000) {
+    const existingToast = document.getElementById('nscToast');
+    if (existingToast) existingToast.remove();
+
+    const toast = document.createElement('div');
+    toast.id = 'nscToast';
+
+    const config = {
+        success: { icon: 'fas fa-check-circle', bg: 'linear-gradient(135deg,#10b981,#059669)' },
+        error: { icon: 'fas fa-exclamation-circle', bg: 'linear-gradient(135deg,#ef4444,#dc2626)' },
+        warning: { icon: 'fas fa-exclamation-triangle', bg: 'linear-gradient(135deg,#f59e0b,#d97706)' },
+        info: { icon: 'fas fa-info-circle', bg: 'linear-gradient(135deg,#3b82f6,#2563eb)' }
+    };
+
+    const c = config[type] || config.info;
+
+    toast.innerHTML = `<i class="${c.icon}"></i><span>${message}</span>`;
+    toast.style.cssText = `
+        position:fixed;top:16px;right:16px;z-index:100010;display:flex;align-items:center;gap:10px;
+        padding:12px 20px;border-radius:12px;background:${c.bg};color:white;
+        font-family:'Kalimati',sans-serif;font-size:0.85rem;font-weight:600;
+        box-shadow:0 8px 32px rgba(0,0,0,0.15);transform:translateX(120%);
+        opacity:0;transition:all 0.4s cubic-bezier(0.34,1.56,0.64,1);
+        max-width:360px; pointer-events:auto;
+    `;
+    document.body.appendChild(toast);
+
+    // Animate in
+    requestAnimationFrame(() => {
+        toast.style.transform = 'translateX(0)';
+        toast.style.opacity = '1';
+    });
+
+    // Auto remove with slide-out
+    setTimeout(() => {
+        toast.style.transform = 'translateX(120%)';
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 400);
+    }, duration);
+}
+
+// ========== DEBOUNCE UTILITY ==========
+function debounce(fn, delay = 300) {
+    let timer;
+    return function (...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), delay);
+    };
+}
+
+// ========== FORM AUTO-SAVE DRAFT ==========
+function saveFormDraft(formId) {
+    const form = document.getElementById(formId);
+    if (!form) return;
+    const formData = new FormData(form);
+    const data = {};
+    for (let [key, val] of formData.entries()) {
+        if (data[key]) {
+            if (!Array.isArray(data[key])) data[key] = [data[key]];
+            data[key].push(val);
+        } else data[key] = val;
+    }
+    // Also capture radio/checkbox states
+    form.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(el => {
+        if (el.checked) data[el.name] = el.value;
+    });
+    try {
+        localStorage.setItem(`nsc_draft_${formId}`, JSON.stringify(data));
+    } catch (e) { /* localStorage full */ }
+}
+
+function restoreFormDraft(formId) {
+    const form = document.getElementById(formId);
+    if (!form) return;
+    try {
+        const saved = localStorage.getItem(`nsc_draft_${formId}`);
+        if (!saved) return;
+        const data = JSON.parse(saved);
+        Object.entries(data).forEach(([key, val]) => {
+            const els = form.querySelectorAll(`[name="${key}"]`);
+            els.forEach(el => {
+                if (el.type === 'radio' || el.type === 'checkbox') {
+                    if (Array.isArray(val)) {
+                        el.checked = val.includes(el.value);
+                    } else {
+                        el.checked = el.value === val;
+                    }
+                } else {
+                    if (Array.isArray(val)) {
+                        el.value = val.join(', ');
+                    } else {
+                        el.value = val;
+                    }
+                }
+            });
+        });
+        showToast('📋 पहिलेको ड्राफ्ट रि-स्टोर गरियो', 'info', 2000);
+    } catch (e) { /* ignore */ }
+}
+
+// Clear form draft on successful submit
+function clearFormDraft(formId) {
+    localStorage.removeItem(`nsc_draft_${formId}`);
+}
+
+// ========== LOADING SKELETON ==========
+function showDashboardSkeleton() {
+    const statContainer = document.getElementById('statCardsContainer');
+    const chartRow = document.getElementById('surveyChartsRow');
+    if (!statContainer) return;
+
+    statContainer.classList.add('skeleton-loading');
+    if (chartRow) chartRow.classList.add('skeleton-loading');
+
+    // Create skeleton placeholder cards
+    statContainer.innerHTML = Array(4).fill('').map(() => `
+        <div class="stat-card" style="min-height: 100px;"></div>
+    `).join('');
+}
+
+function hideDashboardSkeleton() {
+    const statContainer = document.getElementById('statCardsContainer');
+    const chartRow = document.getElementById('surveyChartsRow');
+    if (statContainer) statContainer.classList.remove('skeleton-loading');
+    if (chartRow) chartRow.classList.remove('skeleton-loading');
+}
+
 document.addEventListener("DOMContentLoaded", function () {
-    
+    // Initialize dark mode
+    initDarkMode();
+
+    // Initialize smooth tab transitions
+    initSmoothTabTransitions();
+
     let lastHoveredStatCard = null;
     document.body.addEventListener('mouseover', function (e) {
         const card = e.target.closest('.stat-card');
@@ -608,7 +853,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
-    
+
     const dashboardSpacingStyle = document.createElement('style');
     dashboardSpacingStyle.textContent = `
         #dashboard-tab {
@@ -632,19 +877,19 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById("pradesh").addEventListener("change", () => updateDistricts("pradesh", "jilla", "sthaaniya_taha"));
     document.getElementById("jilla").addEventListener("change", () => updateMunicipalities("pradesh", "jilla", "sthaaniya_taha"));
 
-    
+
     document.getElementById("m_pradesh")?.addEventListener("change", () => updateDistricts("m_pradesh", "m_jilla", "m_sthaaniya"));
     document.getElementById("m_jilla")?.addEventListener("change", () => updateMunicipalities("m_pradesh", "m_jilla", "m_sthaaniya"));
     document.getElementById("a_pradesh")?.addEventListener("change", () => updateDistricts("a_pradesh", "a_jilla", "a_sthaaniya"));
     document.getElementById("a_jilla")?.addEventListener("change", () => updateMunicipalities("a_pradesh", "a_jilla", "a_sthaaniya"));
 
-    
-    addAttendanceRow(); 
 
-    
+    addAttendanceRow();
+
+
     document.getElementById("dynamicFieldSelector")?.addEventListener("change", refreshDashboard);
 
-   
+
     document.getElementById("toggleMonitoringFilters")?.addEventListener("click", function () {
         const container = document.getElementById("monitoringExtraFilters");
         if (container.style.display === "none" || container.style.display === "") {
@@ -670,6 +915,12 @@ document.addEventListener("DOMContentLoaded", function () {
     });
     document.getElementById("monitoringFieldSelector")?.addEventListener("change", refreshDashboard);
 
+    // Debounced filter inputs for performance
+    const debouncedRefresh = debounce(function () {
+        currentPage = 1;
+        refreshDashboard();
+    }, 250);
+
     document.getElementById("filterPradesh")?.addEventListener("change", () => {
         updateFilterDistricts();
         currentPage = 1;
@@ -684,6 +935,13 @@ document.addEventListener("DOMContentLoaded", function () {
         currentPage = 1;
         refreshDashboard();
     });
+    document.getElementById("filterOffice")?.addEventListener("input", debouncedRefresh);
+    document.getElementById("filterGender")?.addEventListener("change", debouncedRefresh);
+    document.getElementById("filterDateFrom")?.addEventListener("change", debouncedRefresh);
+    document.getElementById("filterDateTo")?.addEventListener("change", debouncedRefresh);
+    document.getElementById("filterEmpName")?.addEventListener("input", debouncedRefresh);
+    document.getElementById("filterEmpSymbol")?.addEventListener("input", debouncedRefresh);
+    document.getElementById("filterCategory")?.addEventListener("change", debouncedRefresh);
     document.getElementById("pageSizeSelect")?.addEventListener("change", function () {
         itemsPerPage = parseInt(this.value);
         currentPage = 1;
@@ -695,7 +953,19 @@ document.addEventListener("DOMContentLoaded", function () {
         field.addEventListener('click', () => showNepaliDatePicker(field));
     });
     const scrollTopBtn = document.getElementById("scrollTopBtn");
+
+    // ========== SCROLL PROGRESS BAR ==========
+    const progressBar = document.createElement('div');
+    progressBar.id = 'scrollProgressBar';
+    progressBar.style.cssText = 'position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,#3b82f6,#14b8a6);z-index:100000;width:0%;transition:width 0.1s linear;';
+    document.body.appendChild(progressBar);
+
     window.addEventListener("scroll", () => {
+        const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+        const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const scrolled = (winScroll / height) * 100;
+        progressBar.style.width = scrolled + '%';
+
         if (window.scrollY > 400) {
             scrollTopBtn.style.display = "flex";
         } else {
@@ -705,11 +975,124 @@ document.addEventListener("DOMContentLoaded", function () {
 
     scrollTopBtn?.addEventListener("click", () => {
         if (navigator.vibrate) {
-            navigator.vibrate(40); 
+            navigator.vibrate(40);
         }
         playClickSound();
 
         window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+
+    // ========== FORM AUTO-SAVE DRAFT ==========
+    const formIds = ['surveyForm', 'monitoringForm', 'attendanceForm'];
+    formIds.forEach(formId => {
+        const form = document.getElementById(formId);
+        if (!form) return;
+        const inputs = form.querySelectorAll('input, select, textarea');
+        let saveTimeout;
+        inputs.forEach(input => {
+            input.addEventListener('input', () => {
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(() => {
+                    saveFormDraft(formId);
+                }, 500);
+            });
+            input.addEventListener('change', () => {
+                saveFormDraft(formId);
+            });
+        });
+        // Restore on load
+        restoreFormDraft(formId);
+    });
+
+    // ========== FLOATING QUICK ACTIONS ==========
+    const fabContainer = document.createElement('div');
+    fabContainer.id = 'fabContainer';
+    fabContainer.innerHTML = `
+        <div id="fabMain" class="fab-main-btn" title="द्रुत कार्य">
+            <i class="fas fa-plus"></i>
+        </div>
+        <div class="fab-actions" id="fabActions">
+            <button class="fab-action-btn" data-action="survey" title="सर्वेक्षण फारम">
+                <i class="fas fa-poll-h"></i>
+                <span class="fab-label">सर्वेक्षण</span>
+            </button>
+            <button class="fab-action-btn" data-action="monitoring" title="अनुगमन फारम">
+                <i class="fas fa-clipboard-check"></i>
+                <span class="fab-label">अनुगमन</span>
+            </button>
+            <button class="fab-action-btn" data-action="attendance" title="समय पालना फारम">
+                <i class="fas fa-user-clock"></i>
+                <span class="fab-label">पोशाक</span>
+            </button>
+            <button class="fab-action-btn" data-action="dashboard" title="ड्यासबोर्ड">
+                <i class="fas fa-chart-pie"></i>
+                <span class="fab-label">ड्यासबोर्ड</span>
+            </button>
+            <button class="fab-action-btn" data-action="top" title="माथि जानुहोस्">
+                <i class="fas fa-arrow-up"></i>
+                <span class="fab-label">माथि</span>
+            </button>
+        </div>
+    `;
+    document.body.appendChild(fabContainer);
+
+    // FAB styles
+    const fabStyle = document.createElement('style');
+    fabStyle.textContent = `
+        #fabContainer { position:fixed; bottom:90px; right:20px; z-index:9999; display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
+        .fab-main-btn { width:48px; height:48px; border-radius:50%; background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:white; border:none; cursor:pointer; box-shadow:0 4px 16px rgba(59,130,246,0.4); display:flex; align-items:center; justify-content:center; font-size:1.3rem; transition:all 0.3s cubic-bezier(0.4,0,0.2,1); }
+        .fab-main-btn:hover { transform:scale(1.1) rotate(90deg); box-shadow:0 6px 20px rgba(59,130,246,0.6); }
+        .fab-main-btn.active { transform:rotate(45deg); background:linear-gradient(135deg,#ef4444,#dc2626); }
+        .fab-actions { display:none; flex-direction:column; gap:6px; align-items:flex-end; }
+        .fab-actions.show { display:flex; animation:fabSlideIn 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+        .fab-action-btn { display:flex; align-items:center; gap:8px; background:white; border:none; border-radius:24px; padding:8px 16px; cursor:pointer; box-shadow:0 2px 12px rgba(0,0,0,0.12); transition:all 0.2s ease; font-family:'Kalimati',sans-serif; font-size:0.78rem; color:#1e293b; font-weight:600; }
+        .fab-action-btn:hover { transform:translateX(-6px) scale(1.05); box-shadow:0 4px 16px rgba(0,0,0,0.18); }
+        .fab-action-btn i { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; font-size:0.8rem; }
+        .fab-action-btn[data-action="survey"] i { background:linear-gradient(135deg,#3b82f6,#1d4ed8); }
+        .fab-action-btn[data-action="monitoring"] i { background:linear-gradient(135deg,#14b8a6,#0d9488); }
+        .fab-action-btn[data-action="attendance"] i { background:linear-gradient(135deg,#8b5cf6,#6d28d9); }
+        .fab-action-btn[data-action="dashboard"] i { background:linear-gradient(135deg,#f97316,#ea580c); }
+        .fab-action-btn[data-action="top"] i { background:linear-gradient(135deg,#64748b,#475569); }
+        .fab-label { white-space:nowrap; }
+        @keyframes fabSlideIn { from { opacity:0; transform:translateY(10px) scale(0.8); } to { opacity:1; transform:translateY(0) scale(1); } }
+        .dark-mode .fab-action-btn { background:#1e293b; color:#e2e8f0; }
+        @media (max-width:768px) { .fab-action-btn .fab-label { display:none; } .fab-action-btn { padding:8px 12px; } }
+    `;
+    document.head.appendChild(fabStyle);
+
+    // FAB toggle logic
+    const fabMain = document.getElementById('fabMain');
+    const fabActions = document.getElementById('fabActions');
+    fabMain?.addEventListener('click', function () {
+        this.classList.toggle('active');
+        fabActions.classList.toggle('show');
+        playClickSound();
+    });
+
+    // FAB action handlers
+    document.querySelectorAll('.fab-action-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const action = this.dataset.action;
+            fabMain.classList.remove('active');
+            fabActions.classList.remove('show');
+            playClickSound();
+
+            if (action === 'top') {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else if (action === 'dashboard') {
+                const dashboardBtn = document.querySelector('.nav-btn[data-tab="dashboard-tab"]');
+                if (dashboardBtn) dashboardBtn.click();
+            } else if (action === 'survey') {
+                const surveyBtn = document.querySelector('.nav-btn[data-tab="form-tab"]');
+                if (surveyBtn) surveyBtn.click();
+            } else if (action === 'monitoring') {
+                const monitorBtn = document.querySelector('.nav-btn[data-tab="monitoring-tab"]');
+                if (monitorBtn) monitorBtn.click();
+            } else if (action === 'attendance') {
+                const attendBtn = document.querySelector('.nav-btn[data-tab="attendance-tab"]');
+                if (attendBtn) attendBtn.click();
+            }
+        });
     });
 
     setTodayNepaliDate();
@@ -717,12 +1100,12 @@ document.addEventListener("DOMContentLoaded", function () {
     satisfactionInputs.forEach(input => {
         input.addEventListener("change", updateSatisfactionVisibility);
     });
-    updateSatisfactionVisibility();    
+    updateSatisfactionVisibility();
     document.getElementById("pos_other_cb")?.addEventListener("change", function () { toggleOtherReason("pos_other_cb", "pos_other_text"); });
     document.getElementById("neg_other_cb")?.addEventListener("change", function () { toggleOtherReason("neg_other_cb", "neg_other_text"); });
     document.getElementById("yojana_other_cb")?.addEventListener("change", function () { toggleOtherReason("yojana_other_cb", "yojana_other_text"); });
 
-    
+
     const countersToSetup = [
         { inputId: "pos_other_text", counterId: "pos_other_counter", limit: 20 },
         { inputId: "neg_other_text", counterId: "neg_other_counter", limit: 20 },
@@ -742,7 +1125,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
-    
+
     document.querySelectorAll('.chart-type-cycle-btn').forEach(button => {
         button.addEventListener('click', function () {
             const chartId = this.dataset.chartId;
@@ -751,7 +1134,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const currentIndex = cycle.indexOf(currentType);
             const nextIndex = (currentIndex + 1) % cycle.length;
             chartTypes[chartId] = cycle[nextIndex];
-            refreshDashboard(); 
+            refreshDashboard();
         });
     });
 });
@@ -765,7 +1148,7 @@ let chartTypes = {
     topUnsatisfiedChart: 'bar',
     topSatisfiedChart: 'bar',
     provinceSurveyChart: 'pie',
-    dynamicChart: 'bar', 
+    dynamicChart: 'bar',
     charterClarityChart: 'bar',
     websiteChart: 'pie',
     disclosureChart: 'doughnut',
@@ -813,7 +1196,7 @@ function updateWordCountDisplay(inputEl, counterId, limit) {
     if (!counterEl) return;
     const count = countWords(inputEl.value);
     counterEl.textContent = `${toNepaliDigits(count)} / ${toNepaliDigits(limit)} शब्द`;
-    counterEl.style.color = count > limit ? "#de3053" : "#666"; 
+    counterEl.style.color = count > limit ? "#de3053" : "#666";
 }
 
 function updateSatisfactionVisibility() {
@@ -827,7 +1210,7 @@ function updateSatisfactionVisibility() {
         posDiv.style.display = isVisible ? "block" : "none";
         const counterEl = document.getElementById("pos_other_counter");
         if (counterEl) counterEl.style.display = (isVisible && document.getElementById("pos_other_cb")?.checked) ? "block" : "none";
-        
+
         if (!isVisible) {
             posDiv.querySelectorAll('input').forEach(i => {
                 if (i.type === 'checkbox') i.checked = false;
@@ -841,7 +1224,7 @@ function updateSatisfactionVisibility() {
         negDiv.style.display = isVisible ? "block" : "none";
         const counterEl = document.getElementById("neg_other_counter");
         if (counterEl) counterEl.style.display = (isVisible && document.getElementById("neg_other_cb")?.checked) ? "block" : "none";
-        
+
         if (!isVisible) {
             negDiv.querySelectorAll('input').forEach(i => {
                 if (i.type === 'checkbox') i.checked = false;
@@ -862,7 +1245,7 @@ function toggleOtherReason(checkboxId, textInputId) {
         if (counter) counter.style.display = cb.checked ? "block" : "none";
         if (!cb.checked) {
             txt.value = "";
-            txt.dispatchEvent(new Event('input')); 
+            txt.dispatchEvent(new Event('input'));
         }
     }
 }
@@ -875,7 +1258,7 @@ function renderTopUnsatisfiedOffices(data) {
 
     if (topUnsatisfiedChartObj) topUnsatisfiedChartObj.destroy();
 
-    
+
     const unsatisfiedData = data.filter(d => d.satisfaction_flag === "असन्तुष्ट" && d.mukhya_karyalay);
 
     if (unsatisfiedData.length === 0) {
@@ -884,14 +1267,14 @@ function renderTopUnsatisfiedOffices(data) {
         return;
     }
 
-    
+
     const officeCounts = {};
     unsatisfiedData.forEach(d => {
         const office = d.mukhya_karyalay.trim();
         officeCounts[office] = (officeCounts[office] || 0) + 1;
     });
 
-    
+
     const top3 = Object.entries(officeCounts)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 3);
@@ -907,7 +1290,7 @@ function renderTopUnsatisfiedOffices(data) {
         </div>
     `}).join('');
 
-    
+
     const ctx = document.getElementById("topUnsatisfiedChart").getContext('2d');
     topUnsatisfiedChartObj = new Chart(ctx, {
         type: chartTypes.topUnsatisfiedChart,
@@ -1029,14 +1412,14 @@ function checkTopRowVisibility() {
 }
 
 async function loadData() {
-    
+
     loadLocalDataFallback();
     const storedMonitoring = localStorage.getItem("monitoringData_nsc");
     if (storedMonitoring) allMonitorings = JSON.parse(storedMonitoring);
     const storedAttendance = localStorage.getItem("attendanceData_nsc");
     if (storedAttendance) allAttendanceMonitorings = JSON.parse(storedAttendance);
 
-   
+
     switchDashboardView(currentDashboardView);
 
     const loadingOverlay = document.getElementById("loadingOverlay");
@@ -1046,12 +1429,12 @@ async function loadData() {
         loadingOverlay.style.display = "flex";
     }
 
-    
+
     function updateOnlineStatus() {
         const badge = document.getElementById('offlineBadge');
         if (navigator.onLine) {
             if (badge) badge.style.display = 'none';
-            
+
             syncPendingData();
             return true;
         } else {
@@ -1060,13 +1443,13 @@ async function loadData() {
         }
     }
 
-    
+
     const isOnline = updateOnlineStatus();
 
     window.addEventListener('online', updateOnlineStatus);
     window.addEventListener('offline', updateOnlineStatus);
 
-    
+
     const slowLoadTimeout = setTimeout(() => {
         if (loadingOverlay && loadingOverlay.style.display === "flex" && loadingText) {
             loadingText.innerHTML = `
@@ -1076,14 +1459,14 @@ async function loadData() {
         }
     }, 10000);
 
-   
+
     if (isOnline && SCRIPT_URL && SCRIPT_URL.trim() !== "") {
         try {
             const response = await fetch(SCRIPT_URL);
             if (response.ok) {
                 const result = await response.json();
                 if (result.survey) {
-                    allSubmissions = result.survey;                    
+                    allSubmissions = result.survey;
                     allSubmissions.reverse();
                     localStorage.setItem("surveyData_nsc_full", JSON.stringify(allSubmissions));
                 }
@@ -1097,7 +1480,7 @@ async function loadData() {
                     allAttendanceMonitorings.reverse();
                     localStorage.setItem("attendanceData_nsc", JSON.stringify(allAttendanceMonitorings));
                 }
-                
+
                 refreshDashboard();
             }
         } catch (e) {
@@ -1116,7 +1499,7 @@ function loadLocalDataFallback() {
 }
 
 function saveLocalData() {
-    localStorage.setItem("surveyData_nsc_full", JSON.stringify(allSubmissions)); 
+    localStorage.setItem("surveyData_nsc_full", JSON.stringify(allSubmissions));
 }
 
 function addSubmission(data) {
@@ -1127,7 +1510,7 @@ function addSubmission(data) {
 document.getElementById("submitSurvey").addEventListener("click", async function () {
     const form = document.getElementById("surveyForm");
 
- 
+
     form.classList.add('was-validated');
 
 
@@ -1137,7 +1520,7 @@ document.getElementById("submitSurvey").addEventListener("click", async function
         return;
     }
 
-    
+
     const posOtherCb = document.getElementById("pos_other_cb");
     const posOtherTxt = document.getElementById("pos_other_text");
     if (posOtherCb?.checked && !posOtherTxt?.value.trim()) {
@@ -1156,7 +1539,7 @@ document.getElementById("submitSurvey").addEventListener("click", async function
         return;
     }
 
-    
+
     const yojanaOtherCb = document.querySelector('input[name="asantushti_karan_yojana"][value="अन्य (लेख्नुहोस्)"]');
     const yojanaOtherTxt = document.querySelector('input[name="asantushti_karan_other"]');
     if (yojanaOtherCb?.checked && !yojanaOtherTxt?.value.trim()) {
@@ -1166,7 +1549,7 @@ document.getElementById("submitSurvey").addEventListener("click", async function
         return;
     }
 
-    
+
     const wordLimits = [
         { id: "pos_other_text", limit: 20, name: "सन्तुष्टिको अन्य कारण" },
         { id: "neg_other_text", limit: 20, name: "असन्तुष्टिको अन्य कारण" },
@@ -1201,13 +1584,13 @@ document.getElementById("submitSurvey").addEventListener("click", async function
         } else payload[key] = val;
     }
     let surveyDate = document.getElementById("survey_date").value;
-    
+
     if ((!surveyDate || surveyDate === "" || surveyDate === "YYYY-MM-DD") && typeof NepaliFunctions !== 'undefined') {
         const today = NepaliFunctions.GetCurrentBsDate();
         surveyDate = today.year + "-" + NepaliFunctions.Get2DigitNo(today.month) + "-" + NepaliFunctions.Get2DigitNo(today.day);
     }
 
-    
+
     payload.survey_date = getFormattedNepaliDate(surveyDate);
     payload.timestamp = new Date().toISOString();
     payload.pradesh = PROVINCE[payload.pradesh] || "";
@@ -1218,30 +1601,30 @@ document.getElementById("submitSurvey").addEventListener("click", async function
     payload.ghus_parera = payload.ghus_parera || "";
     payload.sahayog_parera = payload.sahayog_parera || "";
 
-    
+
     const mergeOther = (mainField, otherField, searchVal) => {
         if (payload[mainField]) {
             let vals = Array.isArray(payload[mainField]) ? payload[mainField] : [payload[mainField]];
-            if (vals.includes(searchVal) && payload[otherField]) {                
+            if (vals.includes(searchVal) && payload[otherField]) {
                 vals = vals.map(v => v === searchVal ? `${searchVal}: ${payload[otherField]}` : v);
             }
             payload[mainField] = vals;
         }
-        delete payload[otherField]; 
+        delete payload[otherField];
     };
 
     mergeOther('santushti_positive', 'santushti_positive_other_val', 'अन्य');
     mergeOther('santushti_negative', 'santushti_negative_other_val', 'अन्य');
     mergeOther('asantushti_karan_yojana', 'asantushti_karan_other', 'अन्य (लेख्नुहोस्)');
 
-    
+
     Object.keys(payload).forEach(key => {
         if (Array.isArray(payload[key])) {
             payload[key] = payload[key].join(", ");
         }
     });
 
-    
+
     const hasPos = (payload.santushti_positive && payload.santushti_positive.length > 0) || payload.main_satisfaction === "सन्तुष्ट";
     const hasNeg = (payload.santushti_negative && payload.santushti_negative.length > 0) || payload.main_satisfaction === "असन्तुष्ट";
 
@@ -1264,17 +1647,17 @@ document.getElementById("submitSurvey").addEventListener("click", async function
 
     if (SCRIPT_URL && SCRIPT_URL.trim() !== "") {
         try {
-            
+
             await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
             if (loadingOverlay) loadingOverlay.style.display = "none";
             document.getElementById("formStatus").innerHTML = "✅ गुगल सिट तथा स्थानीय भण्डारणमा सेभ भयो!";
 
-            
+
             loadData();
         } catch (e) {
             if (loadingOverlay) loadingOverlay.style.display = "none";
             console.warn(e);
-            playErrorSound("गुगल सिटमा कनेक्ट हुन सकेन।");            
+            playErrorSound("गुगल सिटमा कनेक्ट हुन सकेन।");
             addToPendingSync(payload);
             document.getElementById("formStatus").innerHTML = "⚠️ गुगल सिटमा सेभ गर्न समस्या भयो। स्थानीय भण्डारणमा सेभ गरिएको छ।";
         }
@@ -1284,10 +1667,10 @@ document.getElementById("submitSurvey").addEventListener("click", async function
         document.getElementById("formStatus").innerHTML = "✅ डाटा स्थानीय भण्डारणमा सेभ भयो।<br>⚠️ गुगल सिट जोड्नको लागि SCRIPT_URL कन्फिगर गर्नुहोस्।";
     }
     form.reset();
-    
-    form.classList.remove('was-validated');    
-    setTodayNepaliDate();    
-    updateSatisfactionVisibility();    
+
+    form.classList.remove('was-validated');
+    setTodayNepaliDate();
+    updateSatisfactionVisibility();
     playSuccessSound();
 
     Swal.fire({
@@ -1298,7 +1681,7 @@ document.getElementById("submitSurvey").addEventListener("click", async function
         confirmButtonColor: '#387ae6'
     });
 
-    
+
     setTimeout(() => {
         const dashboardBtn = document.querySelector('.nav-btn[data-tab="dashboard-tab"]');
         if (dashboardBtn) {
@@ -1330,7 +1713,7 @@ document.getElementById("submitMonitoring")?.addEventListener("click", async fun
         return;
     }
 
-    
+
     const wordLimits = [
         { id: "m_office", limit: 20, name: "कार्यालयको नाम" },
         { id: "m_main_services", limit: 100, name: "मुख्य सेवाहरू" },
@@ -1367,7 +1750,7 @@ document.getElementById("submitMonitoring")?.addEventListener("click", async fun
         }
     }
 
-    
+
     payload.m_pradesh = PROVINCE[payload.m_pradesh] || payload.m_pradesh;
 
     const loadingOverlay = document.getElementById("loadingOverlay");
@@ -1378,7 +1761,7 @@ document.getElementById("submitMonitoring")?.addEventListener("click", async fun
     }
 
     try {
-        
+
         allMonitorings.unshift(payload);
         localStorage.setItem("monitoringData_nsc", JSON.stringify(allMonitorings));
 
@@ -1395,11 +1778,11 @@ document.getElementById("submitMonitoring")?.addEventListener("click", async fun
         Swal.fire({ icon: 'success', title: 'सफल!', text: 'कार्यालय अनुगमन फारम सुरक्षित भयो।', confirmButtonColor: '#387ae6' });
         form.reset();
 
-        
+
         setTimeout(() => {
             const dashboardBtn = document.querySelector('.nav-btn[data-tab="dashboard-tab"]');
             if (dashboardBtn) {
-                dashboardBtn.click(); 
+                dashboardBtn.click();
             }
         }, 2000);
     } catch (e) {
@@ -1438,7 +1821,7 @@ function addAttendanceRow() {
 document.getElementById("submitAttendance")?.addEventListener("click", async function () {
     const form = document.getElementById("attendanceForm");
 
-    
+
     form.classList.add('was-validated');
 
     if (!form.checkValidity()) {
@@ -1449,7 +1832,7 @@ document.getElementById("submitAttendance")?.addEventListener("click", async fun
 
     const formData = new FormData(form);
 
-    
+
     const mandatoryFields = ["a_pradesh", "a_jilla", "a_sthaaniya", "a_office", "a_date", "a_total_staff", "a_working_staff", "a_vacant_staff"];
     for (let fieldId of mandatoryFields) {
         const val = formData.get(fieldId);
@@ -1460,7 +1843,7 @@ document.getElementById("submitAttendance")?.addEventListener("click", async fun
         }
     }
 
-    
+
     const total = parseInt(formData.get("a_total_staff") || 0);
     const working = parseInt(formData.get("a_working_staff") || 0);
     const vacant = parseInt(formData.get("a_vacant_staff") || 0);
@@ -1472,12 +1855,12 @@ document.getElementById("submitAttendance")?.addEventListener("click", async fun
 
     let payload = {
         type: 'attendance',
-        timestamp: new Date().toISOString(), 
-        mainRecordId: new Date().getTime().toString(), 
+        timestamp: new Date().toISOString(),
+        mainRecordId: new Date().getTime().toString(),
         rows: []
     };
 
-   
+
     payload.pradesh = PROVINCE[formData.get("a_pradesh")] || "";
     payload.jilla = formData.get("a_jilla") || "";
     payload.sthaaniya = formData.get("a_sthaaniya") || "";
@@ -1491,7 +1874,7 @@ document.getElementById("submitAttendance")?.addEventListener("click", async fun
     payload.monitor_name = formData.get("a_monitor_name");
     payload.monitor_rank = formData.get("a_monitor_rank");
 
-    
+
     const categories = formData.getAll("emp_category[]");
     const ranks = formData.getAll("emp_rank[]");
     const symbols = formData.getAll("emp_symbol[]");
@@ -1499,7 +1882,7 @@ document.getElementById("submitAttendance")?.addEventListener("click", async fun
     const extras = formData.getAll("emp_extra[]");
 
     let hasValidRow = false;
-    for (let i = 0; i < names.length; i++) {        
+    for (let i = 0; i < names.length; i++) {
         if (names[i].trim() !== "" || symbols[i].trim() !== "") {
             hasValidRow = true;
             payload.rows.push({
@@ -1508,7 +1891,7 @@ document.getElementById("submitAttendance")?.addEventListener("click", async fun
                 symbol: symbols[i],
                 name: names[i],
                 extra: extras[i],
-                mainRecordId: payload.mainRecordId 
+                mainRecordId: payload.mainRecordId
             });
         }
     }
@@ -1547,7 +1930,7 @@ document.getElementById("submitAttendance")?.addEventListener("click", async fun
         Swal.fire({ icon: 'success', title: 'सफल!', text: 'समय पालना र पोशाक अनुगमन विवरण सुरक्षित भयो।' });
         form.reset();
 
-        
+
         setTimeout(() => {
             const dashboardBtn = document.querySelector('.nav-btn[data-tab="dashboard-tab"]');
             if (dashboardBtn) {
@@ -1591,7 +1974,7 @@ async function syncPendingData() {
             });
             console.log("Item synced successfully");
         } catch (e) {
-            remaining.push(item); 
+            remaining.push(item);
         }
     }
 
@@ -1622,7 +2005,7 @@ function refreshDashboard() {
         refreshAttendanceDashboard();
         return;
     }
-    
+
     const pradeshFilter = document.getElementById("filterPradesh")?.value || "";
     const districtFilter = document.getElementById("filterDistrict")?.value || "";
     const sthaaniyaFilter = document.getElementById("filterSthaaniya")?.value || "";
@@ -1631,7 +2014,7 @@ function refreshDashboard() {
     let fromDate = getStandardDate(document.getElementById("filterDateFrom")?.value || "");
     let toDate = getStandardDate(document.getElementById("filterDateTo")?.value || "");
 
-    
+
     const processedData = allSubmissions.map(r => {
         if (!r.satisfaction_flag || r.satisfaction_flag === "अज्ञात") {
             const hasPos = (r.santushti_positive && r.santushti_positive.length > 0) || r.main_satisfaction === "सन्तुष्ट";
@@ -1644,7 +2027,7 @@ function refreshDashboard() {
         return r;
     });
 
-    let filtered = processedData.filter(r => {        
+    let filtered = processedData.filter(r => {
         const rPradesh = getVal(r, 'pradesh', 'प्रदेश');
         const rJilla = getVal(r, 'jilla', 'जिल्ला');
         const rSthaaniya = getVal(r, 'sthaaniya_taha', 'स्थानीय तह');
@@ -1686,7 +2069,7 @@ function refreshMonitoringDashboard() {
         }
         if (districtFilter && r.m_jilla !== districtFilter) return false;
         if (officeFilter && !(r.m_office || "").toLowerCase().includes(officeFilter)) return false;
-        
+
         if (activeTagId) {
             const config = TAG_CONFIG.find(t => t.id === activeTagId);
             const text = (r.m_problems || "");
@@ -1694,7 +2077,7 @@ function refreshMonitoringDashboard() {
         }
         return true;
     });
-    currentFilteredMonitorings = filtered; 
+    currentFilteredMonitorings = filtered;
 
     const fieldSelector = document.getElementById("monitoringFieldSelector");
     const selectedField = fieldSelector?.value;
@@ -1741,7 +2124,7 @@ function refreshMonitoringDashboard() {
             if (val) counts[val] = (counts[val] || 0) + 1;
         });
 
-        
+
         const firstChartNote = document.querySelector("#monitoringChartsRow .chart-box .small-note");
         if (firstChartNote) firstChartNote.textContent = fieldName;
 
@@ -1781,10 +2164,10 @@ function refreshMonitoringDashboard() {
         document.querySelectorAll("#monitoringChartsRow .chart-box").forEach((box, i) => box.style.display = i === 0 ? "block" : "none");
     }
 
-   
+
     renderMonitoringTable(filtered);
 
-    
+
     if (!selectedField) {
         updateMonitoringAlerts(filtered);
     } else {
@@ -1792,7 +2175,7 @@ function refreshMonitoringDashboard() {
         if (alertsSection) alertsSection.style.setProperty('display', 'none', 'important');
     }
 
-    
+
     updateMonitoringDetails(filtered);
 }
 
@@ -1813,14 +2196,14 @@ function refreshAttendanceDashboard() {
 
     let filteredEntries = [];
     allAttendanceMonitorings.forEach(item => {
-        
+
         const rPradesh = getVal(item, 'pradesh', 'प्रदेश');
         const rJilla = getVal(item, 'jilla', 'जिल्ला');
         const rSthaaniya = getVal(item, 'sthaaniya', 'स्थानीय तह');
         const rOffice = getVal(item, 'office', 'कार्यालय');
         const rDate = getVal(item, 'date', 'मिति');
 
-        
+
         if (pradeshFilter) {
             const provinceName = PROVINCE[pradeshFilter];
             const pStr = String(rPradesh || "").trim();
@@ -1829,14 +2212,14 @@ function refreshAttendanceDashboard() {
         if (districtFilter && String(rJilla || "").trim() !== districtFilter) return;
         if (sthaaniyaFilter && String(rSthaaniya || "").trim() !== sthaaniyaFilter) return;
 
-        
+
         if (officeFilter && !(rOffice || "").toLowerCase().includes(officeFilter)) return;
         const recDate = getStandardDate(rDate || "");
         if (fromDate && recDate < fromDate) return;
         if (toDate && recDate > toDate) return;
 
         if (item.rows && Array.isArray(item.rows)) {
-            
+
             item.rows.forEach(row => {
                 if (empNameFilter && !(row.name || "").toLowerCase().includes(empNameFilter)) return;
                 if (empSymbolFilter && String(row.symbol || "").trim() !== empSymbolFilter) return;
@@ -1849,7 +2232,7 @@ function refreshAttendanceDashboard() {
                 });
             });
         } else {
-            
+
             const rName = getVal(item, 'name', 'कर्मचारीको नाम');
             const rSymbol = getVal(item, 'symbol', 'संकेत नं.');
             const rCategory = getVal(item, 'category', 'प्रकार');
@@ -1872,7 +2255,7 @@ function refreshAttendanceDashboard() {
             });
         }
     });
-    currentFilteredAttendance = filteredEntries; 
+    currentFilteredAttendance = filteredEntries;
     const uniqueMons = new Set();
     const uniqueMonthMons = new Set();
     filteredEntries.forEach(e => {
@@ -1886,7 +2269,7 @@ function refreshAttendanceDashboard() {
     const totalMonsCount = uniqueMons.size;
     const monthMonsCount = uniqueMonthMons.size;
 
-   
+
     const totalViolations = filteredEntries.length;
     const lateAbsent = filteredEntries.filter(e => e.category.includes("अनुपस्थित/ढिला")).length;
     const noUniform = filteredEntries.filter(e => e.category.includes("पोशाक")).length;
@@ -1905,7 +2288,7 @@ function refreshAttendanceDashboard() {
         <div class="stat-card" style="--stat-border-color:#ec4899; cursor:pointer;" onclick="showDetailedTable(currentFilteredAttendance.filter(e => e.category.includes('पोशाक')), 'पोशाक नलगाउने', 'attendance')"><div class="stat-number"><i class="fas fa-user-tie" style="color:#ec4899"></i> ${toNepaliDigits(noUniform)} <span style="font-size: 50%;">(${toNepaliDigits(totalViolations > 0 ? (noUniform / totalViolations * 100).toFixed(1) : 0)}%)</span></div><div style="color:#4a5568">पोशाक नलगाउने</div></div>
     `;
 
-    
+
     const tbody = document.querySelector("#dataTable tbody");
     if (tbody) {
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -1925,15 +2308,15 @@ function refreshAttendanceDashboard() {
         renderPaginationUI(filteredEntries.length);
     }
 
-    
+
     const dStatRow = document.getElementById("dynamicStatRow");
     if (dStatRow) dStatRow.style.display = "none";
     const detailTable = document.getElementById("dynamicDetailTableContainer");
     if (detailTable) detailTable.style.display = "none";
 
-    
+
     if (attendanceViolationChartObj) attendanceViolationChartObj.destroy();
-    if (dynamicChartObj) dynamicChartObj.destroy(); 
+    if (dynamicChartObj) dynamicChartObj.destroy();
     const dimension = categoryFilter ? 'office' : 'category';
     const counts = {};
     filteredEntries.forEach(e => counts[e[dimension]] = (counts[e[dimension]] || 0) + 1);
@@ -1977,7 +2360,7 @@ function refreshAttendanceDashboard() {
         }
     });
 
-    
+
     if (document.getElementById("dynamicChartRow")) document.getElementById("dynamicChartRow").style.display = "flex";
     document.getElementById("dynamicChartLabel").textContent = categoryFilter
         ? `कार्यालय अनुसार विवरण (${categoryFilter})`
@@ -2008,7 +2391,7 @@ async function downloadAttendancePDF() {
         </div>
     `;
 
-    
+
     const cards = element.querySelectorAll('.stat-card');
     cards.forEach(c => {
         c.style.border = "1px solid #ddd";
@@ -2018,12 +2401,12 @@ async function downloadAttendancePDF() {
     });
 
     const opt = {
-        margin: [0.5, 0.5, 0.5, 0.5], 
+        margin: [0.5, 0.5, 0.5, 0.5],
         filename: 'Attendance_Report.pdf',
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true },
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] } 
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
     };
 
     html2pdf().set(opt).from(element).save();
@@ -2040,7 +2423,7 @@ function exportToExcel() {
     if (currentDashboardView === 'attendance') {
         if (currentFilteredAttendance.length === 0) return Swal.fire({ icon: 'info', text: 'निर्यात गर्नको लागि डाटा छैन।' });
 
-      
+
         const groupedByOffice = currentFilteredAttendance.reduce((acc, curr) => {
             const office = curr.office || "अन्य कार्यालय";
             if (!acc[office]) acc[office] = [];
@@ -2089,26 +2472,26 @@ function updateMonitoringAlerts(data) {
     const toggleBtn = document.getElementById("toggleAlertsVisibilityBtn");
     const isSectionDismissed = localStorage.getItem("alertSectionDismissed_nsc") === "true";
 
-    
+
     if (toggleBtn) {
         if (isSectionDismissed) {
             toggleBtn.innerHTML = '<i class="fas fa-bell"></i> अलर्ट देखाउनुहोस्';
-            toggleBtn.style.background = '#3182ce'; 
+            toggleBtn.style.background = '#3182ce';
             toggleBtn.style.borderColor = '#2b6cb0';
         } else {
             toggleBtn.innerHTML = '<i class="fas fa-bell-slash"></i> अलर्ट लुकाउनुहोस्';
-            toggleBtn.style.background = '#de3053'; 
+            toggleBtn.style.background = '#de3053';
             toggleBtn.style.borderColor = '#c03e37';
         }
     }
 
-    
+
     if (isSectionDismissed) {
         alertsSection.style.setProperty('display', 'none', 'important');
         return;
     }
 
-    
+
     const allHighVacancyOffices = data
         .map(d => {
             const total = Number(getVal(d, 'd_total', 'कुल दरबन्दी') || 0);
@@ -2119,13 +2502,13 @@ function updateMonitoringAlerts(data) {
         .filter(d => d.rate > 20)
         .sort((a, b) => b.rate - a.rate);
 
-    
+
     const activeAlerts = allHighVacancyOffices.filter(d => !dismissedAlerts.has(d.m_office));
 
-    
+
     actionContainer.innerHTML = '';
 
-    
+
     if (activeAlerts.length > 10) {
         const viewAllBtn = document.createElement("button");
         viewAllBtn.type = "button";
@@ -2140,7 +2523,7 @@ function updateMonitoringAlerts(data) {
         actionContainer.appendChild(viewAllBtn);
     }
 
-    
+
     if (dismissedAlerts.size > 0) {
         const resetBtn = document.createElement("button");
         resetBtn.type = "button";
@@ -2162,7 +2545,7 @@ function updateMonitoringAlerts(data) {
 
     alertsSection.style.setProperty('display', 'block', 'important');
 
-    
+
     const displayData = showAllAlertsMode ? activeAlerts : activeAlerts.slice(0, 10);
 
     alertsList.innerHTML = displayData.map(d => {
@@ -2173,7 +2556,7 @@ function updateMonitoringAlerts(data) {
         const borderColor = isCritical ? '#ffa39e' : '#ffd591';
         const bgColor = isCritical ? '#fff5f5' : '#fffaf0';
 
-        
+
         const escapedOffice = (d.m_office || '').replace(/'/g, "\\'");
 
         return `
@@ -2199,7 +2582,7 @@ function updateMonitoringDetails(data) {
 
     detailsSection.style.display = "block";
 
-    
+
     const detailsHeader = detailsSection.querySelector("h4");
     if (detailsHeader) {
         if (activeTagId) {
@@ -2246,15 +2629,15 @@ function generateTags(text) {
 
 
 function filterByTag(event, tagId) {
-    event.stopPropagation();    
+    event.stopPropagation();
     activeTagId = (activeTagId === tagId) ? null : tagId;
     currentPage = 1;
-    refreshDashboard();    
+    refreshDashboard();
     document.getElementById("statCardsContainer").scrollIntoView({ behavior: 'smooth' });
 }
 
 
-function dismissAlert(event, officeName) {    
+function dismissAlert(event, officeName) {
     event.stopPropagation();
     dismissedAlerts.add(officeName);
     localStorage.setItem("dismissedAlerts_nsc", JSON.stringify([...dismissedAlerts]));
@@ -2269,7 +2652,7 @@ function scrollToMonitoringDetail(officeName) {
     if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-        
+
         element.style.backgroundColor = "#eef6ff";
         setTimeout(() => {
             element.style.backgroundColor = "white";
@@ -2286,7 +2669,7 @@ function scrollToMonitoringDetail(officeName) {
 
 
 function updateMonitoringCharts(data) {
-    const colorPalette = getThemeColors(0.8);    
+    const colorPalette = getThemeColors(0.8);
     const createMonChart = (ctxId, fieldName, currentObj, defaultType = 'bar') => {
         const canvas = document.getElementById(ctxId);
         const ctx = canvas.getContext('2d');
@@ -2332,8 +2715,8 @@ function updateMonitoringCharts(data) {
         });
     };
 
-    
-    charterClarityChartObj = createMonChart("charterClarityChart", "m_q1", charterClarityChartObj);    
+
+    charterClarityChartObj = createMonChart("charterClarityChart", "m_q1", charterClarityChartObj);
     websiteChartObj = createMonChart("websiteChart", "m_q6", websiteChartObj, 'pie');
     disclosureChartObj = createMonChart("disclosureChart", "m_q7", disclosureChartObj, 'doughnut');
     autoInfoChartObj = createMonChart("autoInfoChart", "m_q8", autoInfoChartObj, 'pie');
@@ -2343,7 +2726,7 @@ function updateMonitoringCharts(data) {
     cleaningChartObj = createMonChart("cleaningChart", "m_q12", cleaningChartObj, 'bar');
     brokerChartObj = createMonChart("brokerChart", "m_q5", brokerChartObj, 'doughnut');
 
-    
+
     let provVacMap = {};
     Object.values(PROVINCE).forEach(p => provVacMap[p] = 0);
     data.forEach(d => {
@@ -2387,7 +2770,7 @@ function updateMonitoringCharts(data) {
         }
     });
 
-    
+
     if (vacantPercentPieChartObj) vacantPercentPieChartObj.destroy();
     const totalVacantSum = Object.values(provVacMap).reduce((a, b) => a + b, 0);
 
@@ -2430,7 +2813,7 @@ function updateMonitoringCharts(data) {
         }
     });
 
-    
+
     let provCompMap = {};
     Object.values(PROVINCE).forEach(p => provCompMap[p] = { working: 0, vacant: 0 });
     data.forEach(d => {
@@ -2496,7 +2879,7 @@ function updateMonitoringCharts(data) {
     let staffingDatasets = [];
 
     if (data.length === 1) {
-        
+
         const d = data[0];
         const working = Number(d.d_working || 0);
         const vacant = Number(d.d_vacant || 0);
@@ -2564,7 +2947,7 @@ function updateMonitoringCharts(data) {
                 }
             },
             animation: { duration: 2500, easing: 'easeInOutQuart' },
-            indexAxis: 'y', 
+            indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
             scales: {
@@ -2584,7 +2967,7 @@ function updateMonitoringCharts(data) {
         }
     });
 
-    
+
     const facilityLabels = [
         "सहायता कक्ष", "अपाङ्गमैत्री", "प्रतिक्षालय", "शौचालय", "खानेपानी",
         "स्तनपान कक्ष", "धुम्रपान निषेध", "चमेना गृह", "उजुरी पेटिका", "वेवसाइट/सञ्जाल"
@@ -2656,7 +3039,7 @@ function updateMonitoringCharts(data) {
         }
     });
 
-    
+
     let provMap = {};
     Object.values(PROVINCE).forEach(p => provMap[p] = 0);
     data.forEach(d => {
@@ -2702,7 +3085,7 @@ function updateMonitoringCharts(data) {
 
 
 function renderStats(data) {
-    const total = data.length;    
+    const total = data.length;
     const today = estimateCurrentBsDate();
     const currentMonthStr = BS_MONTHS[today.month - 1];
     const currentYearStr = toNepaliDigits(today.year);
@@ -2720,24 +3103,32 @@ function renderStats(data) {
     if (!container) return;
 
     container.innerHTML = `
-        <div class="stat-card" style="--stat-border-color:#3b82f6; cursor:pointer;" onclick="showDetailedTable(currentFilteredSubmissions, 'कूल सेवाग्राही सर्वेक्षण', 'survey')"><div class="stat-number"><i class="fas fa-poll" style="color:#3b82f6"></i> ${toNepaliDigits(total)}</div><div style="color:#4a5568">कूल सेवाग्राही सर्वेक्षण</div></div>        
+        <div class="stat-card" style="--stat-border-color:#3b82f6; cursor:pointer;" onclick="showDetailedTable(currentFilteredSubmissions, 'कूल सेवाग्राही सर्वेक्षण', 'survey')"><div class="stat-number"><i class="fas fa-poll" style="color:#3b82f6"></i> <span class="anim-counter" data-target="${total}">${toNepaliDigits(total)}</span></div><div style="color:#4a5568">कूल सेवाग्राही सर्वेक्षण</div></div>        
         <div class="stat-card" style="--stat-border-color:#8b5cf6; cursor:pointer;" onclick="showDetailedTable(currentFilteredSubmissions.filter(d => {
             const today = estimateCurrentBsDate();
             const m = BS_MONTHS[today.month - 1];
             const y = toNepaliDigits(today.year);
             const ds = getVal(d, 'survey_date', 'मिति');
             return ds && ds.includes(m) && ds.includes(y);
-        }), 'यस महिनाको सर्वेक्षण', 'survey')"><div class="stat-number"><i class="fas fa-calendar-check" style="color:#8b5cf6"></i> ${toNepaliDigits(thisMonthCount)}</div><div style="color:#4a5568">यस महिनाको सर्वेक्षण</div></div>
-        <div class="stat-card" style="--stat-border-color:#ec4899; cursor:pointer;" onclick="showDetailedTable(currentFilteredSubmissions.filter(d => d.gender === ' महिला'), 'महिला सेवाग्राही', 'survey')"><div class="stat-number"><i class="fas fa-female" style="color:#ec4899"></i> ${toNepaliDigits(femaleCount)} <span style="font-size: 50%;">(${toNepaliDigits(total > 0 ? (femaleCount / total * 100).toFixed(1) : 0)}%)</span></div><div style="color:#4a5568">महिला सेवाग्राही</div></div>
-        <div class="stat-card" style="--stat-border-color:#3b82f6; cursor:pointer;" onclick="showDetailedTable(currentFilteredSubmissions.filter(d => d.gender === 'पुरुष'), 'पुरुष सेवाग्राही', 'survey')"><div class="stat-number"><i class="fas fa-male" style="color:#3b82f6"></i> ${toNepaliDigits(maleCount)} <span style="font-size: 50%;">(${toNepaliDigits(total > 0 ? (maleCount / total * 100).toFixed(1) : 0)}%)</span></div><div style="color:#4a5568">पुरुष सेवाग्राही</div></div>
-        <div class="stat-card" style="--stat-border-color:#10b981; cursor:pointer;" onclick="showDetailedTable(currentFilteredSubmissions.filter(d => d.satisfaction_flag === 'सन्तुष्ट'), 'सन्तुष्ट सेवाग्राही', 'survey')"><div class="stat-number"><i class="fas fa-smile" style="color:#10b981"></i> ${toNepaliDigits(satCount)} <span style="font-size: 50%;">(${toNepaliDigits(total > 0 ? (satCount / total * 100).toFixed(1) : 0)}%)</span></div><div style="color:#4a5568">सन्तुष्ट सेवाग्राही</div></div>
-        <div class="stat-card" style="--stat-border-color:#ef4444; cursor:pointer;" onclick="showDetailedTable(currentFilteredSubmissions.filter(d => d.ghus_parera === 'पर्‍यो'), 'अतिरिक्त रकम तिर्नु परेको', 'survey')"><div class="stat-number"><i class="fas fa-hand-holding-dollar" style="color:#ef4444"></i> ${toNepaliDigits(ghusCount)} <span style="font-size: 50%;">(${toNepaliDigits(total > 0 ? (ghusCount / total * 100).toFixed(1) : 0)}%)</span></div><div style="color:#4a5568">अतिरिक्त रकम तिर्नु परेको</div></div>
+        }), 'यस महिनाको सर्वेक्षण', 'survey')"><div class="stat-number"><i class="fas fa-calendar-check" style="color:#8b5cf6"></i> <span class="anim-counter" data-target="${thisMonthCount}">${toNepaliDigits(thisMonthCount)}</span></div><div style="color:#4a5568">यस महिनाको सर्वेक्षण</div></div>
+        <div class="stat-card" style="--stat-border-color:#ec4899; cursor:pointer;" onclick="showDetailedTable(currentFilteredSubmissions.filter(d => d.gender === 'महिला'), 'महिला सेवाग्राही', 'survey')"><div class="stat-number"><i class="fas fa-female" style="color:#ec4899"></i> <span class="anim-counter" data-target="${femaleCount}">${toNepaliDigits(femaleCount)}</span> <span style="font-size: 50%;">(${toNepaliDigits(total > 0 ? (femaleCount / total * 100).toFixed(1) : 0)}%)</span></div><div style="color:#4a5568">महिला सेवाग्राही</div></div>
+        <div class="stat-card" style="--stat-border-color:#3b82f6; cursor:pointer;" onclick="showDetailedTable(currentFilteredSubmissions.filter(d => d.gender === 'पुरुष'), 'पुरुष सेवाग्राही', 'survey')"><div class="stat-number"><i class="fas fa-male" style="color:#3b82f6"></i> <span class="anim-counter" data-target="${maleCount}">${toNepaliDigits(maleCount)}</span> <span style="font-size: 50%;">(${toNepaliDigits(total > 0 ? (maleCount / total * 100).toFixed(1) : 0)}%)</span></div><div style="color:#4a5568">पुरुष सेवाग्राही</div></div>
+        <div class="stat-card" style="--stat-border-color:#10b981; cursor:pointer;" onclick="showDetailedTable(currentFilteredSubmissions.filter(d => d.satisfaction_flag === 'सन्तुष्ट'), 'सन्तुष्ट सेवाग्राही', 'survey')"><div class="stat-number"><i class="fas fa-smile" style="color:#10b981"></i> <span class="anim-counter" data-target="${satCount}">${toNepaliDigits(satCount)}</span> <span style="font-size: 50%;">(${toNepaliDigits(total > 0 ? (satCount / total * 100).toFixed(1) : 0)}%)</span></div><div style="color:#4a5568">सन्तुष्ट सेवाग्राही</div></div>
+        <div class="stat-card" style="--stat-border-color:#ef4444; cursor:pointer;" onclick="showDetailedTable(currentFilteredSubmissions.filter(d => d.ghus_parera === 'पर्‍यो'), 'अतिरिक्त रकम तिर्नु परेको', 'survey')"><div class="stat-number"><i class="fas fa-hand-holding-dollar" style="color:#ef4444"></i> <span class="anim-counter" data-target="${ghusCount}">${toNepaliDigits(ghusCount)}</span> <span style="font-size: 50%;">(${toNepaliDigits(total > 0 ? (ghusCount / total * 100).toFixed(1) : 0)}%)</span></div><div style="color:#4a5568">अतिरिक्त रकम तिर्नु परेको</div></div>
     `;
+
+    // Trigger animated counters after a small delay for DOM render
+    setTimeout(() => {
+        document.querySelectorAll('.stat-card .anim-counter').forEach(el => {
+            const target = parseInt(el.dataset.target);
+            if (target > 0) animateCounter(el, target);
+        });
+    }, 100);
 }
 
 
 function updateCharts(data) {
-    
+
     let genderMap = { पुरुष: 0, महिला: 0, अन्य: 0 };
     data.forEach(d => { if (d.gender) genderMap[d.gender] = (genderMap[d.gender] || 0) + 1; });
     const genderCtx = document.getElementById("genderChart").getContext('2d');
@@ -2777,7 +3168,7 @@ function updateCharts(data) {
         }
     });
 
-    
+
     let satis = data.filter(d => d.satisfaction_flag === "सन्तुष्ट").length;
     let disSatis = data.filter(d => d.satisfaction_flag === "असन्तुष्ट").length;
     let mixedSatis = data.filter(d => d.satisfaction_flag === "मिश्रित").length;
@@ -2818,7 +3209,7 @@ function updateCharts(data) {
         }
     });
 
-   
+
     let ghusData = { पर्‍यो: data.filter(d => d.ghus_parera === "पर्‍यो").length, परेन: data.filter(d => d.ghus_parera === "परेन").length };
     const ghusCtx = document.getElementById("ghusChart").getContext('2d');
     if (ghusChartObj) ghusChartObj.destroy();
@@ -2857,7 +3248,7 @@ function updateCharts(data) {
         }
     });
 
-    
+
     let devCounts = {};
     data.forEach(d => {
         const val = d.bikas_janakari || "अज्ञात";
@@ -2993,7 +3384,7 @@ function updateDynamicAnalysis(data) {
     const values = Object.values(counts);
     const totalVal = values.reduce((acc, curr) => acc + curr, 0);
 
-    
+
     if (labels.length === 0) {
         if (statRow) {
             statRow.innerHTML = `
@@ -3009,7 +3400,7 @@ function updateDynamicAnalysis(data) {
         return;
     }
 
-    
+
     const colorPalette = getThemeColors();
     const chartType = chartTypes.dynamicChart || 'bar';
     const isRadial = chartType === 'pie' || chartType === 'doughnut';
@@ -3018,9 +3409,9 @@ function updateDynamicAnalysis(data) {
     const hoverBackgroundColors = labels.map((_, i) => createGradient(ctx, colorPalette[i % colorPalette.length], false, isRadial, true));
     const borderColors = labels.map((_, i) => colorPalette[i % colorPalette.length]);
 
-    
+
     if (dynamicChartObj) dynamicChartObj.destroy();
-    if (attendanceViolationChartObj) attendanceViolationChartObj.destroy(); 
+    if (attendanceViolationChartObj) attendanceViolationChartObj.destroy();
 
     dynamicChartObj = new Chart(ctx, {
         type: chartType,
@@ -3070,7 +3461,7 @@ function updateDynamicAnalysis(data) {
     const fieldName = selector.options[selector.selectedIndex].text;
     if (labelEl) labelEl.textContent = `विश्लेषण: ${fieldName}`;
 
-    
+
     if (statRow) {
         statRow.innerHTML = labels.map((l, i) => `
             <div class="stat-card" style="cursor:pointer; min-width: 110px; padding: 8px 12px; flex: 1; --stat-border-color: ${colorPalette[i % colorPalette.length]}; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.08);" 
@@ -3088,10 +3479,10 @@ function updateDynamicAnalysis(data) {
 
 function switchDashboardView(view) {
     currentPage = 1;
-    activeTagId = null; 
-    showAllAlertsMode = false; 
+    activeTagId = null;
+    showAllAlertsMode = false;
     currentDashboardView = view;
-    
+
     const chartsToDestroy = [
         genderChartObj, satisfactionChartObj, ghusChartObj, devChartObj, provinceSurveyChartObj,
         dynamicChartObj, attendanceViolationChartObj, charterClarityChartObj,
@@ -3102,7 +3493,7 @@ function switchDashboardView(view) {
     ];
     chartsToDestroy.forEach(chart => { if (chart) chart.destroy(); });
 
-    
+
     genderChartObj = satisfactionChartObj = ghusChartObj = devChartObj = provinceSurveyChartObj = dynamicChartObj =
         attendanceViolationChartObj = charterClarityChartObj = topUnsatisfiedChartObj =
         topSatisfiedChartObj = vacantByProvinceChartObj = provStaffingComparisonChartObj =
@@ -3110,14 +3501,14 @@ function switchDashboardView(view) {
         websiteChartObj = disclosureChartObj = autoInfoChartObj =
         workroomChartObj = infoBoardChartObj = cleaningChartObj = null;
 
-    
+
     const detailTableContainer = document.getElementById("dynamicDetailTableContainer");
     if (detailTableContainer) {
         detailTableContainer.style.display = "none";
         document.body.style.overflow = "";
     }
 
-    
+
     const mField = document.getElementById("monitoringFieldSelector");
     const dField = document.getElementById("dynamicFieldSelector");
     const aCat = document.getElementById("filterCategory");
@@ -3125,11 +3516,11 @@ function switchDashboardView(view) {
     if (dField) dField.value = "";
     if (aCat) aCat.value = "";
 
-    
+
     const containers = ["surveyChartsRow", "monitoringChartsRow", "topOfficesRow", "dynamicChartRow", "monitoringAlertsSection", "monitoringDetailsSection", "dynamicStatRow"];
     containers.forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.style.display = 'none'; 
+        if (el) el.style.display = 'none';
     });
 
     const surveyBtn = document.getElementById("showSurveyView");
@@ -3162,7 +3553,7 @@ function switchDashboardView(view) {
         if (dynamicAnalysis) {
             dynamicAnalysis.style.setProperty('display', 'block', 'important');
             const selectorDiv = dynamicAnalysis.querySelector(".filter-item");
-            if (selectorDiv) selectorDiv.style.display = "flex"; 
+            if (selectorDiv) selectorDiv.style.display = "flex";
         }
         document.getElementById("monitoringChartsRow")?.style.setProperty('display', 'none', 'important');
         document.getElementById("monitoringAlertsSection")?.style.setProperty('display', 'none', 'important');
@@ -3202,7 +3593,7 @@ function switchDashboardView(view) {
         if (dynamicAnalysis) {
             dynamicAnalysis.style.setProperty('display', 'block', 'important');
             const selectorDiv = dynamicAnalysis.querySelector(".filter-item");
-            if (selectorDiv) selectorDiv.style.display = "none"; 
+            if (selectorDiv) selectorDiv.style.display = "none";
         }
 
         document.getElementById("monitoringDetailsSection")?.style.setProperty('display', 'none', 'important');
@@ -3281,22 +3672,22 @@ document.querySelectorAll(".nav-btn").forEach(btn => {
             targetPanel.classList.add("active-panel");
         }
 
-        if (targetTab === "dashboard-tab") {            
+        if (targetTab === "dashboard-tab") {
             switchDashboardView('monitoring');
         }
 
-        
+
         window.scrollTo({ top: 0, behavior: 'smooth' });
     });
 
-    
+
     const themeToggleBtn = document.getElementById('themeToggleBtn');
     themeToggleBtn?.addEventListener('click', () => {
         document.body.classList.toggle('dark-mode');
         const isDark = document.body.classList.contains('dark-mode');
         themeToggleBtn.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
 
-        
+
         Chart.defaults.plugins.legend.labels.color = isDark ? '#e2e8f0' : '#334155';
         Chart.defaults.scale.grid.color = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)';
 
@@ -3352,13 +3743,13 @@ document.addEventListener("DOMContentLoaded", function () {
         summaryBtn.onclick = openCurrentDashboardSummary;
         resetBtn.parentNode.insertBefore(summaryBtn, resetBtn.nextSibling);
 
-        
+
         const voiceCmdBtn = document.createElement("button");
         voiceCmdBtn.id = "voiceCommandBtn";
         voiceCmdBtn.type = "button";
         voiceCmdBtn.className = "tab-btn";
         voiceCmdBtn.style.marginLeft = "8px";
-        voiceCmdBtn.style.background = "#8b5cf6"; 
+        voiceCmdBtn.style.background = "#8b5cf6";
         voiceCmdBtn.style.color = "white";
         voiceCmdBtn.innerHTML = '<i class="fas fa-microphone"></i> भ्वाइस कमाण्ड';
         voiceCmdBtn.onclick = startGlobalVoiceCommand;
@@ -3401,7 +3792,7 @@ function showStatusSummary() {
     }
     summaryDiv.style.display = "block";
 
-   
+
     const countReasons = (data, field) => {
         let counts = {};
         data.forEach(d => {
@@ -3511,7 +3902,7 @@ function renderPaginationUI(totalItems) {
     const totalPages = Math.ceil(totalItems / itemsPerPage);
     if (totalPages <= 1) return;
 
-    
+
     const firstBtn = document.createElement("button");
     firstBtn.innerHTML = '<i class="fas fa-angle-double-left"></i>';
     firstBtn.className = "tab-btn";
@@ -3521,7 +3912,7 @@ function renderPaginationUI(totalItems) {
     firstBtn.onclick = () => { currentPage = 1; refreshDashboard(); };
     container.appendChild(firstBtn);
 
-    
+
     const prevBtn = document.createElement("button");
     prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
     prevBtn.className = "tab-btn";
@@ -3530,7 +3921,7 @@ function renderPaginationUI(totalItems) {
     prevBtn.onclick = () => { currentPage--; refreshDashboard(); };
     container.appendChild(prevBtn);
 
-   
+
     const info = document.createElement("span");
     info.style.fontSize = "0.85rem";
     info.style.margin = "0 10px";
@@ -3538,7 +3929,7 @@ function renderPaginationUI(totalItems) {
     info.textContent = `${toNepaliDigits(currentPage)} / ${toNepaliDigits(totalPages)} पृष्ठ`;
     container.appendChild(info);
 
-    
+
     const nextBtn = document.createElement("button");
     nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
     nextBtn.className = "tab-btn";
@@ -3547,7 +3938,7 @@ function renderPaginationUI(totalItems) {
     nextBtn.onclick = () => { currentPage++; refreshDashboard(); };
     container.appendChild(nextBtn);
 
-    
+
     const lastBtn = document.createElement("button");
     lastBtn.innerHTML = '<i class="fas fa-angle-double-right"></i>';
     lastBtn.className = "tab-btn";
@@ -3560,7 +3951,7 @@ function renderPaginationUI(totalItems) {
 
 
 function dismissAllAlerts(event) {
-    event.stopPropagation(); 
+    event.stopPropagation();
     Swal.fire({
         title: 'निश्चित हुनुहुन्छ?',
         text: "यो अलर्ट सेक्सन लुकाएपछि 'अलर्ट रिसेट' बटन थिचेर मात्र फेरि देखाउन सकिन्छ।",
@@ -3597,7 +3988,7 @@ function toggleAlertsVisibility() {
 function resetAlerts() {
     dismissedAlerts.clear();
     localStorage.removeItem("dismissedAlerts_nsc");
-    localStorage.removeItem("alertSectionDismissed_nsc"); 
+    localStorage.removeItem("alertSectionDismissed_nsc");
     refreshDashboard();
 }
 
@@ -3619,7 +4010,7 @@ function startVoiceTyping(event, targetId) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
 
-    recognition.lang = 'ne-NP'; 
+    recognition.lang = 'ne-NP';
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
 
@@ -3630,9 +4021,9 @@ function startVoiceTyping(event, targetId) {
     };
 
     recognition.onresult = (e) => {
-        const transcript = e.results[0][0].transcript;        
+        const transcript = e.results[0][0].transcript;
         target.value = (target.value ? target.value.trim() + ' ' : '') + transcript;
-        target.dispatchEvent(new Event('input')); 
+        target.dispatchEvent(new Event('input'));
     };
 
     recognition.onerror = () => stopRecording(btn);
@@ -3664,7 +4055,7 @@ function startGlobalVoiceCommand() {
     recognition.lang = 'ne-NP';
     recognition.interimResults = false;
 
-    
+
     const indicator = document.getElementById('updateIndicator');
     if (indicator) {
         indicator.innerHTML = '<i class="fas fa-microphone-alt"></i> आदेश सुन्दैछ (उदा: .... प्रदेशको अनुगमन देखाऊ)...';
@@ -3675,7 +4066,7 @@ function startGlobalVoiceCommand() {
         const command = e.results[0][0].transcript.trim();
         let identified = false;
 
-        
+
         const allOffices = new Set();
         allSubmissions.forEach(s => { const n = getVal(s, 'mukhya_karyalay', 'कार्यालय'); if (n) allOffices.add(n.trim()); });
         allMonitorings.forEach(m => { if (m.m_office) allOffices.add(m.m_office.trim()); });
@@ -3692,7 +4083,7 @@ function startGlobalVoiceCommand() {
             }
         }
 
-        
+
         if (!identified) {
             for (const [pId, districts] of Object.entries(MUNICIPALITIES)) {
                 for (const [dName, munis] of Object.entries(districts)) {
@@ -3713,7 +4104,7 @@ function startGlobalVoiceCommand() {
             }
         }
 
-        
+
         if (!identified) {
             for (const [pId, districts] of Object.entries(DISTRICTS)) {
                 for (const dName of districts) {
@@ -3729,7 +4120,7 @@ function startGlobalVoiceCommand() {
             }
         }
 
-        
+
         if (!identified) {
             for (const [id, name] of Object.entries(PROVINCE)) {
                 if (command.includes(name) || command.includes(name.replace(' प्रदेश', ''))) {
@@ -3743,7 +4134,7 @@ function startGlobalVoiceCommand() {
             }
         }
 
-        
+
         if (command.includes("सर्वेक्षण") || command.includes("सन्तुष्टि") || command.includes("सेवाग्राही")) {
             switchDashboardView('survey');
         } else if (command.includes("अनुगमन") || command.includes("कार्यालय")) {
@@ -3771,30 +4162,30 @@ async function updateAIDashboardSummary() {
 
     summaryBox.style.display = 'block';
 
-    
+
     const mData = currentFilteredMonitorings;
     const sData = currentFilteredSubmissions;
 
     const mapScore = (val, positiveArr) => positiveArr.includes(val) ? 100 : (val === 'आंशिक' || val === 'सामान्य' || val === 'ठीकै' ? 50 : 0);
 
-    
+
     const transparency = mData.length ? mData.reduce((acc, d) => acc + (
         mapScore(d.m_q6, ['भएको']) + mapScore(d.m_q7, ['गरेको']) + mapScore(d.m_q8, ['भएको']) + mapScore(d.m_q11, ['भएको'])
     ) / 4, 0) / mData.length : 0;
 
-    
+
     const delivery = mData.length ? mData.reduce((acc, d) => acc + (
         mapScore(d.m_q1, ['स्पष्ट बुझिने']) + mapScore(d.m_q2, ['स्पष्ट उल्लेख भएको']) +
         mapScore(d.m_q10, ['भेटियो']) + mapScore(d.m_q12, ['राम्रो'])
     ) / 4, 0) / mData.length : 0;
 
-    
+
     const satisfaction = sData.length ? (sData.filter(d => d.satisfaction_flag === 'सन्तुष्ट').length / sData.length) * 100 : 0;
 
-    
+
     const ggi = (transparency * 0.3) + (delivery * 0.4) + (satisfaction * 0.3);
 
-    
+
     const renderIndex = (label, val, color) => `
         <div class="index-card" style="border-left-color: ${color}">
             <div style="font-size: 0.75rem; color: #64748b; font-weight: 600;">${label}</div>
@@ -3808,7 +4199,7 @@ async function updateAIDashboardSummary() {
         renderIndex('सेवा प्रवाह सूचक', delivery, '#8b5cf6') +
         renderIndex('सेवाग्राही सन्तुष्टि', satisfaction, '#10b981');
 
-    
+
     const pSel = document.getElementById("filterPradesh");
     const location = pSel && pSel.value ? pSel.options[pSel.selectedIndex].text : "छानिएको क्षेत्र";
 
@@ -3816,27 +4207,35 @@ async function updateAIDashboardSummary() {
         const payload = {
             action: 'analyze',
             location: location,
-            mode: 'dashboard_short', 
+            mode: 'dashboard_short',
             officeMonitoring: calculateMonitoringSummary(mData),
             serviceSurvey: calculateSurveySummary(sData),
             indices: { ggi, transparency, delivery, satisfaction }
         };
 
         const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-        let text = await response.text();
 
-        
-        let tempText = text.trim();
+        let resultText = await response.text();
+        let analysisTextContent = "";
+        try {
+            const jsonRes = JSON.parse(resultText);
+            analysisTextContent = jsonRes.analysis || jsonRes.message || resultText;
+        } catch (e) {
+            analysisTextContent = resultText;
+        }
 
-        
+
+        let tempText = analysisTextContent.trim();
+
+
         tempText = tempText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
-        
+
         tempText = tempText.replace(/^\s*[\*\-•]\s+(.*$)/gm, '<div style="display:flex; margin-bottom:4px; padding-left:15px;"><span style="margin-right:8px; color:#387ae6;">•</span><span>$1</span></div>');
 
-        
+
         const formattedHtml = tempText.split(/\n\n+/).map(para => {
-            if (para.trim().startsWith('<div')) return para; 
+            if (para.trim().startsWith('<div')) return para;
             return `<p style="margin-bottom:10px;">${para.replace(/\n/g, '<br>')}</p>`;
         }).join('');
 
@@ -3857,10 +4256,10 @@ function clearInput(targetId) {
 
 
 function playSuccessSound() {
-    consecutiveErrorCount = 0; 
+    consecutiveErrorCount = 0;
 
     const syncIndicator = document.getElementById('syncIndicator');
-    if (syncIndicator) syncIndicator.style.backgroundColor = ''; 
+    if (syncIndicator) syncIndicator.style.backgroundColor = '';
 
     const successSound = new Audio('https://www.soundjay.com/buttons/button-09.mp3');
     successSound.volume = 0.5;
@@ -3869,12 +4268,12 @@ function playSuccessSound() {
 
 
 function playErrorSound(visualMessage = null) {
-    consecutiveErrorCount++; 
+    consecutiveErrorCount++;
 
     const errorSound = new Audio('https://www.soundjay.com/buttons/beep-05.mp3');
     errorSound.volume = 0.4;
 
-    
+
     let pitch = 1.0 + (consecutiveErrorCount - 1) * 0.25;
     errorSound.playbackRate = Math.min(pitch, 2.5);
 
@@ -3884,7 +4283,7 @@ function playErrorSound(visualMessage = null) {
         const syncIndicator = document.getElementById('syncIndicator');
         if (syncIndicator) {
             syncIndicator.classList.add('error');
-            syncIndicator.classList.add('active');         
+            syncIndicator.classList.add('active');
             let lightness = Math.max(57 - (consecutiveErrorCount * 7), 20);
             syncIndicator.style.backgroundColor = `hsl(6, 78%, ${lightness}%)`;
 
@@ -3893,10 +4292,10 @@ function playErrorSound(visualMessage = null) {
                 syncIndicator.classList.remove('active');
                 setTimeout(() => {
                     syncIndicator.classList.remove('error');
-                    syncIndicator.style.backgroundColor = ''; 
+                    syncIndicator.style.backgroundColor = '';
                     syncIndicator.innerHTML = "🔄 डेटा सिङ्क हुँदैछ...";
                 }, 400);
-            }, 3500); 
+            }, 3500);
         }
     }
 }
@@ -3912,7 +4311,7 @@ function showDetailedTable(data, title, viewType = 'survey') {
 
     titleEl.textContent = title;
     container.style.display = "flex";
-    document.body.style.overflow = "hidden"; 
+    document.body.style.overflow = "hidden";
 
     if (viewType === 'survey') {
         thead.innerHTML = `<tr><th>मिति</th><th>जिल्ला</th><th>कार्यालय</th><th>बाहिरी सहयोग</th><th>अतिरिक्त रकम</th><th>सेवा सन्तुष्टि</th><th>योजना सन्तुष्टि</th><th>सुझाव</th></tr>`;
@@ -3972,7 +4371,7 @@ function showDetailedTable(data, title, viewType = 'survey') {
         `).join('');
     }
 
-    
+
 }
 
 const detailTableCloseBtn = document.getElementById("closeDetailTable");
@@ -4009,10 +4408,10 @@ function analyzeSentiment(text) {
 
 function triggerFadeIn() {
     const elements = document.querySelectorAll('.chart-box, .stat-card, .table-wrapper, #monitoringDetailsSection, #mapSection');
-    elements.forEach(el => {        
+    elements.forEach(el => {
         if (el.style.display !== 'none') {
             el.classList.remove('chart-fade-in');
-            void el.offsetWidth; 
+            void el.offsetWidth;
             el.classList.add('chart-fade-in');
         }
     });
@@ -4044,11 +4443,11 @@ function initNepalMap() {
     const mapContainer = document.getElementById('nepalMap');
     if (!mapContainer) return;
 
-    mapObj = L.map('nepalMap', { scrollWheelZoom: false }).setView([28.3949, 84.1240], 7);   
+    mapObj = L.map('nepalMap', { scrollWheelZoom: false }).setView([28.3949, 84.1240], 7);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors',
         maxZoom: 19,
-        detectRetina: true 
+        detectRetina: true
     }).addTo(mapObj);
 }
 
@@ -4060,13 +4459,13 @@ function updateMapMarkers() {
     });
 
     let data = [];
-    let dKey = ''; 
+    let dKey = '';
 
     if (currentDashboardView === 'survey') { data = currentFilteredSubmissions; dKey = 'jilla'; }
     else if (currentDashboardView === 'monitoring') { data = currentFilteredMonitorings; dKey = 'm_jilla'; }
     else if (currentDashboardView === 'attendance') { data = currentFilteredAttendance; dKey = 'jilla'; }
 
-    
+
     const stats = data.reduce((acc, item) => {
         const dName = item[dKey] || getVal(item, dKey, 'जिल्ला');
         if (!dName || !DISTRICT_COORDS[dName]) return acc;
@@ -4074,7 +4473,7 @@ function updateMapMarkers() {
         if (!acc[dName]) acc[dName] = { total: 0, unsatisfied: 0, reasons: {} };
         acc[dName].total++;
 
-        let reasons = [];        
+        let reasons = [];
         if (currentDashboardView === 'survey') {
             if (item.sahayog_parera === 'पर्‍यो') reasons.push('बाहिरी सहयोग');
             if (item.ghus_parera === 'पर्‍यो') reasons.push('अतिरिक्त रकम');
@@ -4099,14 +4498,14 @@ function updateMapMarkers() {
         return acc;
     }, {});
 
-    
+
     Object.keys(stats).forEach(dName => {
         const s = stats[dName];
 
-        
+
         const negativeReasons = s.reasons ? Object.keys(s.reasons).join(", ") : "";
 
-       
+
         const isHighRisk = (s.unsatisfied / s.total) > 0.25;
         const radarClass = isHighRisk ? 'radar-red' : 'radar-blue';
 
@@ -4132,7 +4531,7 @@ function updateMapMarkers() {
         L.marker(DISTRICT_COORDS[dName], { icon: icon })
             .addTo(mapObj)
             .bindPopup(popupText)
-            .on('popupopen', function () {                
+            .on('popupopen', function () {
                 setTimeout(() => {
                     const ctx = document.getElementById(canvasId);
                     if (!ctx) return;
@@ -4150,7 +4549,7 @@ function updateMapMarkers() {
                         options: {
                             onClick: (e, elements) => {
                                 if (elements.length > 0) {
-                                    const idx = elements[0].index; 
+                                    const idx = elements[0].index;
                                     const isNegative = idx === 1;
 
                                     let filtered = data.filter(item => (item[dKey] || getVal(item, dKey, 'जिल्ला')) === dName);
@@ -4223,20 +4622,20 @@ function updateMapMarkers() {
 const originalRefreshDashboard = refreshDashboard;
 refreshDashboard = function () {
     const indicator = document.getElementById('updateIndicator');
-  
+
     if (indicator) indicator.classList.add('show');
-   
+
     originalRefreshDashboard();
     updateMapMarkers();
-   
+
     updateAIDashboardSummary();
-    
+
     setTimeout(() => {
         triggerFadeIn();
         if (indicator) {
             setTimeout(() => {
                 indicator.classList.remove('show');
-            }, 400); 
+            }, 400);
         }
     }, 100);
 };
@@ -4271,44 +4670,44 @@ function calculateMonitoringSummary(filteredData) {
     };
 
     filteredData.forEach(item => {
-        
+
         const d_total = parseInt(getVal(item, 'd_total', 'कुल दरबन्दी')) || 0;
         const d_vacant = parseInt(getVal(item, 'd_vacant', 'रिक्त')) || 0;
         summary.total_staff += d_total;
         summary.vacant_staff += d_vacant;
 
-        
+
         const m_q1 = getVal(item, 'm_q1', 'नागरिक बडापत्र');
         if (m_q1 === 'स्पष्ट बुझिने') summary.charter_clear++;
         else if (m_q1 === 'स्पष्ट नबुझिने') summary.charter_not_clear++;
         else if (m_q1 === 'पढ्न झन्झटिलो') summary.charter_difficult++;
         else if (m_q1 === 'नभएको') summary.charter_none++;
 
-        
+
         const m_q2 = getVal(item, 'm_q2', 'सेवा प्रक्रिया');
         if (m_q2 === 'स्पष्ट उल्लेख भएको') summary.process_clear++;
         else if (m_q2 === 'उल्लेख नभएको') summary.process_not_mentioned++;
         else if (m_q2 === 'आंशिक') summary.process_partial++;
         else if (m_q2 === 'नभएको') summary.process_none++;
 
-        
+
         const m_q5 = getVal(item, 'm_q5', 'मध्यस्थकर्ताको प्रवेश');
         if (m_q5 === 'देखियो') summary.broker_seen++;
         else if (m_q5 === 'देखिएन') summary.broker_not_seen++;
 
-        
+
         const m_q10 = getVal(item, 'm_q10', 'कर्मचारीहरु तोकिएको कार्यकक्षमा रहेको');
         if (m_q10 === 'भेटियो') summary.staff_found++;
         else if (m_q10 === 'भेटिएन') summary.staff_not_found++;
         else if (m_q10 === 'आंशिक') summary.staff_partial++;
 
-        
+
         const m_q12 = getVal(item, 'm_q12', 'कार्यालयको सरसफाइको अवस्था');
         if (m_q12 === 'राम्रो') summary.cleaning_good++;
         else if (m_q12 === 'नराम्रो') summary.cleaning_bad++;
         else if (m_q12 === 'ठीकै') summary.cleaning_ok++;
 
-        
+
         const f_1 = getVal(item, 'f_1', 'सेवाग्राही सहायता कक्ष');
         if (f_1 === 'छ') summary.helpdesk_yes++;
         else if (f_1 === 'छैन') summary.helpdesk_no++;
@@ -4352,32 +4751,32 @@ function calculateSurveySummary(filteredData) {
     };
 
     filteredData.forEach(item => {
-        
+
         const janakari_chha = getVal(item, 'janakari_chha', 'नागरिक बडापत्रको जानकारी');
         if (janakari_chha === 'छ') summary.charter_info_yes++;
         else if (janakari_chha === 'छैन') summary.charter_info_no++;
 
-        
+
         const kaam_bhayeko = getVal(item, 'kaam_bhayeko', 'तोकिएको समयमा काम भएको');
         if (kaam_bhayeko === 'भयो') summary.work_done_yes++;
         else if (kaam_bhayeko === 'भएन') summary.work_done_no++;
 
-        
+
         const sahayog_parera = getVal(item, 'sahayog_parera', 'बाहिरी व्यक्तिको सहयोग');
         if (sahayog_parera === 'पर्‍यो') summary.helper_yes++;
         else if (sahayog_parera === 'परेन') summary.helper_no++;
 
-        
+
         const ghus_parera = getVal(item, 'ghus_parera', 'अतिरिक्त रकम (घुस)');
         if (ghus_parera === 'पर्‍यो') summary.ghus_yes++;
         else if (ghus_parera === 'परेन') summary.ghus_no++;
 
-       
+
         const main_satisfaction = getVal(item, 'main_satisfaction', 'सन्तुष्ट/असन्तुष्ट');
         if (main_satisfaction === 'सन्तुष्ट') summary.satisfied++;
         else if (main_satisfaction === 'असन्तुष्ट') summary.unsatisfied++;
 
-        
+
         const santushti_positive = getVal(item, 'santushti_positive', 'सन्तुष्टिको कारण');
         if (santushti_positive) {
             if (santushti_positive.includes('समयमै काम भएको')) summary.sat_time++;
@@ -4388,7 +4787,7 @@ function calculateSurveySummary(filteredData) {
             if (santushti_positive.includes('अन्य')) summary.sat_other++;
         }
 
-        
+
         const santushti_negative = getVal(item, 'santushti_negative', 'असन्तुष्टिको कारण');
         if (santushti_negative) {
             if (santushti_negative.includes('समयमा काम नभएको')) summary.unsat_time++;
@@ -4400,12 +4799,12 @@ function calculateSurveySummary(filteredData) {
             if (santushti_negative.includes('अन्य')) summary.unsat_other++;
         }
 
-        
+
         const yojana_santushti = getVal(item, 'yojana_santushti', 'योजनाबाट सन्तुष्टि');
         if (yojana_santushti === 'सन्तुष्ट') summary.yojana_sat++;
         else if (yojana_santushti === 'असन्तुष्ट') summary.yojana_unsat++;
 
-        
+
         const asantushti_karan_yojana = getVal(item, 'asantushti_karan_yojana', 'योजना असन्तुष्टिको कारण');
         if (asantushti_karan_yojana) {
             if (asantushti_karan_yojana.includes('तोकिएको समयमा योजना सम्पन्न नभएकोले')) summary.yojana_unsat_time++;
@@ -4456,7 +4855,7 @@ async function getAIStatusAnalysis(location, mSummary, sSummary, aSummary) {
         const today = estimateCurrentBsDate();
         const nepaliDate = formatNepaliDateParts(today.year, today.month, today.day);
 
-        
+
         const payload = {
             action: 'analyze',
             location: location,
@@ -4477,26 +4876,26 @@ async function getAIStatusAnalysis(location, mSummary, sSummary, aSummary) {
 
         let analysisText = "";
         try {
-            
+
             const jsonRes = JSON.parse(resultText);
             analysisText = jsonRes.analysis || jsonRes.message || resultText;
         } catch (e) {
             analysisText = resultText;
         }
 
-        
+
         let tempText = analysisText.trim();
-        
+
         tempText = tempText.replace(/^([\u0966-\u096F\d]+\.\s+.*$)/gm, '<h4 style="color:#1a365d; border-bottom:1.5px solid #cbd5e0; padding-bottom:5px; margin-top:22px; margin-bottom:10px; font-weight:700; font-size:1.1rem;">$1</h4>');
         tempText = tempText.replace(/^#+\s+(.*$)/gm, '<h5 style="color:#2c5282; border-left:4px solid #387ae6; padding-left:10px; margin-top:18px; margin-bottom:8px;">$1</h5>');
 
-        
+
         tempText = tempText.replace(/^\s*[\*\-•]\s+(.*$)/gm, '<div style="display:flex; margin-bottom:6px; padding-left:20px;"><span style="margin-right:10px; color:#387ae6;">•</span><span>$1</span></div>');
 
-        
+
         tempText = tempText.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#1a365d;">$1</strong>');
 
-        
+
         const formattedHtml = tempText.split(/\n\n+/).map(para => {
             if (para.trim().startsWith('<h') || para.trim().startsWith('<div')) return para;
             return `<p style="margin-bottom:12px;">${para.replace(/\n/g, '<br>')}</p>`;
@@ -4519,12 +4918,12 @@ async function downloadStatusSummaryPDF() {
     const title = modal?.querySelector('.modal-title')?.textContent || "Status Summary";
     const aiSection = document.getElementById('aiAnalysisSection');
 
-    
+
     const element = document.createElement('div');
     element.style.padding = '30px';
     element.style.fontFamily = "'Kalimati', sans-serif";
 
-    
+
     const header = document.createElement('div');
     header.style.textAlign = 'center';
     header.style.marginBottom = '20px';
@@ -4535,14 +4934,14 @@ async function downloadStatusSummaryPDF() {
     `;
     element.appendChild(header);
 
-    
+
     if (aiSection && aiSection.style.display !== 'none') {
         const aiClone = aiSection.cloneNode(true);
         aiClone.style.display = 'block';
         aiClone.style.marginBottom = '25px';
-        aiClone.style.pageBreakInside = 'avoid'; 
+        aiClone.style.pageBreakInside = 'avoid';
 
-        
+
         const aiBox = aiClone.querySelector('div');
         if (aiBox) {
             aiBox.style.boxShadow = 'none';
@@ -4551,17 +4950,17 @@ async function downloadStatusSummaryPDF() {
         element.appendChild(aiClone);
     }
 
-    
+
     const clone = content.cloneNode(true);
 
-    
+
     clone.querySelectorAll('.summary-section').forEach(sec => {
         sec.style.pageBreakInside = 'avoid';
         sec.style.marginBottom = '15px';
         sec.style.display = 'block';
     });
 
-    
+
     clone.querySelectorAll('.summary-grid').forEach(grid => {
         grid.style.display = 'block';
     });
@@ -4570,7 +4969,7 @@ async function downloadStatusSummaryPDF() {
         item.style.borderBottom = '1px solid #eee';
         item.style.display = 'flex';
         item.style.justifyContent = 'space-between';
-        item.style.pageBreakInside = 'avoid'; 
+        item.style.pageBreakInside = 'avoid';
     });
     element.appendChild(clone);
 
@@ -4590,13 +4989,13 @@ function openStatusSummaryModal(showAll = true) {
     const modal = document.getElementById('statusSummaryModal');
     if (!modal) return;
 
-    
+
     const pradeshFilter = (document.getElementById("filterPradesh")?.value || "").trim();
     const districtFilter = (document.getElementById("filterDistrict")?.value || "").trim();
     const sthaaniyaFilter = (document.getElementById("filterSthaaniya")?.value || "").trim();
     const officeFilter = (document.getElementById("filterOffice")?.value || "").toLowerCase().trim();
 
-    
+
     const pSel = document.getElementById("filterPradesh");
     const dSel = document.getElementById("filterDistrict");
     const sSel = document.getElementById("filterSthaaniya");
@@ -4621,13 +5020,13 @@ function openStatusSummaryModal(showAll = true) {
 
         let span = modalTitleEl.querySelector('.title-text');
         if (!span) {
-            
+
             modalTitleEl.innerHTML = '';
             span = document.createElement('span');
             span.className = 'title-text';
             modalTitleEl.appendChild(span);
 
-            
+
             const pdfBtn = document.createElement('button');
             pdfBtn.id = 'downloadSummaryPDF';
             pdfBtn.className = 'tab-btn';
@@ -4642,7 +5041,7 @@ function openStatusSummaryModal(showAll = true) {
         }
         span.textContent = titleText;
     }
-    
+
     let surveyData = allSubmissions.filter(r => {
         const rPradesh = getVal(r, 'pradesh', 'प्रदेश');
         const rJilla = getVal(r, 'jilla', 'जिल्ला');
@@ -4662,7 +5061,7 @@ function openStatusSummaryModal(showAll = true) {
         return pradeshMatch && districtMatch && sthaaniyaMatch && officeMatch;
     });
 
-    
+
     let monitoringData = allMonitorings.filter(r => {
         const rPradesh = getVal(r, 'pradesh', 'प्रदेश');
         const rJilla = getVal(r, 'jilla', 'जिल्ला');
@@ -4682,7 +5081,7 @@ function openStatusSummaryModal(showAll = true) {
         return pradeshMatch && districtMatch && sthaaniyaMatch && officeMatch;
     });
 
-    
+
     let attendanceData = allAttendanceMonitorings.filter(r => {
         const rPradesh = getVal(r, 'pradesh', 'प्रदेश');
         const rJilla = getVal(r, 'jilla', 'जिल्ला');
@@ -4702,16 +5101,16 @@ function openStatusSummaryModal(showAll = true) {
         return pradeshMatch && districtMatch && sthaaniyaMatch && officeMatch;
     });
 
-    
+
     let monitoringSummary, surveySummary, attendanceSummary;
 
     if (showAll) {
-        
+
         monitoringSummary = calculateMonitoringSummary(monitoringData);
         surveySummary = calculateSurveySummary(surveyData);
         attendanceSummary = calculateAttendanceSummary(attendanceData);
     } else {
-        
+
         if (currentDashboardView === 'survey') {
             monitoringSummary = { total_count: 0, total_staff: 0, vacant_staff: 0, charter_clear: 0, charter_not_clear: 0, charter_difficult: 0, charter_none: 0, process_clear: 0, process_not_mentioned: 0, process_partial: 0, process_none: 0, broker_seen: 0, broker_not_seen: 0, staff_found: 0, staff_not_found: 0, staff_partial: 0, cleaning_good: 0, cleaning_bad: 0, cleaning_ok: 0, helpdesk_yes: 0, helpdesk_no: 0, helpdesk_normal: 0 };
             surveySummary = calculateSurveySummary(surveyData);
@@ -4727,7 +5126,7 @@ function openStatusSummaryModal(showAll = true) {
         }
     }
 
-    
+
     const monitoringSection = document.querySelector('#statusSummaryContent .summary-section:nth-child(1)');
     const surveySection = document.querySelector('#statusSummaryContent .summary-section:nth-child(2)');
     const attendanceSection = document.querySelector('#statusSummaryContent .summary-section:nth-child(3)');
@@ -4752,7 +5151,7 @@ function openStatusSummaryModal(showAll = true) {
         }
     }
 
-    
+
     document.getElementById('m_total_count').textContent = toNepaliDigits(monitoringSummary.total_count);
     document.getElementById('m_total_staff').textContent = toNepaliDigits(monitoringSummary.total_staff);
     document.getElementById('m_vacant_staff').textContent = toNepaliDigits(monitoringSummary.vacant_staff);
@@ -4776,7 +5175,7 @@ function openStatusSummaryModal(showAll = true) {
     document.getElementById('m_helpdesk_no').textContent = toNepaliDigits(monitoringSummary.helpdesk_no);
     document.getElementById('m_helpdesk_normal').textContent = toNepaliDigits(monitoringSummary.helpdesk_normal);
 
-    
+
     document.getElementById('s_charter_info_yes').textContent = toNepaliDigits(surveySummary.charter_info_yes);
     document.getElementById('s_charter_info_no').textContent = toNepaliDigits(surveySummary.charter_info_no);
     document.getElementById('s_work_done_yes').textContent = toNepaliDigits(surveySummary.work_done_yes);
@@ -4807,16 +5206,16 @@ function openStatusSummaryModal(showAll = true) {
     document.getElementById('s_yojana_unsat_standard').textContent = toNepaliDigits(surveySummary.yojana_unsat_standard);
     document.getElementById('s_yojana_unsat_other').textContent = toNepaliDigits(surveySummary.yojana_unsat_other);
 
-    
+
     document.getElementById('a_absent_today').textContent = toNepaliDigits(attendanceSummary.absent_today);
     document.getElementById('a_absent_prev').textContent = toNepaliDigits(attendanceSummary.absent_prev);
     document.getElementById('a_no_uniform').textContent = toNepaliDigits(attendanceSummary.no_uniform);
     document.getElementById('a_not_in_room').textContent = toNepaliDigits(attendanceSummary.not_in_room);
 
-   
+
     modal.style.display = 'flex';
 
-  
+
     getAIStatusAnalysis(locationText, monitoringSummary, surveySummary, attendanceSummary);
 }
 
@@ -4827,13 +5226,13 @@ function openCurrentDashboardSummary() {
 
 
 document.addEventListener('DOMContentLoaded', function () {
-    
+
     const statusSummaryAllBtn = document.getElementById('statusSummaryAllBtn');
     if (statusSummaryAllBtn) {
         statusSummaryAllBtn.addEventListener('click', openStatusSummaryModal);
     }
 
-    
+
     const closeStatusSummary = document.getElementById('closeStatusSummary');
     if (closeStatusSummary) {
         closeStatusSummary.addEventListener('click', function () {
@@ -4842,7 +5241,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-   
+
     const statusSummaryModal = document.getElementById('statusSummaryModal');
     if (statusSummaryModal) {
         statusSummaryModal.addEventListener('click', function (e) {
@@ -4851,4 +5250,156 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
+
+    // ========== NEW FEATURE 1: REAL-TIME CLOCK ==========
+    function initRealtimeClock() {
+        const nepaliDateEl = document.getElementById('clockNepaliDate');
+        const nepaliTimeEl = document.getElementById('clockNepaliTime');
+        const englishDateEl = document.getElementById('clockEnglishDate');
+        function updateClock() {
+            const now = new Date();
+            if (englishDateEl) englishDateEl.textContent = now.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+            if (nepaliTimeEl) {
+                const h = String(now.getHours()).padStart(2, '0');
+                const m = String(now.getMinutes()).padStart(2, '0');
+                const s = String(now.getSeconds()).padStart(2, '0');
+                nepaliTimeEl.innerHTML = '<i class="fas fa-clock mr-1"></i>' + h + ':' + m + ':' + s;
+            }
+            if (nepaliDateEl) {
+                const bs = estimateCurrentBsDate();
+                const days = ['आइतबार', 'सोमबार', 'मङ्गलबार', 'बुधबार', 'बिहीबार', 'शुक्रबार', 'शनिबार'];
+                nepaliDateEl.innerHTML = '<i class="fas fa-calendar-alt mr-1"></i>' + days[now.getDay()] + ', ' + formatNepaliDateParts(bs.year, bs.month, bs.day);
+            }
+        }
+        updateClock();
+        setInterval(updateClock, 1000);
+    }
+
+    // ========== NEW FEATURE 2: AUTO-REFRESH TOGGLE ==========
+    let autoRefreshInterval = null;
+    function initAutoRefresh() {
+        const btn = document.getElementById('autoRefreshToggle');
+        const ind = document.getElementById('autoRefreshIndicator');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval); autoRefreshInterval = null;
+                btn.classList.remove('active');
+                if (ind) ind.classList.add('hidden');
+                btn.title = 'अटो-रिफ्रेस गर्नुहोस्';
+                showToast('⏸️ अटो-रिफ्रेस रद्द', 'info', 2000);
+            } else {
+                autoRefreshInterval = setInterval(function () {
+                    refreshDashboard();
+                    showToast('🔄 तथ्याङ्क स्वतः रिफ्रेस', 'info', 1500);
+                }, 30000);
+                btn.classList.add('active');
+                if (ind) ind.classList.remove('hidden');
+                btn.title = 'अटो-रिफ्रेस रद्द गर्नुहोस्';
+                showToast('🔄 अटो-रिफ्रेस सफल', 'success', 2000);
+            }
+            playClickSound();
+        });
+    }
+
+    // ========== NEW FEATURE 4: ENHANCED EXPORT ==========
+    function openEnhancedExportModal() {
+        let count = 0;
+        if (currentDashboardView === 'survey') count = currentFilteredSubmissions.length;
+        else if (currentDashboardView === 'monitoring') count = currentFilteredMonitorings.length;
+        else if (currentDashboardView === 'attendance') count = currentFilteredAttendance.length;
+        if (!count) return Swal.fire({ icon: 'info', text: 'निर्यात गर्न डाटा छैन।', confirmButtonColor: '#387ae6' });
+
+        const existing = document.querySelector('.enhanced-export-overlay');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'enhanced-export-overlay';
+        overlay.innerHTML = '<div class="enhanced-export-modal"><div class="enhanced-export-header"><h3><i class="fas fa-file-export"></i> उन्नत Export (चार्ट सहित)</h3><button class="modal-close-btn" id="closeEnhancedExport" style="position:static;background:transparent;color:#94a3b8;"><i class="fas fa-times"></i></button></div><div class="enhanced-export-body"><div class="enhanced-export-preview" id="exportPreviewContainer"><div style="text-align:center;color:#94a3b8;"><i class="fas fa-chart-simple" style="font-size:3rem;margin-bottom:10px;display:block;"></i><span>चार्ट पूर्वावलोकन</span></div></div><div class="enhanced-export-options"><div class="enhanced-export-option active" data-type="excel"><i class="fas fa-file-excel" style="color:#1d6f42;"></i><span>Excel</span></div><div class="enhanced-export-option" data-type="pdf"><i class="fas fa-file-pdf" style="color:#e74c3c;"></i><span>PDF (चार्ट सहित)</span></div></div><p style="font-size:0.8rem;color:#94a3b8;text-align:center;margin-bottom:12px;"><i class="fas fa-info-circle"></i> ' + (currentDashboardView === 'survey' ? 'सर्वेक्षण' : currentDashboardView === 'monitoring' ? 'अनुगमन' : 'पोशाक') + ' डेटा (' + toNepaliDigits(count) + ' रेकर्ड)</p><div class="enhanced-export-actions"><button class="enhanced-export-btn-secondary" id="cancelEnhancedExport">रद्द</button><button class="enhanced-export-btn-primary" id="confirmEnhancedExport"><i class="fas fa-download"></i> डाउनलोड</button></div></div></div>';
+        document.body.appendChild(overlay);
+
+        setTimeout(() => {
+            const pc = document.getElementById('exportPreviewContainer');
+            if (pc) {
+                const ids = ['dynamicChart', 'genderChart', 'satisfactionChart', 'charterClarityChart'];
+                let canvas = null;
+                for (const id of ids) {
+                    const c = document.getElementById(id);
+                    if (c && c.width > 0) { canvas = c; break; }
+                }
+                if (canvas) {
+                    const img = document.createElement('img');
+                    img.src = canvas.toDataURL('image/png');
+                    img.style.maxWidth = '100%'; img.style.maxHeight = '180px'; img.style.borderRadius = '8px';
+                    pc.innerHTML = ''; pc.appendChild(img);
+                }
+            }
+        }, 200);
+
+        let selectedType = 'excel';
+        overlay.querySelectorAll('.enhanced-export-option').forEach(opt => {
+            opt.addEventListener('click', function () {
+                overlay.querySelectorAll('.enhanced-export-option').forEach(o => o.classList.remove('active'));
+                this.classList.add('active');
+                selectedType = this.dataset.type;
+            });
+        });
+
+        const closeFn = () => overlay.remove();
+        overlay.querySelector('#closeEnhancedExport').addEventListener('click', closeFn);
+        overlay.querySelector('#cancelEnhancedExport').addEventListener('click', closeFn);
+        overlay.addEventListener('click', e => { if (e.target === overlay) closeFn(); });
+
+        overlay.querySelector('#confirmEnhancedExport').addEventListener('click', function () {
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> निर्यात...';
+            this.disabled = true;
+            setTimeout(() => {
+                if (selectedType === 'excel') exportToExcel();
+                else exportEnhancedPDF();
+                closeFn();
+            }, 300);
+        });
+    }
+
+    function exportEnhancedPDF() {
+        const wrapper = document.createElement('div');
+        wrapper.style.padding = '25px'; wrapper.style.fontFamily = "'Kalimati',sans-serif"; wrapper.style.background = '#fff';
+        const title = currentDashboardView === 'survey' ? 'सेवाग्राही सर्वेक्षण रिपोर्ट' : currentDashboardView === 'monitoring' ? 'कार्यालय अनुगमन रिपोर्ट' : 'समय पालना/पोशाक अनुगमन रिपोर्ट';
+        wrapper.innerHTML = '<div style="text-align:center;margin-bottom:20px;"><h2 style="color:#306a95;">राष्ट्रिय सतर्कता केन्द्र</h2><h3 style="color:#4a5568;">' + title + '</h3><hr style="border:0;border-top:2px solid #306a95;margin:10px 0;"></div>';
+
+        const stats = document.getElementById('statCardsContainer');
+        if (stats) {
+            const s = stats.cloneNode(true);
+            s.style.display = 'flex'; s.style.flexWrap = 'wrap'; s.style.gap = '10px'; s.style.marginBottom = '20px';
+            s.querySelectorAll('.stat-card').forEach(c => { c.style.flex = '1'; c.style.minWidth = '120px'; c.style.padding = '12px'; c.style.border = '1px solid #e2e8f0'; c.style.borderRadius = '10px'; c.style.textAlign = 'center'; });
+            wrapper.appendChild(s);
+        }
+
+        const chartIds = [{ id: 'dynamicChart', label: 'चार्ट' }, { id: 'genderChart', label: 'लिङ्ग' }, { id: 'satisfactionChart', label: 'सन्तुष्टि' }, { id: 'charterClarityChart', label: 'बडापत्र' }];
+        let section = document.createElement('div');
+        section.style.display = 'flex'; section.style.flexWrap = 'wrap'; section.style.gap = '15px'; section.style.marginBottom = '20px'; section.style.justifyContent = 'center';
+        chartIds.forEach(({ id, label }) => {
+            const c = document.getElementById(id);
+            if (c && c.width > 0) {
+                try {
+                    const d = c.toDataURL('image/png');
+                    const div = document.createElement('div');
+                    div.style.flex = '1'; div.style.minWidth = '250px'; div.style.maxWidth = '350px'; div.style.textAlign = 'center'; div.style.border = '1px solid #e2e8f0'; div.style.borderRadius = '10px'; div.style.padding = '10px';
+                    div.innerHTML = '<img src="' + d + '" style="width:100%;max-height:180px;object-fit:contain;"><p style="font-size:0.8rem;color:#4a5568;margin-top:8px;font-weight:600;">' + label + '</p>';
+                    section.appendChild(div);
+                } catch (e) { }
+            }
+        });
+        if (section.children.length > 0) wrapper.appendChild(section);
+
+        const tw = document.querySelector('.table-wrapper');
+        if (tw) { const tc = tw.cloneNode(true); tc.style.marginTop = '15px'; wrapper.appendChild(tc); }
+
+        html2pdf().set({ margin: [0.4, 0.4, 0.4, 0.4], filename: (currentDashboardView === 'survey' ? 'Survey' : currentDashboardView === 'monitoring' ? 'Monitoring' : 'Attendance') + '_With_Charts.pdf', image: { type: 'jpeg', quality: 0.95 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css', 'legacy'] } }).from(wrapper).save();
+    }
+
+    // Initialize new features
+    initRealtimeClock();
+    initAutoRefresh();
+    document.getElementById('enhancedExportBtn')?.addEventListener('click', openEnhancedExportModal);
 });

@@ -6,20 +6,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>राष्ट्रिय सतर्कता केन्द्र - कार्यालय अनुगमन/सेवाग्राही सर्वेक्षण </title>
     <link rel="icon" type="image/png" href="coa.png">
-    <!-- Google Fonts & Chart.js CDN -->
+
+    <!-- Preconnect to CDN domains for faster loading -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- Critical CSS & Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Mukta:wght@200..800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Kalimati&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Critical Scripts (needed immediately) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0" defer></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/nepali-date-converter/dist/nepali-date-converter.umd.js"></script>
-    <!-- Leaflet GIS Map CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/nepali-date-converter/dist/nepali-date-converter.umd.js" defer></script>
+
+    <!-- Non-critical scripts (deferred - loaded on demand) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer
+        data-lazy="true"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer data-lazy="true"></script>
+
+    <!-- Leaflet GIS Map CSS (deferred) -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer data-lazy="true"></script>
     <!-- Gemini AI SDK -->
     <script type="importmap">
         {
@@ -66,7 +80,7 @@
                     class="md:hidden absolute top-4 right-4 text-white/70 hover:text-white p-2">
                     <i class="fas fa-times text-xl"></i>
                 </button>
-                <img src="coa.png" alt="Coat of Arms"
+                <img src="coa.png" alt="Coat of Arms" loading="lazy"
                     class="w-[42px] h-[42px] mb-1.5 drop-shadow-xl hover:scale-105 transition-transform duration-300">
             </div>
 
@@ -112,7 +126,7 @@
             <header
                 class="flex items-center justify-between px-4 py-2 bg-gradient-to-r from-[#000046] to-[#1cb5e0] backdrop-blur-md shadow-sm border-b z-30 min-h-[64px]">
                 <!-- Left Side: Toggles & Logo -->
-                <div class="flex items-center gap-3 w-1/4">
+                <div class="flex items-center gap-3 w-auto md:w-1/4">
                     <!-- Desktop Toggle -->
                     <button id="desktopToggleBtn"
                         class="hidden md:block text-xl p-1.5 text-white hover:text-blue-200 focus:outline-none transition-colors">
@@ -125,7 +139,7 @@
                     </button>
                 </div>
 
-                <!-- Center: Branding -->
+                <!-- Center: Branding + Offline Badge -->
                 <div class="flex-1 text-center">
                     <h5 class="font-bold text-[12px] text-white tracking-wide leading-none">नेपाल सरकार</h5>
                     <h1 class="font-bold text-[18px] leading-tight text-white">राष्ट्रिय सतर्कता केन्द्र</h1>
@@ -135,14 +149,31 @@
                         मोड सक्रिय</span>
                 </div>
 
-                <!-- Right Side: Nepal Flag -->
-                <div class="flex items-center justify-end w-1/4">
+                <!-- Right Side: Clock + Auto-refresh + Theme + Nepal Flag -->
+                <div class="flex items-center justify-end w-auto md:w-1/4 gap-2">
+                    <div id="realtimeClock"
+                        class="text-[10px] text-white/80 font-medium text-right leading-tight hidden md:block whitespace-nowrap">
+                        <div id="clockNepaliDate" class="whitespace-nowrap"><i class="fas fa-calendar-alt mr-1"></i>लोड
+                            गर्दै...</div>
+                        <div class="flex items-center gap-1 justify-end whitespace-nowrap">
+                            <span id="clockNepaliTime"><i class="fas fa-clock mr-1"></i>--:--:--</span>
+                            <span class="text-white/40">|</span>
+                            <span id="clockEnglishDate" class="text-[9px] text-white/60"></span>
+                        </div>
+                    </div>
+                    <!-- Auto-Refresh Toggle -->
+                    <button id="autoRefreshToggle"
+                        class="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all relative group"
+                        title="अटो-रिफ्रेस गर्नुहोस्">
+                        <i class="fas fa-sync-alt"></i>
+                        <span id="autoRefreshIndicator" class="auto-refresh-indicator hidden"></span>
+                    </button>
                     <!-- Theme Toggle Button -->
                     <button id="themeToggleBtn"
-                        class="mr-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all">
+                        class="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all">
                         <i class="fas fa-moon"></i>
                     </button>
-                    <img src="./nepal-flag.gif" alt="Flag of Nepal" class="h-10 drop-shadow-md">
+                    <img src="./nepal-flag.gif" alt="Flag of Nepal" loading="lazy" class="h-10 drop-shadow-md">
                 </div>
             </header>
 
@@ -984,7 +1015,8 @@
                         <div class="dashboard-card">
                             <!-- Professional Dashboard View Toggles -->
                             <div class="dashboard-view-selector">
-                                <button id="showSurveyView" class="dash-view-btn dash-view-survey" aria-label="सेवाग्राही सर्वेक्षण">
+                                <button id="showSurveyView" class="dash-view-btn dash-view-survey"
+                                    aria-label="सेवाग्राही सर्वेक्षण">
                                     <div class="dash-view-icon-wrap">
                                         <i class="fas fa-clipboard-list"></i>
                                     </div>
@@ -994,7 +1026,8 @@
                                     </div>
                                     <div class="dash-view-badge">सर्वेक्षण</div>
                                 </button>
-                                <button id="showMonitoringView" class="dash-view-btn dash-view-monitoring active" aria-label="कार्यालय/नागरिक बडापत्र अनुगमन">
+                                <button id="showMonitoringView" class="dash-view-btn dash-view-monitoring active"
+                                    aria-label="कार्यालय/नागरिक बडापत्र अनुगमन">
                                     <div class="dash-view-icon-wrap">
                                         <i class="fas fa-eye"></i>
                                     </div>
@@ -1004,7 +1037,8 @@
                                     </div>
                                     <div class="dash-view-badge">अनुगमन</div>
                                 </button>
-                                <button id="showAttendanceView" class="dash-view-btn dash-view-attendance" aria-label="समय पालना/पोशाक अनुगमन">
+                                <button id="showAttendanceView" class="dash-view-btn dash-view-attendance"
+                                    aria-label="समय पालना/पोशाक अनुगमन">
                                     <div class="dash-view-icon-wrap">
                                         <i class="fas fa-clock"></i>
                                     </div>
@@ -1014,7 +1048,8 @@
                                     </div>
                                     <div class="dash-view-badge">पोशाक</div>
                                 </button>
-                                <button id="toggleMapBtn" class="dash-view-btn dash-view-map" aria-label="नक्सामा हेर्नुहोस्" onclick="toggleMapVisibility()">
+                                <button id="toggleMapBtn" class="dash-view-btn dash-view-map"
+                                    aria-label="नक्सामा हेर्नुहोस्" onclick="toggleMapVisibility()">
                                     <div class="dash-view-icon-wrap">
                                         <i class="fas fa-map-marked-alt"></i>
                                     </div>
@@ -1024,7 +1059,9 @@
                                     </div>
                                     <div class="dash-view-badge">GIS</div>
                                 </button>
-                                <button id="toggleAlertsVisibilityBtn" class="dash-view-btn dash-view-alerts" aria-label="अलर्ट लुकाउनुहोस्" onclick="toggleAlertsVisibility()" style="display: none;">
+                                <button id="toggleAlertsVisibilityBtn" class="dash-view-btn dash-view-alerts"
+                                    aria-label="अलर्ट लुकाउनुहोस्" onclick="toggleAlertsVisibility()"
+                                    style="display: none;">
                                     <div class="dash-view-icon-wrap">
                                         <i class="fas fa-bell"></i>
                                     </div>
@@ -1150,6 +1187,9 @@
                                 <button id="exportExcelBtn"
                                     style="display: block; background:#1d6f42; border:none; border-radius:6px; color:white; cursor:pointer; font-family: 'Kalimati', sans-serif;">Excel
                                     Export</button>
+                                <button id="enhancedExportBtn"
+                                    style="display: block; background:#7c3aed; border:none; border-radius:6px; color:white; cursor:pointer; font-family: 'Kalimati', sans-serif;">📊
+                                    उन्नत Export (चार्ट सहित)</button>
                             </div>
 
                             <!-- विशिष्ट प्रश्न विश्लेषण खण्ड -->
@@ -1685,6 +1725,7 @@
 
                 <script src="metadata.js"></script>
                 <script src="script.js" defer></script>
+                <script src="performance-enhancements.js" defer></script>
 
             </div>
     </div>
