@@ -1,5 +1,5 @@
 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbygb8nTRcxutNnS_mGFw_nUEL6eJNRn5oluZV0emJjFD7xcAA-qVKH6hj97GLqGF1Zi/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw_4PQ_3JeMGqKuKz3_lYzUXPbvrjlkdwpQDCGIwuRVpF3L8aUpUTE0zppg5ZktEgCr/exec";
 
 
 let allSubmissions = [];
@@ -297,8 +297,24 @@ function countWords(str) {
 
 const NEPALI_DIGITS = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
 const BS_MONTHS = ["बैशाख", "जेठ", "असार", "श्रावण", "भाद्र", "आश्विन", "कार्तिक", "मंसिर", "पौष", "माघ", "फाल्गुन", "चैत्र"];
-const NEPALI_MONTH_LENGTHS = [31, 32, 31, 32, 31, 30, 30, 30, 30, 29, 30, 30];
-const NEPALI_PICKER_YEAR_RANGE = { start: 2070, end: 2090 };
+const NEPALI_PICKER_YEAR_RANGE = { start: 2080, end: 2090 };
+const NEPALI_CALENDAR = {
+    // Days in each month for different years (2080-2090)
+    daysInMonth: {
+        2080: [31, 32, 31, 32, 31, 30, 30, 30, 29, 29, 30, 30],
+        2081: [31, 32, 31, 32, 31, 30, 30, 30, 29, 30, 29, 31],
+        2082: [31, 31, 32, 31, 31, 31, 30, 29, 30, 29, 30, 30],
+        2083: [31, 31, 32, 31, 31, 31, 30, 29, 30, 29, 30, 30],
+        2084: [31, 31, 32, 31, 31, 30, 30, 30, 29, 30, 30, 30],
+        2085: [31, 32, 31, 32, 30, 31, 30, 30, 29, 30, 30, 30],
+        2086: [30, 32, 31, 32, 31, 30, 30, 30, 29, 30, 30, 30],
+        2087: [31, 31, 32, 31, 31, 31, 30, 30, 30, 30, 30, 30],
+        2088: [30, 31, 32, 32, 30, 31, 30, 30, 29, 30, 30, 30],
+        2089: [30, 32, 31, 32, 31, 30, 30, 30, 29, 30, 30, 30],
+        2090: [30, 32, 31, 32, 31, 30, 30, 30, 29, 30, 30, 30]
+    }
+};
+
 
 function toNepaliDigits(value) {
     return String(value).split("").map(ch => {
@@ -333,8 +349,11 @@ function parseNepaliDateString(nepStr) {
     return { year, month, day };
 }
 
-function getDaysInNepaliMonth(monthIndex) {
-    return NEPALI_MONTH_LENGTHS[monthIndex] || 30;
+function getDaysInNepaliMonth(monthIndex, year) {
+    if (year && NEPALI_CALENDAR.daysInMonth[year]) {
+        return NEPALI_CALENDAR.daysInMonth[year][monthIndex];
+    }
+    return 30;
 }
 
 function getFormattedNepaliDate(dateStr) {
@@ -358,31 +377,30 @@ function getStandardDate(nepStr) {
 }
 
 function estimateCurrentBsDate() {
-
-
     const today = new Date();
-    const anchorAD = new Date(2026, 5, 3);
-    const anchorBS = { year: 2083, month: 2, day: 20 };
-
+    const anchorAD = new Date(2023, 3, 14); // AD 2023-04-14 is BS 2080-01-01
     const msPerDay = 24 * 60 * 60 * 1000;
-
     const diffDays = Math.round((new Date(today).setHours(0, 0, 0, 0) - new Date(anchorAD).setHours(0, 0, 0, 0)) / msPerDay);
 
-    let y = anchorBS.year;
-    let m = anchorBS.month;
-    let d = anchorBS.day + diffDays;
+    let y = 2080;
+    let m = 1;
+    let d = 1;
+    let remaining = diffDays;
 
-    if (d > 0) {
-        while (d > getDaysInNepaliMonth(m - 1)) {
-            d -= getDaysInNepaliMonth(m - 1);
-            m++;
-            if (m > 12) { m = 1; y++; }
-        }
-    } else {
-        while (d <= 0) {
-            m--;
-            if (m <= 0) { m = 12; y--; }
-            d += getDaysInNepaliMonth(m - 1);
+    if (remaining >= 0) {
+        while (remaining > 0) {
+            let daysInThisMonth = getDaysInNepaliMonth(m - 1, y);
+            if (remaining >= daysInThisMonth) {
+                remaining -= daysInThisMonth;
+                m++;
+                if (m > 12) {
+                    m = 1;
+                    y++;
+                }
+            } else {
+                d += remaining;
+                remaining = 0;
+            }
         }
     }
     return { year: y, month: m, day: d };
@@ -960,13 +978,15 @@ document.addEventListener("DOMContentLoaded", function () {
     progressBar.style.cssText = 'position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,#3b82f6,#14b8a6);z-index:100000;width:0%;transition:width 0.1s linear;';
     document.body.appendChild(progressBar);
 
-    window.addEventListener("scroll", () => {
-        const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
-        const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+    const mainScrollArea = document.getElementById("main-scroll-area");
+
+    mainScrollArea?.addEventListener("scroll", () => {
+        const winScroll = mainScrollArea.scrollTop;
+        const height = mainScrollArea.scrollHeight - mainScrollArea.clientHeight;
         const scrolled = (winScroll / height) * 100;
         progressBar.style.width = scrolled + '%';
 
-        if (window.scrollY > 400) {
+        if (mainScrollArea.scrollTop > 400) {
             scrollTopBtn.style.display = "flex";
         } else {
             scrollTopBtn.style.display = "none";
@@ -979,29 +999,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         playClickSound();
 
-        window.scrollTo({ top: 0, behavior: "smooth" });
-    });
-
-    // ========== FORM AUTO-SAVE DRAFT ==========
-    const formIds = ['surveyForm', 'monitoringForm', 'attendanceForm'];
-    formIds.forEach(formId => {
-        const form = document.getElementById(formId);
-        if (!form) return;
-        const inputs = form.querySelectorAll('input, select, textarea');
-        let saveTimeout;
-        inputs.forEach(input => {
-            input.addEventListener('input', () => {
-                clearTimeout(saveTimeout);
-                saveTimeout = setTimeout(() => {
-                    saveFormDraft(formId);
-                }, 500);
-            });
-            input.addEventListener('change', () => {
-                saveFormDraft(formId);
-            });
-        });
-        // Restore on load
-        restoreFormDraft(formId);
+        if (mainScrollArea) mainScrollArea.scrollTop = 0;
     });
 
     // ========== FLOATING QUICK ACTIONS ==========
@@ -1073,12 +1071,9 @@ document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll('.fab-action-btn').forEach(btn => {
         btn.addEventListener('click', function () {
             const action = this.dataset.action;
-            fabMain.classList.remove('active');
-            fabActions.classList.remove('show');
-            playClickSound();
 
             if (action === 'top') {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                if (mainScrollArea) mainScrollArea.scrollTop = 0;
             } else if (action === 'dashboard') {
                 const dashboardBtn = document.querySelector('.nav-btn[data-tab="dashboard-tab"]');
                 if (dashboardBtn) dashboardBtn.click();
@@ -1092,6 +1087,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 const attendBtn = document.querySelector('.nav-btn[data-tab="attendance-tab"]');
                 if (attendBtn) attendBtn.click();
             }
+
+            fabMain.classList.remove('active');
+            fabActions.classList.remove('show');
+            playClickSound();
         });
     });
 
@@ -1592,7 +1591,17 @@ document.getElementById("submitSurvey").addEventListener("click", async function
 
 
     payload.survey_date = getFormattedNepaliDate(surveyDate);
-    payload.timestamp = new Date().toISOString();
+    // Use original timestamp if editing, otherwise create new one
+    if (window.editingRecord && window.editingRecord.type === 'survey') {
+        payload.editTimestamp = window.editingRecord.timestamp;
+        payload.timestamp = window.editingRecord.timestamp;
+    } else {
+        payload.timestamp = new Date().toISOString();
+    }
+    // Keep original timestamp when editing (don't overwrite)
+    if (payload.editTimestamp) {
+        payload.timestamp = payload.editTimestamp;
+    }
     payload.pradesh = PROVINCE[payload.pradesh] || "";
     payload.jilla = payload.jilla || "";
     payload.sthaaniya_taha = payload.sthaaniya_taha || "";
@@ -1636,7 +1645,18 @@ document.getElementById("submitSurvey").addEventListener("click", async function
     payload.satisfaction_flag = sFlag;
     payload.bikas_janakari = payload.bikas_janakari || "";
 
-    addSubmission(payload);
+    // Update local state when editing instead of adding new
+    if (payload.editTimestamp) {
+        const idx = allSubmissions.findIndex(r => String(r.timestamp) === String(payload.editTimestamp));
+        if (idx !== -1) {
+            allSubmissions[idx] = payload;
+        } else {
+            allSubmissions.unshift(payload);
+        }
+        saveLocalData();
+    } else {
+        addSubmission(payload);
+    }
 
     const loadingOverlay = document.getElementById("loadingOverlay");
     const loadingText = loadingOverlay?.querySelector(".loading-text");
@@ -1647,11 +1667,16 @@ document.getElementById("submitSurvey").addEventListener("click", async function
 
     if (SCRIPT_URL && SCRIPT_URL.trim() !== "") {
         try {
-
+            // Clear edit state before sending to prevent stale data
             await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
             if (loadingOverlay) loadingOverlay.style.display = "none";
             document.getElementById("formStatus").innerHTML = "✅ गुगल सिट तथा स्थानीय भण्डारणमा सेभ भयो!";
 
+            // Clear editing state
+            if (payload.editTimestamp) {
+                window.editingRecord = null;
+                document.getElementById("submitSurvey").innerHTML = 'पेश गर्नुहोस्';
+            }
 
             loadData();
         } catch (e) {
@@ -1750,6 +1775,11 @@ document.getElementById("submitMonitoring")?.addEventListener("click", async fun
         }
     }
 
+    // Use original timestamp if editing
+    if (window.editingRecord && window.editingRecord.type === 'monitoring') {
+        payload.editTimestamp = window.editingRecord.timestamp;
+        payload.timestamp = window.editingRecord.timestamp;
+    }
 
     payload.m_pradesh = PROVINCE[payload.m_pradesh] || payload.m_pradesh;
 
@@ -1762,7 +1792,16 @@ document.getElementById("submitMonitoring")?.addEventListener("click", async fun
 
     try {
 
-        allMonitorings.unshift(payload);
+        if (payload.editTimestamp) {
+            const idx = allMonitorings.findIndex(r => String(r.timestamp) === String(payload.editTimestamp));
+            if (idx !== -1) {
+                allMonitorings[idx] = payload;
+            } else {
+                allMonitorings.unshift(payload);
+            }
+        } else {
+            allMonitorings.unshift(payload);
+        }
         localStorage.setItem("monitoringData_nsc", JSON.stringify(allMonitorings));
 
         if (SCRIPT_URL) {
@@ -1772,6 +1811,11 @@ document.getElementById("submitMonitoring")?.addEventListener("click", async fun
                 addToPendingSync(payload);
                 throw err;
             }
+        }
+
+        if (payload.editTimestamp) {
+            window.editingRecord = null;
+            document.getElementById("submitMonitoring").innerHTML = 'पेश गर्नुहोस्';
         }
 
         playSuccessSound();
@@ -1860,6 +1904,12 @@ document.getElementById("submitAttendance")?.addEventListener("click", async fun
         rows: []
     };
 
+    // Use original timestamp if editing
+    if (window.editingRecord && window.editingRecord.type === 'attendance') {
+        payload.editTimestamp = window.editingRecord.timestamp;
+        payload.timestamp = window.editingRecord.timestamp;
+    }
+
 
     payload.pradesh = PROVINCE[formData.get("a_pradesh")] || "";
     payload.jilla = formData.get("a_jilla") || "";
@@ -1915,7 +1965,16 @@ document.getElementById("submitAttendance")?.addEventListener("click", async fun
     }
 
     try {
-        allAttendanceMonitorings.unshift(payload);
+        if (payload.editTimestamp) {
+            const idx = allAttendanceMonitorings.findIndex(r => String(r.timestamp) === String(payload.editTimestamp));
+            if (idx !== -1) {
+                allAttendanceMonitorings[idx] = payload;
+            } else {
+                allAttendanceMonitorings.unshift(payload);
+            }
+        } else {
+            allAttendanceMonitorings.unshift(payload);
+        }
         localStorage.setItem("attendanceData_nsc", JSON.stringify(allAttendanceMonitorings));
 
         if (SCRIPT_URL) {
@@ -1926,6 +1985,11 @@ document.getElementById("submitAttendance")?.addEventListener("click", async fun
                 throw err;
             }
         }
+        if (payload.editTimestamp) {
+            window.editingRecord = null;
+            document.getElementById("submitAttendance").innerHTML = 'पेश गर्नुहोस्';
+        }
+
         playSuccessSound();
         Swal.fire({ icon: 'success', title: 'सफल!', text: 'समय पालना र पोशाक अनुगमन विवरण सुरक्षित भयो।' });
         form.reset();
@@ -2140,7 +2204,7 @@ function refreshMonitoringDashboard() {
         if (charterClarityChartObj) charterClarityChartObj.destroy();
         charterClarityChartObj = new Chart(document.getElementById("charterClarityChart").getContext('2d'), {
             type: chartTypes.charterClarityChart || 'pie',
-            data: { labels: Object.keys(counts), datasets: [{ data: Object.values(counts), backgroundColor: palette.map(c => c + 'cc'), borderRadius: 5 }] },
+            data: { labels: Object.keys(counts), datasets: [{ data: Object.values(counts), backgroundColor: palette, borderRadius: 5 }] },
             options: {
                 onClick: (e, elements) => {
                     if (elements.length > 0) {
@@ -2302,7 +2366,11 @@ function refreshAttendanceDashboard() {
                 <td data-label="पद">${e.rank}</td>
                 <td data-label="संकेत नं.">${e.symbol}</td>
                 <td data-label="प्रकार">${e.category}</td>
-                <td data-label="कैफियत" colspan="2">${e.extra || "-"}</td>
+                <td data-label="कैफियत">${e.extra || "-"}</td>
+                <td data-label="कार्य">
+                    <button class="action-btn btn-edit" onclick="editRecord('${e.timestamp}', 'attendance')" title="सम्पादन"><i class="fas fa-edit"></i></button>
+                    <button class="action-btn btn-delete" onclick="deleteRecord('${e.timestamp}', 'attendance')" title="मेटाउनुहोस्"><i class="fas fa-trash"></i></button>
+                </td>
             </tr>
         `).join('');
         renderPaginationUI(filteredEntries.length);
@@ -3316,6 +3384,10 @@ function renderTable(data) {
             <td data-label="सहयोग">${r.sahayog_parera || ""}</td>
             <td data-label="सन्तुष्टि">${r.satisfaction_flag || ""}</td>
             <td data-label="विकास जानकारी">${r.bikas_janakari || ""}</td>
+            <td data-label="कार्य">
+                <button class="action-btn btn-edit" onclick="editRecord('${r.timestamp}', 'survey')" title="सम्पादन"><i class="fas fa-edit"></i></button>
+                <button class="action-btn btn-delete" onclick="deleteRecord('${r.timestamp}', 'survey')" title="मेटाउनुहोस्"><i class="fas fa-trash"></i></button>
+            </td>
         </tr>`;
         tbody.insertAdjacentHTML("beforeend", row);
     });
@@ -3342,6 +3414,10 @@ function renderMonitoringTable(data) {
             <td data-label="हाजिरीको अवस्था">${r.m_q9 || "अज्ञात"}</td>
             <td data-label="कुल दरबन्दी">${toNepaliDigits(r.d_total || 0)}</td>
             <td data-label="रिक्त">${toNepaliDigits(r.d_vacant || 0)}</td>
+            <td data-label="कार्य">
+                <button class="action-btn btn-edit" onclick="editRecord('${r.timestamp}', 'monitoring')" title="सम्पादन"><i class="fas fa-edit"></i></button>
+                <button class="action-btn btn-delete" onclick="deleteRecord('${r.timestamp}', 'monitoring')" title="मेटाउनुहोस्"><i class="fas fa-trash"></i></button>
+            </td>
         </tr>`;
         tbody.insertAdjacentHTML("beforeend", row);
     });
@@ -3568,7 +3644,8 @@ function switchDashboardView(view) {
                 <th>अतिरिक्त रकम दिनु पर्‍यो?</th>
                 <th>सहयोग</th>
                 <th>सन्तुष्टि</th>
-                <th>विकास सम्बन्धी जानकारी भएको</th>
+                <th>विकास कार्यको जानकारी</th>
+                <th>कार्य</th>
             </tr>`;
         }
 
@@ -3606,7 +3683,8 @@ function switchDashboardView(view) {
                 <th>पद</th>
                 <th>संकेत नं.</th>
                 <th>अपरिपालना प्रकार</th>
-                <th colspan="2">कैफियत</th>
+                <th>कैफियत</th>
+                <th>कार्य</th>
             </tr>`;
         }
 
@@ -3639,6 +3717,7 @@ function switchDashboardView(view) {
                 <th>हाजिरीको अवस्था</th>
                 <th>कुल दरबन्दी</th>
                 <th>रिक्त</th>
+                <th>कार्य</th>
             </tr>`;
         }
 
@@ -4314,7 +4393,7 @@ function showDetailedTable(data, title, viewType = 'survey') {
     document.body.style.overflow = "hidden";
 
     if (viewType === 'survey') {
-        thead.innerHTML = `<tr><th>मिति</th><th>जिल्ला</th><th>कार्यालय</th><th>बाहिरी सहयोग</th><th>अतिरिक्त रकम</th><th>सेवा सन्तुष्टि</th><th>योजना सन्तुष्टि</th><th>सुझाव</th></tr>`;
+        thead.innerHTML = `<tr><th>मिति</th><th>जिल्ला</th><th>कार्यालय</th><th>बाहिरी सहयोग</th><th>अतिरिक्त रकम</th><th>सेवा सन्तुष्टि</th><th>योजना सन्तुष्टि</th><th>सुझाव</th><th>कार्य</th></tr>`;
         tbody.innerHTML = data.map(r => {
             const sahayog = getVal(r, 'sahayog_parera', 'सहयोग');
             const ghus = getVal(r, 'ghus_parera', 'अतिरिक्त रकम');
@@ -4331,11 +4410,15 @@ function showDetailedTable(data, title, viewType = 'survey') {
                     <td style="color: ${sat === 'असन्तुष्ट' ? '#de3053' : 'inherit'}; font-weight: ${sat === 'असन्तुष्ट' ? '700' : 'normal'}" ${sat === 'असन्तुष्ट' ? 'class="has-tooltip tooltip-yellow" data-tooltip="सेवा प्रवाहमा असन्तुष्टि"' : ''}>${sat}</td>
                     <td style="color: ${yojana === 'असन्तुष्ट' ? '#de3053' : 'inherit'}; font-weight: ${yojana === 'असन्तुष्ट' ? '700' : 'normal'}" ${yojana === 'असन्तुष्ट' ? 'class="has-tooltip tooltip-yellow" data-tooltip="योजना/विकास कार्यबाट असन्तुष्टि"' : ''}>${yojana}</td>
                     <td>${getVal(r, 'sujhaw', 'सुझाव') || "-"}</td>
+                    <td data-label="कार्य">
+                        <button class="action-btn btn-edit" onclick="editRecord('${r.timestamp}', 'survey')" title="सम्पादन"><i class="fas fa-edit"></i></button>
+                        <button class="action-btn btn-delete" onclick="deleteRecord('${r.timestamp}', 'survey')" title="मेटाउनुहोस्"><i class="fas fa-trash"></i></button>
+                    </td>
                 </tr>
             `;
         }).join('');
     } else if (viewType === 'monitoring') {
-        thead.innerHTML = `<tr><th>मिति</th><th>जिल्ला</th><th>कार्यालय</th><th>बडापत्र</th><th>सेवा प्रक्रिया</th><th>मध्यस्थकर्ता</th><th>कर्मचारी उपस्थिति</th><th>सरसफाइ</th></tr>`;
+        thead.innerHTML = `<tr><th>मिति</th><th>जिल्ला</th><th>कार्यालय</th><th>बडापत्र</th><th>सेवा प्रक्रिया</th><th>मध्यस्थकर्ता</th><th>कर्मचारी उपस्थिति</th><th>सरसफाइ</th><th>कार्य</th></tr>`;
         tbody.innerHTML = data.map(r => {
             const q1 = getVal(r, 'm_q1', '१. नागरिक बडापत्र');
             const q2 = getVal(r, 'm_q2', '२. सेवा प्रक्रिया');
@@ -4359,14 +4442,21 @@ function showDetailedTable(data, title, viewType = 'survey') {
                     <td style="color: ${isQ5Neg ? '#de3053' : 'inherit'}; font-weight: ${isQ5Neg ? '700' : 'normal'}" ${isQ5Neg ? 'class="has-tooltip tooltip-red" data-tooltip="मध्यस्थकर्ताको उपस्थिति देखिएको"' : ''}>${q5}</td>
                     <td style="color: ${isQ10Neg ? '#de3053' : 'inherit'}; font-weight: ${isQ10Neg ? '700' : 'normal'}" ${isQ10Neg ? 'class="has-tooltip tooltip-red" data-tooltip="कर्मचारीहरु तोकिएको कार्यकक्षमा नभेटिएको"' : ''}>${q10}</td>
                     <td style="color: ${isQ12Neg ? '#de3053' : 'inherit'}; font-weight: ${isQ12Neg ? '700' : 'normal'}" ${isQ12Neg ? 'class="has-tooltip tooltip-yellow" data-tooltip="कार्यालयको सरसफाइको अवस्था नराम्रो भएको"' : ''}>${q12}</td>
+                    <td data-label="कार्य">
+                        <button class="action-btn btn-edit" onclick="editRecord('${r.timestamp}', 'monitoring')" title="सम्पादन"><i class="fas fa-edit"></i></button>
+                        <button class="action-btn btn-delete" onclick="deleteRecord('${r.timestamp}', 'monitoring')" title="मेटाउनुहोस्"><i class="fas fa-trash"></i></button>
+                    </td>
                 </tr>
             `;
         }).join('');
     } else if (viewType === 'attendance') {
-        thead.innerHTML = `<tr><th>मिति</th><th>कार्यालय</th><th>कर्मचारी</th><th>पद</th><th>प्रकार</th><th>कैफियत</th></tr>`;
+        thead.innerHTML = `<tr><th>मिति</th><th>कार्यालय</th><th>कर्मचारी</th><th>पद</th><th>प्रकार</th><th>कैफियत</th><th>कार्य</th></tr>`;
         tbody.innerHTML = data.map(r => `
             <tr>
-                <td>${r.date || ""}</td><td>${r.office || ""}</td><td>${r.name || ""}</td><td>${r.rank || ""}</td><td style="color: #de3053; font-weight: 700;" class="has-tooltip tooltip-red" data-tooltip="समय पालना वा पोशाक सम्बन्धी अपरिपालना">${r.category || ""}</td><td>${r.extra || "-"}</td>
+                <td>${r.date || ""}</td><td>${r.office || ""}</td><td>${r.name || ""}</td><td>${r.rank || ""}</td><td style="color: #de3053; font-weight: 700;" class="has-tooltip tooltip-red" data-tooltip="समय पालना वा पोशाक सम्बन्धी अपरिपालना">${r.category || ""}</td><td>${r.extra || "-"}</td><td data-label="कार्य">
+                    <button class="action-btn btn-edit" onclick="editRecord('${r.timestamp}', 'attendance')" title="सम्पादन"><i class="fas fa-edit"></i></button>
+                    <button class="action-btn btn-delete" onclick="deleteRecord('${r.timestamp}', 'attendance')" title="मेटाउनुहोस्"><i class="fas fa-trash"></i></button>
+                </td>
             </tr>
         `).join('');
     }
@@ -5403,3 +5493,186 @@ document.addEventListener('DOMContentLoaded', function () {
     initAutoRefresh();
     document.getElementById('enhancedExportBtn')?.addEventListener('click', openEnhancedExportModal);
 });
+
+if (document.getElementById("toggleMapBtn")) {
+    window.toggleMapVisibility = toggleMapVisibility;
+}
+
+/**
+ * Delete a record by timestamp
+ * @param {string} timestamp 
+ * @param {string} type 
+ */
+async function deleteRecord(timestamp, type) {
+    if (!timestamp) return;
+
+    const result = await Swal.fire({
+        title: 'के तपाई निश्चित हुनुहुन्छ?',
+        text: "यो रेकर्ड मेटाइएपछि फिर्ता ल्याउन सकिँदैन!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'हो, मेटाउनुहोस्',
+        cancelButtonText: 'रद्द गर्नुहोस्'
+    });
+
+    if (result.isConfirmed) {
+        Swal.fire({
+            title: 'मेटाउँदैछ...',
+            text: 'कृपया पर्खनुहोस्',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        try {
+            const payload = { action: 'delete', timestamp: timestamp, type: type };
+            const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+
+            const resText = await response.text();
+
+            if (resText === "Success") {
+                // Remove locally
+                if (type === 'survey') {
+                    allSubmissions = allSubmissions.filter(r => String(r.timestamp) !== String(timestamp));
+                    localStorage.setItem("surveyData_nsc", JSON.stringify(allSubmissions));
+                } else if (type === 'monitoring') {
+                    allMonitorings = allMonitorings.filter(r => String(r.timestamp) !== String(timestamp));
+                    localStorage.setItem("monitoringData_nsc", JSON.stringify(allMonitorings));
+                } else if (type === 'attendance') {
+                    allAttendanceMonitorings = allAttendanceMonitorings.filter(r => String(r.timestamp) !== String(timestamp));
+                    if (allAttendanceMonitorings.length > 0 && allAttendanceMonitorings[0].rows !== undefined) {
+                        // for grouped format, not needed if we filter properly
+                    }
+                    localStorage.setItem("attendanceData_nsc", JSON.stringify(allAttendanceMonitorings));
+                }
+
+                refreshDashboard();
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'मेटाइयो!',
+                    text: 'रेकर्ड सफलतापूर्वक मेटाइएको छ।',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+            } else {
+                throw new Error(resText);
+            }
+        } catch (error) {
+            console.error("Delete Error:", error);
+            Swal.fire({
+                icon: 'error',
+                title: 'त्रुटि',
+                text: 'रेकर्ड मेटाउन समस्या भयो। कृपया फेरि प्रयास गर्नुहोस्।',
+            });
+        }
+    }
+}
+
+// Edit Record Logic
+window.editingRecord = null;
+
+function setFieldValue(name, value) {
+    if (value === undefined || value === null) value = "";
+
+    let inputs = document.getElementsByName(name);
+    if (!inputs.length) {
+        const el = document.getElementById(name);
+        if (el) {
+            el.value = value;
+            return;
+        }
+        return;
+    }
+
+    const type = inputs[0].type;
+    if (type === 'radio') {
+        for (let i = 0; i < inputs.length; i++) {
+            if (inputs[i].value === value) {
+                inputs[i].checked = true;
+                inputs[i].dispatchEvent(new Event('change'));
+                break;
+            }
+        }
+    } else if (type === 'checkbox') {
+        const values = Array.isArray(value) ? value : String(value).split(', ');
+        for (let i = 0; i < inputs.length; i++) {
+            inputs[i].checked = values.includes(inputs[i].value);
+            inputs[i].dispatchEvent(new Event('change'));
+        }
+    } else {
+        inputs[0].value = value;
+        inputs[0].dispatchEvent(new Event('change'));
+    }
+}
+
+window.editRecord = function (timestamp, type) {
+    window.editingRecord = { timestamp, type };
+
+    if (type === 'survey') {
+        const record = allSubmissions.find(r => String(r.timestamp) === String(timestamp));
+        if (record) {
+            const tabBtn = document.querySelector('.nav-btn[data-tab="form-tab"]');
+            if (tabBtn) tabBtn.click();
+            document.getElementById("surveyForm").reset();
+            setTimeout(() => {
+                Object.keys(record).forEach(key => setFieldValue(key, record[key]));
+                document.getElementById("submitSurvey").innerHTML = '<i class="fas fa-save"></i> अद्यावधिक गर्नुहोस्';
+            }, 100);
+        }
+    } else if (type === 'monitoring') {
+        const record = allMonitorings.find(r => String(r.timestamp) === String(timestamp));
+        if (record) {
+            const tabBtn = document.querySelector('.nav-btn[data-tab="monitoring-tab"]');
+            if (tabBtn) tabBtn.click();
+            document.getElementById("monitoringForm").reset();
+            setTimeout(() => {
+                Object.keys(record).forEach(key => setFieldValue(key, record[key]));
+                document.getElementById("submitMonitoring").innerHTML = '<i class="fas fa-save"></i> अद्यावधिक गर्नुहोस्';
+            }, 100);
+        }
+    } else if (type === 'attendance') {
+        const record = allAttendanceMonitorings.find(r => String(r.timestamp) === String(timestamp));
+        if (record) {
+            const tabBtn = document.querySelector('.nav-btn[data-tab="attendance-tab"]');
+            if (tabBtn) tabBtn.click();
+            document.getElementById("attendanceForm").reset();
+            setTimeout(() => {
+                Object.keys(record).forEach(key => {
+                    if (key !== 'rows') setFieldValue(key, record[key]);
+                });
+
+                const tb = document.getElementById("attendanceRecordsBody");
+                if (tb) {
+                    tb.innerHTML = '';
+                    if (record.rows && record.rows.length) {
+                        record.rows.forEach(r => {
+                            const tr = document.createElement("tr");
+                            tr.innerHTML = `
+                                <td><select class="category-select" required><option value="ढिला उपस्थित">ढिला उपस्थित</option><option value="पोशाक नलगाएको">पोशाक नलगाएको</option><option value="ढिला र पोशाक दुवै">ढिला र पोशाक दुवै</option><option value="अनुपस्थित">अनुपस्थित</option><option value="अन्य">अन्य</option></select></td>
+                                <td><input type="text" class="rank-input" placeholder="पद" required></td>
+                                <td><input type="text" class="symbol-input" placeholder="संकेत नं."></td>
+                                <td><input type="text" class="name-input" placeholder="नाम" required></td>
+                                <td><input type="text" class="extra-input" placeholder="कैफियत"></td>
+                                <td><button type="button" class="action-btn btn-delete" onclick="this.closest('tr').remove()" title="हटाउनुहोस्"><i class="fas fa-trash"></i></button></td>
+                            `;
+                            tr.querySelector('.category-select').value = r.category;
+                            tr.querySelector('.rank-input').value = r.rank;
+                            tr.querySelector('.symbol-input').value = r.symbol;
+                            tr.querySelector('.name-input').value = r.name;
+                            tr.querySelector('.extra-input').value = r.extra;
+                            tb.appendChild(tr);
+                        });
+                    }
+                }
+                document.getElementById("submitAttendance").innerHTML = '<i class="fas fa-save"></i> अद्यावधिक गर्नुहोस्';
+            }, 100);
+        }
+    }
+};

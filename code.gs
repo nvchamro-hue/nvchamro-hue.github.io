@@ -16,6 +16,11 @@ function doPost(e) {
       return handleAIAnalysis(data);
     }
 
+    // Delete action सम्हाल्ने
+    if (data.action === 'delete') {
+      return handleDelete(data);
+    }
+
     // बहु-विकल्प (Arrays) लाई मिलाउने (String बनाउने)
     Object.keys(data).forEach(function(key) {
       // 'rows' लाई स्ट्रिङमा नबदल्ने ताकि कर्मचारी विवरणहरू सुरक्षित रहून्
@@ -25,41 +30,53 @@ function doPost(e) {
     });
 
     if (data.type === 'monitoring') {
-      // १. अनुगमन फारम सुरक्षित गर्ने
+      // १. अनुगमन फारम सुरक्षित गर्ने वा अपडेट गर्ने
       var mSheet = ss.getSheetByName(MONITORING_SHEET_NAME) || ss.insertSheet(MONITORING_SHEET_NAME);
-      mSheet.appendRow([
-        data.timestamp, data.m_date, data.m_pradesh, data.m_jilla, data.m_sthaaniya, data.m_office,
+      var mRow = [
+        data.editTimestamp || data.timestamp, data.m_date, data.m_pradesh, data.m_jilla, data.m_sthaaniya, data.m_office,
         data.m_q1, data.m_q2, data.m_q3, data.m_q4, data.m_q5, 
         data.m_q6, data.m_q7, data.m_q8, data.m_q9, data.m_q10, data.m_q11, data.m_q12,
         data.f_1, data.f_2, data.f_3, data.f_4, data.f_5, data.f_6, data.f_7, data.f_8, data.f_9, data.f_10,
         data.m_main_services, data.m_problems, data.m_measures,
         data.d_total, data.d_working, data.d_vacant, data.d_pending, data.d_excess,
         data.m_comment, data.monitor_name, data.monitor_rank
-      ]);
+      ];
+      if (data.editTimestamp) {
+        updateRowByTimestamp(mSheet, data.editTimestamp, mRow);
+      } else {
+        mSheet.appendRow(mRow);
+      }
     } else if (data.type === 'attendance') {
-      // ३. समय पालना/पोशाक अनुगमन सुरक्षित गर्ने
+      // ३. समय पालना/पोशाक अनुगमन सुरक्षित गर्ने वा अपडेट गर्ने
       var amSheet = ss.getSheetByName(ATTENDANCE_MAIN_SHEET) || ss.insertSheet(ATTENDANCE_MAIN_SHEET);
       var adSheet = ss.getSheetByName(ATTENDANCE_DETAIL_SHEET) || ss.insertSheet(ATTENDANCE_DETAIL_SHEET);
       
-      amSheet.appendRow([
-        data.timestamp, data.pradesh, data.jilla, data.sthaaniya,
+      var amRow = [
+        data.editTimestamp || data.timestamp, data.pradesh, data.jilla, data.sthaaniya,
         data.office, data.total_staff, data.working_staff, data.vacant_staff, 
         data.date, data.time, data.phone, data.monitor_name, data.monitor_rank, 
         data.a_office_officer, data.a_office_rank
-      ]);
+      ];
+
+      if (data.editTimestamp) {
+        updateRowByTimestamp(amSheet, data.editTimestamp, amRow);
+        deleteAllRowsByTimestamp(adSheet, data.editTimestamp);
+      } else {
+        amSheet.appendRow(amRow);
+      }
       
       if (data.rows && Array.isArray(data.rows)) {
         data.rows.forEach(function(row) {
-          adSheet.appendRow([data.timestamp, row.category, row.rank, row.symbol, row.name, row.extra]);
+          adSheet.appendRow([data.editTimestamp || data.timestamp, row.category, row.rank, row.symbol, row.name, row.extra]);
         });
       }
     } else {
-      // २. सेवाग्राही सर्वेक्षण सुरक्षित गर्ने
+      // २. सेवाग्राही सर्वेक्षण सुरक्षित गर्ने वा अपडेट गर्ने
       var sheet = ss.getSheetByName(SHEET_NAME);
       var failureReasons = [data.karan_kagajat, data.karan_karmachari, data.karan_na, data.karan_ghus].filter(Boolean).join(", ");
 
-      sheet.appendRow([
-        data.timestamp, data.survey_date, data.pradesh, data.jilla, data.sthaaniya_taha, data.gender,
+      var sRow = [
+        data.editTimestamp || data.timestamp, data.survey_date, data.pradesh, data.jilla, data.sthaaniya_taha, data.gender,
         data.karyalay_1, data.karyalay_2, data.karyalay_3, data.mukhya_karyalay,
         data.janakari_chha, data.samay_janakari, data.kaam_bhayeko, failureReasons,
         data.sahayog_parera, data.helper_type, data.ghus_parera, data.ghus_diye_kaslai,
@@ -68,12 +85,72 @@ function doPost(e) {
         data.suchana_hak, data.ujuri_gareko, data.sunuwai_sahabhagi, data.bikas_janakari,
         data.bikas_sahabhagi, data.gunastar, data.suchana_pati, data.yojana_santushti,
         data.asantushti_karan_yojana, data.asantushti_karan_other
-      ]);
+      ];
+
+      if (data.editTimestamp) {
+        updateRowByTimestamp(sheet, data.editTimestamp, sRow);
+      } else {
+        sheet.appendRow(sRow);
+      }
     }
 
     return ContentService.createTextOutput("Success").setMimeType(ContentService.MimeType.TEXT);
   } catch (err) {
     return ContentService.createTextOutput("Error: " + err.message).setMimeType(ContentService.MimeType.TEXT);
+  }
+}
+
+function handleDelete(data) {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var ts = data.timestamp;
+  
+  if (!ts) return ContentService.createTextOutput("Error: Missing timestamp").setMimeType(ContentService.MimeType.TEXT);
+
+  try {
+    if (data.type === 'survey') {
+      deleteRowByTimestamp(ss.getSheetByName(SHEET_NAME), ts);
+    } else if (data.type === 'monitoring') {
+      deleteRowByTimestamp(ss.getSheetByName(MONITORING_SHEET_NAME), ts);
+    } else if (data.type === 'attendance') {
+      deleteRowByTimestamp(ss.getSheetByName(ATTENDANCE_MAIN_SHEET), ts);
+      deleteAllRowsByTimestamp(ss.getSheetByName(ATTENDANCE_DETAIL_SHEET), ts);
+    }
+    return ContentService.createTextOutput("Success").setMimeType(ContentService.MimeType.TEXT);
+  } catch (err) {
+    return ContentService.createTextOutput("Error: " + err.message).setMimeType(ContentService.MimeType.TEXT);
+  }
+}
+
+function deleteRowByTimestamp(sheet, ts) {
+  if (!sheet) return;
+  var data = sheet.getDataRange().getValues();
+  for (var i = data.length - 1; i >= 1; i--) {
+    // stringify and compare to handle Date vs string mismatches
+    if (String(data[i][0]) === String(ts)) {
+      sheet.deleteRow(i + 1);
+      break;
+    }
+  }
+}
+
+function updateRowByTimestamp(sheet, ts, rowData) {
+  if (!sheet) return;
+  var data = sheet.getDataRange().getValues();
+  for (var i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][0]) === String(ts)) {
+      sheet.getRange(i + 1, 1, 1, rowData.length).setValues([rowData]);
+      break;
+    }
+  }
+}
+
+function deleteAllRowsByTimestamp(sheet, ts) {
+  if (!sheet) return;
+  var data = sheet.getDataRange().getValues();
+  for (var i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][0]) === String(ts)) {
+      sheet.deleteRow(i + 1);
+    }
   }
 }
 
