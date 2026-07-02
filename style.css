@@ -404,10 +404,11 @@ body {
 }
 
 .tab-btn.active {
-    background: linear-gradient(135deg, #3182ce 0%, #2c5282 100%);
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
     color: white;
-    border-color: #2b6cb0;
-    box-shadow: 0 4px 12px rgba(49, 130, 206, 0.4);
+    border-color: #2563eb;
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4), 0 0 12px rgba(59, 130, 246, 0.25);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .tab-btn.active:active {
@@ -417,46 +418,32 @@ body {
 
 .panel {
     display: none;
-    animation: fade 0.25s ease;
 }
 
 .panel.active-panel {
     display: block;
+    animation: tabEnter 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-@keyframes fade {
+@keyframes tabExit {
     from {
-        opacity: 0;
-        transform: translateY(6px);
-    }
-
-    to {
         opacity: 1;
         transform: translateY(0);
     }
-}
-
-@keyframes fadeOut {
-    from {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
-
     to {
         opacity: 0;
-        transform: translateY(-10px) scale(0.98);
+        transform: translateY(-15px);
     }
 }
 
-@keyframes slideIn {
+@keyframes tabEnter {
     from {
         opacity: 0;
-        transform: translateY(20px) scale(0.96);
+        transform: translateY(20px);
     }
-
     to {
         opacity: 1;
-        transform: translateY(0) scale(1);
+        transform: translateY(0);
     }
 }
 
@@ -468,8 +455,8 @@ body {
     -webkit-backdrop-filter: blur(16px);
     border-radius: 16px;
     box-shadow: var(--card-shadow);
-    padding: 20px;
-    /* १५% घटाइएको (साविक २४ बाट) */
+    padding: 10px;
+    /* 50% घटाइएको (साविक २० बाट) */
     margin-bottom: 20px;
     border: 1px solid var(--glass-border);
     transition: all 500ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -488,7 +475,7 @@ body {
     border-radius: 24px;
     border: 1px solid rgba(255, 255, 255, 0.6);
     box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
-    padding: 16px;
+    padding: 8px;
 }
 
 .form-grid {
@@ -806,28 +793,30 @@ canvas {
 
 #topUnsatisfiedContainer,
 #topSatisfiedContainer {
-    padding: 8px;
+    padding: 3px;
 }
 
 #topUnsatisfiedContainer h4,
 #topSatisfiedContainer h4 {
-    margin-bottom: 6px;
+    margin-bottom: 3px;
+    font-size: 0.75rem;
 }
 
 #topUnsatisfiedContainer>div,
 #topSatisfiedContainer>div {
-    gap: 8px;
+    gap: 4px;
 }
 
 #topUnsatisfiedContainer>div>div:last-child,
 #topSatisfiedContainer>div>div:last-child {
-    min-height: 120px;
-    height: 120px;
+    min-height: 77px;
+    height: 77px;
 }
 
 #topUnsatisfiedContainer [id$="List"],
 #topSatisfiedContainer [id$="List"] {
-    gap: 5px;
+    gap: 3px;
+    font-size: 0.75rem;
 }
 
 #monitoringAlertsSection {
@@ -842,7 +831,7 @@ canvas {
     overflow-x: auto;
     background: white;
     border-radius: 12px;
-    padding: 16px;
+    padding: 4px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
     border: 1px solid #e8eef5;
 }
@@ -1188,7 +1177,7 @@ tr:hover {
     #main-content-wrapper {
         width: 100%;
         max-width: 100%;
-        padding: 0 4px;
+        padding: 0 2px;
         margin: 0 auto;
     }
 
@@ -1200,6 +1189,7 @@ tr:hover {
     }
 
     #sidebar .sidebar-text {
+        font-size: 0.7rem;
         display: none !important;
     }
 
@@ -2169,10 +2159,10 @@ tr:hover {
 }
 
 .view-toggle-btn.active {
-    background: linear-gradient(135deg, #3182ce 0%, #2c5282 100%);
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
     color: white;
-    border-color: #2b6cb0;
-    box-shadow: 0 4px 12px rgba(49, 130, 206, 0.4);
+    border-color: #2563eb;
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4), 0 0 12px rgba(59, 130, 246, 0.25);
 }
 
 
@@ -2977,7 +2967,7 @@ tr:hover {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 5px 10px;
+    padding: 5px 4px;
     margin: 2px;
     border-radius: 6px;
     font-size: 0.8rem;

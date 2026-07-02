@@ -33,11 +33,33 @@ let MUNICIPALITIES = {};
 
 
 function createGradient(ctx, color, isHorizontal = false, isRadial = false, isHover = false) {
+    if (!ctx || !color || typeof color !== 'string') return color;
+
+    const canvas = ctx.canvas;
+    const width = canvas.width;
+    const height = canvas.height;
+
+    let gradient;
+    if (isRadial) {
+        const centerX = width / 2;
+        const centerY = height / 2;
+        const radius = Math.min(width, height) / 2;
+        gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+    } else if (isHorizontal) {
+        gradient = ctx.createLinearGradient(0, 0, width, 0);
+    } else {
+        gradient = ctx.createLinearGradient(0, height, 0, 0);
+    }
 
     if (isHover && typeof color === 'string' && color.length === 7) {
         return color + 'dd';
     }
     return color;
+    const baseColor = isHover ? color + 'ee' : color;
+    gradient.addColorStop(0, baseColor);
+    gradient.addColorStop(1, color + '44'); // Fade to transparent version
+
+    return gradient;
 }
 
 
@@ -50,6 +72,9 @@ const shadowPlugin = {
         ctx.save();
         ctx.shadowColor = options.color || 'rgba(0, 0, 0, 0.05)';
         ctx.shadowBlur = options.blur || 8;
+        ctx.shadowColor = options.color || 'rgba(0, 0, 0, 0.15)';
+        ctx.shadowBlur = options.blur || 12;
+        ctx.shadowOffsetY = options.offsetY || 4;
     },
     afterDatasetsDraw(chart) {
         chart.ctx.restore();
@@ -698,22 +723,22 @@ function initSmoothTabTransitions() {
             // Hide all panels with slide-out animation
             Object.values(panels).forEach(panel => {
                 if (panel && panel !== targetPanel && panel.classList.contains('active-panel')) {
-                    panel.style.animation = 'fadeOut 0.2s ease forwards';
+                    panel.style.animation = 'tabExit 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards';
                     setTimeout(() => {
                         panel.classList.remove('active-panel');
                         panel.style.animation = '';
-                    }, 200);
+                    }, 300);
                 }
             });
 
             // Show target panel with slide-in animation
             setTimeout(() => {
                 targetPanel.classList.add('active-panel');
-                targetPanel.style.animation = 'slideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards';
+                targetPanel.style.animation = 'tabEnter 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards';
                 setTimeout(() => {
                     targetPanel.style.animation = '';
                 }, 400);
-            }, 150);
+            }, 200);
 
             // Switch dashboard view if dashboard tab
             if (tabId === 'dashboard-tab' && typeof switchDashboardView === 'function') {
@@ -1470,7 +1495,16 @@ async function loadData() {
                     localStorage.setItem("surveyData_nsc_full", JSON.stringify(allSubmissions));
                 }
                 if (result.monitoring) {
-                    allMonitorings = result.monitoring;
+                    allMonitorings = result.monitoring.map(r => {
+                        // Map Google Sheet columns to JavaScript field names
+                        if (r.monitor_name && !r.m_monitor_name) {
+                            r.m_monitor_name = r.monitor_name;
+                        }
+                        if (r.monitor_rank && !r.m_monitor_designation) {
+                            r.m_monitor_designation = r.monitor_rank;
+                        }
+                        return r;
+                    });
                     allMonitorings.reverse();
                     localStorage.setItem("monitoringData_nsc", JSON.stringify(allMonitorings));
                 }
@@ -1741,6 +1775,8 @@ document.getElementById("submitMonitoring")?.addEventListener("click", async fun
 
     const wordLimits = [
         { id: "m_office", limit: 20, name: "कार्यालयको नाम" },
+        { id: "m_monitor_name", limit: 50, name: "अनुगमनकर्ताको नाम" },
+        { id: "m_monitor_designation", limit: 30, name: "अनुगमनकर्ताको पद" },
         { id: "m_main_services", limit: 100, name: "मुख्य सेवाहरू" },
         { id: "m_problems", limit: 100, name: "मूलभूत समस्या/अनियमितता" },
         { id: "m_measures", limit: 100, name: "अपनाएका सुधारका उपायहरू" },
@@ -2125,6 +2161,7 @@ function refreshMonitoringDashboard() {
     const pradeshFilter = document.getElementById("filterPradesh")?.value || "";
     const districtFilter = document.getElementById("filterDistrict")?.value || "";
     const officeFilter = document.getElementById("filterOffice")?.value.toLowerCase() || "";
+    const monitorFilter = document.getElementById("filterMonitor")?.value.toLowerCase() || "";
 
     let filtered = allMonitorings.filter(r => {
         if (pradeshFilter) {
@@ -2133,6 +2170,7 @@ function refreshMonitoringDashboard() {
         }
         if (districtFilter && r.m_jilla !== districtFilter) return false;
         if (officeFilter && !(r.m_office || "").toLowerCase().includes(officeFilter)) return false;
+        if (monitorFilter && !(r.m_monitor_name || "").toLowerCase().includes(monitorFilter)) return false;
 
         if (activeTagId) {
             const config = TAG_CONFIG.find(t => t.id === activeTagId);
@@ -2248,6 +2286,7 @@ function refreshAttendanceDashboard() {
     const districtFilter = (document.getElementById("filterDistrict")?.value || "").trim();
     const sthaaniyaFilter = (document.getElementById("filterSthaaniya")?.value || "").trim();
     const officeFilter = (document.getElementById("filterOffice")?.value || "").toLowerCase().trim();
+    const monitorFilter = (document.getElementById("filterMonitor")?.value || "").toLowerCase().trim();
     const empNameFilter = (document.getElementById("filterEmpName")?.value || "").toLowerCase().trim();
     const empSymbolFilter = (document.getElementById("filterEmpSymbol")?.value || "").trim();
     const categoryFilter = (document.getElementById("filterCategory")?.value || "").trim();
@@ -2278,6 +2317,7 @@ function refreshAttendanceDashboard() {
 
 
         if (officeFilter && !(rOffice || "").toLowerCase().includes(officeFilter)) return;
+        if (monitorFilter && !(item.monitor_name || "").toLowerCase().includes(monitorFilter)) return;
         const recDate = getStandardDate(rDate || "");
         if (fromDate && recDate < fromDate) return;
         if (toDate && recDate > toDate) return;
@@ -2292,6 +2332,9 @@ function refreshAttendanceDashboard() {
                     office: rOffice || item.office,
                     date: rDate || item.date,
                     jilla: rJilla,
+                    a_monitor_name: item.monitor_name,
+                    a_monitor_rank: item.monitor_rank,
+                    timestamp: item.timestamp,
                     ...row
                 });
             });
@@ -2315,7 +2358,10 @@ function refreshAttendanceDashboard() {
                 rank: rRank,
                 symbol: rSymbol,
                 category: rCategory,
-                extra: rExtra
+                extra: rExtra,
+                a_monitor_name: item.monitor_name,
+                a_monitor_rank: item.monitor_rank,
+                timestamp: item.timestamp
             });
         }
     });
@@ -2358,7 +2404,14 @@ function refreshAttendanceDashboard() {
         const startIndex = (currentPage - 1) * itemsPerPage;
         const paginatedData = filteredEntries.slice(startIndex, startIndex + itemsPerPage);
 
-        tbody.innerHTML = paginatedData.map(e => `
+        tbody.innerHTML = paginatedData.map(e => {
+            let monitorInfo = "";
+            if (e.a_monitor_name || e.a_monitor_rank) {
+                monitorInfo = `${e.a_monitor_name || "अनुगमनकर्ता नाम नभएको"} (${e.a_monitor_rank || "पद नभएको"})`;
+            } else {
+                monitorInfo = "अनुगमनकर्ता नाम/पद नभएको";
+            }
+            return `
             <tr>
                 <td data-label="मिति">${e.date}</td>
                 <td data-label="कार्यालय">${e.office}</td>
@@ -2367,12 +2420,14 @@ function refreshAttendanceDashboard() {
                 <td data-label="संकेत नं.">${e.symbol}</td>
                 <td data-label="प्रकार">${e.category}</td>
                 <td data-label="कैफियत">${e.extra || "-"}</td>
+                <td data-label="अनुगमनकर्ता">${monitorInfo}</td>
                 <td data-label="कार्य">
                     <button class="action-btn btn-edit" onclick="editRecord('${e.timestamp}', 'attendance')" title="सम्पादन"><i class="fas fa-edit"></i></button>
                     <button class="action-btn btn-delete" onclick="deleteRecord('${e.timestamp}', 'attendance')" title="मेटाउनुहोस्"><i class="fas fa-trash"></i></button>
                 </td>
             </tr>
-        `).join('');
+        `;
+        }).join('');
         renderPaginationUI(filteredEntries.length);
     }
 
@@ -3363,8 +3418,26 @@ function updateCharts(data) {
  */
 function renderTable(data) {
     const tbody = document.querySelector("#dataTable tbody");
+    thead = document.querySelector("#dataTableHeader");
     if (!tbody) return;
     tbody.innerHTML = "";
+
+    // सर्वेक्षण ड्यासबोर्डको table header
+    if (thead) {
+        thead.innerHTML = `
+            <tr>
+                <th>मिति</th>
+                <th>जिल्ला</th>
+                <th>लिङ्ग</th>
+                <th>कार्यालय</th>
+                <th>अतिरिक्त रकम दिनु पर्‍यो?</th>
+                <th>सहयोग</th>
+                <th>सन्तुष्टि</th>
+                <th>विकास कार्यको जानकारी</th>
+                <th>कार्य</th>
+            </tr>
+        `;
+    }
 
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedData = data.slice(startIndex, startIndex + itemsPerPage);
@@ -3397,18 +3470,44 @@ function renderTable(data) {
 
 function renderMonitoringTable(data) {
     const tbody = document.querySelector("#dataTable tbody");
+    const thead = document.querySelector("#dataTableHeader");
     if (!tbody) return;
     tbody.innerHTML = "";
+
+    // अनुगमन ड्यासबोर्डको table header
+    if (thead) {
+        thead.innerHTML = `
+            <tr>
+                <th>मिति</th>
+                <th>जिल्ला</th>
+                <th>कार्यालय</th>
+                <th>अनुगमनकर्ता</th>
+                <th>नागरिक बडापत्र (डिजिटल/अडियो)</th>
+                <th>मध्यस्तकर्ताको प्रवेश</th>
+                <th>हाजिरीको अवस्था</th>
+                <th>कुल दरबन्दी</th>
+                <th>रिक्त</th>
+                <th>कार्य</th>
+            </tr>
+        `;
+    }
 
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedData = data.slice(startIndex, startIndex + itemsPerPage);
 
     paginatedData.forEach(r => {
         const officeName = r.m_office || "";
+        let monitorInfo = "";
+        if (r.m_monitor_name || r.m_monitor_designation) {
+            monitorInfo = `${r.m_monitor_name || "अनुगमनकर्ता नाम नभएको"} (${r.m_monitor_designation || "पद नभएको"})`;
+        } else {
+            monitorInfo = "अनुगमनकर्ता नाम/पद नभएको";
+        }
         let row = `<tr>
             <td data-label="मिति">${r.m_date || ""}</td>
             <td data-label="जिल्ला">${r.m_jilla || ""}</td>
             <td data-label="कार्यालय"><a href="javascript:void(0)" onclick="scrollToMonitoringDetail('${officeName.replace(/'/g, "\\'")}')" style="color: #306a95; text-decoration: none; font-weight: 600;">${officeName}</a></td>
+            <td data-label="अनुगमनकर्ता">${monitorInfo}</td>
             <td data-label="नागरिक बडापत्र (डिजिटल/अडियो)">${r.m_q1 || "अज्ञात"}</td>
             <td data-label="मध्यस्तकर्ताको प्रवेश">${r.m_q5 || "अज्ञात"}</td>
             <td data-label="हाजिरीको अवस्था">${r.m_q9 || "अज्ञात"}</td>
@@ -3588,9 +3687,11 @@ function switchDashboardView(view) {
     const mField = document.getElementById("monitoringFieldSelector");
     const dField = document.getElementById("dynamicFieldSelector");
     const aCat = document.getElementById("filterCategory");
+    const monitorFilter = document.getElementById("filterMonitor");
     if (mField) mField.value = "";
     if (dField) dField.value = "";
     if (aCat) aCat.value = "";
+    if (monitorFilter) monitorFilter.value = "";
 
 
     const containers = ["surveyChartsRow", "monitoringChartsRow", "topOfficesRow", "dynamicChartRow", "monitoringAlertsSection", "monitoringDetailsSection", "dynamicStatRow"];
@@ -3684,6 +3785,7 @@ function switchDashboardView(view) {
                 <th>संकेत नं.</th>
                 <th>अपरिपालना प्रकार</th>
                 <th>कैफियत</th>
+                <th>अनुगमनकर्ता</th>
                 <th>कार्य</th>
             </tr>`;
         }
@@ -3779,13 +3881,30 @@ document.getElementById("applyFilter")?.addEventListener("click", () => {
     currentPage = 1;
     refreshDashboard();
 });
+
+// Auto-filter on input change
+const filterInputs = [
+    "filterDateFrom", "filterDateTo", "filterPradesh", "filterDistrict", 
+    "filterSthaaniya", "filterOffice", "filterMonitor", "filterGender", 
+    "filterCategory", "filterEmpName", "filterEmpSymbol"
+];
+filterInputs.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+        el.addEventListener("input", () => {
+            currentPage = 1;
+            refreshDashboard();
+        });
+    }
+});
+
 document.getElementById("resetFilter")?.addEventListener("click", () => {
     currentPage = 1;
     activeTagId = null;
 
     const fieldsToReset = [
         "filterPradesh", "filterOffice", "filterGender", "filterDateFrom", "filterDateTo",
-        "filterCategory", "filterEmpName", "filterEmpSymbol",
+        "filterCategory", "filterEmpName", "filterEmpSymbol", "filterMonitor",
         "monitoringFieldSelector", "dynamicFieldSelector"
     ];
 
@@ -4381,6 +4500,8 @@ function playErrorSound(visualMessage = null) {
 
 
 function showDetailedTable(data, title, viewType = 'survey') {
+    console.log("showDetailedTable called - viewType:", viewType, "data length:", data.length);
+    console.log("First data sample:", data[0]);
     const container = document.getElementById("dynamicDetailTableContainer");
     const titleEl = document.getElementById("detailTableTitle");
     const thead = document.querySelector("#dynamicDetailTable thead");
@@ -4418,13 +4539,20 @@ function showDetailedTable(data, title, viewType = 'survey') {
             `;
         }).join('');
     } else if (viewType === 'monitoring') {
-        thead.innerHTML = `<tr><th>मिति</th><th>जिल्ला</th><th>कार्यालय</th><th>बडापत्र</th><th>सेवा प्रक्रिया</th><th>मध्यस्थकर्ता</th><th>कर्मचारी उपस्थिति</th><th>सरसफाइ</th><th>कार्य</th></tr>`;
+        thead.innerHTML = `<tr><th>मिति</th><th>जिल्ला</th><th>कार्यालय</th><th>अनुगमनकर्ता</th><th>बडापत्र</th><th>सेवा प्रक्रिया</th><th>मध्यस्थकर्ता</th><th>कर्मचारी उपस्थिति</th><th>सरसफाइ</th><th>कार्य</th></tr>`;
         tbody.innerHTML = data.map(r => {
             const q1 = getVal(r, 'm_q1', '१. नागरिक बडापत्र');
             const q2 = getVal(r, 'm_q2', '२. सेवा प्रक्रिया');
             const q5 = getVal(r, 'm_q5', '५. मध्यस्थकर्ताको प्रवेश');
             const q10 = getVal(r, 'm_q10', '१०. कर्मचारीहरु कार्यकक्षमा');
             const q12 = getVal(r, 'm_q12', '१२. सरसफाइको अवस्था');
+
+            let monitorInfo = "";
+            if (r.m_monitor_name || r.m_monitor_designation) {
+                monitorInfo = `${r.m_monitor_name || "अनुगमनकर्ता नाम नभएको"} (${r.m_monitor_designation || "पद नभएको"})`;
+            } else {
+                monitorInfo = "अनुगमनकर्ता नाम/पद नभएको";
+            }
 
             const isQ1Neg = ['स्पष्ट नबुझिने', 'पढ्न झन्झटिलो', 'नभएको'].includes(q1);
             const isQ2Neg = ['स्पष्ट उल्लेख नभएको', 'आंशिक', 'नभएको'].includes(q2);
@@ -4437,6 +4565,7 @@ function showDetailedTable(data, title, viewType = 'survey') {
                     <td>${r.m_date || ""}</td>
                     <td>${r.m_jilla || ""}</td>
                     <td>${r.m_office || ""}</td>
+                    <td>${monitorInfo}</td>
                     <td style="color: ${isQ1Neg ? '#de3053' : 'inherit'}; font-weight: ${isQ1Neg ? '700' : 'normal'}" ${isQ1Neg ? 'class="has-tooltip tooltip-yellow" data-tooltip="नागरिक बडापत्र स्पष्ट नभएको वा नराखिएको"' : ''}>${q1}</td>
                     <td style="color: ${isQ2Neg ? '#de3053' : 'inherit'}; font-weight: ${isQ2Neg ? '700' : 'normal'}" ${isQ2Neg ? 'class="has-tooltip tooltip-yellow" data-tooltip="सेवा प्रक्रिया, कागजात, लागत र समय स्पष्ट नभएको"' : ''}>${q2}</td>
                     <td style="color: ${isQ5Neg ? '#de3053' : 'inherit'}; font-weight: ${isQ5Neg ? '700' : 'normal'}" ${isQ5Neg ? 'class="has-tooltip tooltip-red" data-tooltip="मध्यस्थकर्ताको उपस्थिति देखिएको"' : ''}>${q5}</td>
@@ -4450,15 +4579,23 @@ function showDetailedTable(data, title, viewType = 'survey') {
             `;
         }).join('');
     } else if (viewType === 'attendance') {
-        thead.innerHTML = `<tr><th>मिति</th><th>कार्यालय</th><th>कर्मचारी</th><th>पद</th><th>प्रकार</th><th>कैफियत</th><th>कार्य</th></tr>`;
-        tbody.innerHTML = data.map(r => `
+        thead.innerHTML = `<tr><th>मिति</th><th>कार्यालय</th><th>कर्मचारी</th><th>पद</th><th>प्रकार</th><th>कैफियत</th><th>अनुगमनकर्ता</th><th>कार्य</th></tr>`;
+        tbody.innerHTML = data.map(r => {
+            let monitorInfo = "";
+            if (r.a_monitor_name || r.a_monitor_rank) {
+                monitorInfo = `${r.a_monitor_name || "अनुगमनकर्ता नाम नभएको"} (${r.a_monitor_rank || "पद नभएको"})`;
+            } else {
+                monitorInfo = "अनुगमनकर्ता नाम/पद नभएको";
+            }
+            return `
             <tr>
-                <td>${r.date || ""}</td><td>${r.office || ""}</td><td>${r.name || ""}</td><td>${r.rank || ""}</td><td style="color: #de3053; font-weight: 700;" class="has-tooltip tooltip-red" data-tooltip="समय पालना वा पोशाक सम्बन्धी अपरिपालना">${r.category || ""}</td><td>${r.extra || "-"}</td><td data-label="कार्य">
-                    <button class="action-btn btn-edit" onclick="editRecord('${r.timestamp}', 'attendance')" title="सम्पादन"><i class="fas fa-edit"></i></button>
-                    <button class="action-btn btn-delete" onclick="deleteRecord('${r.timestamp}', 'attendance')" title="मेटाउनुहोस्"><i class="fas fa-trash"></i></button>
+                <td>${r.date || ""}</td><td>${r.office || ""}</td><td>${r.name || ""}</td><td>${r.rank || ""}</td><td style="color: #de3053; font-weight: 700;" class="has-tooltip tooltip-red" data-tooltip="समय पालना वा पोशाक सम्बन्धी अपरिपालना">${r.category || ""}</td><td>${r.extra || "-"}</td><td>${monitorInfo}</td><td data-label="कार्य">
+                    <button class="action-btn btn-edit" onclick="editRecord('${r.timestamp || ''}', 'attendance')" title="सम्पादन"><i class="fas fa-edit"></i></button>
+                    <button class="action-btn btn-delete" onclick="deleteRecord('${r.timestamp || ''}', 'attendance')" title="मेटाउनुहोस्"><i class="fas fa-trash"></i></button>
                 </td>
             </tr>
-        `).join('');
+        `;
+        }).join('');
     }
 
 
@@ -5405,7 +5542,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const overlay = document.createElement('div');
         overlay.className = 'enhanced-export-overlay';
-        overlay.innerHTML = '<div class="enhanced-export-modal"><div class="enhanced-export-header"><h3><i class="fas fa-file-export"></i> उन्नत Export (चार्ट सहित)</h3><button class="modal-close-btn" id="closeEnhancedExport" style="position:static;background:transparent;color:#94a3b8;"><i class="fas fa-times"></i></button></div><div class="enhanced-export-body"><div class="enhanced-export-preview" id="exportPreviewContainer"><div style="text-align:center;color:#94a3b8;"><i class="fas fa-chart-simple" style="font-size:3rem;margin-bottom:10px;display:block;"></i><span>चार्ट पूर्वावलोकन</span></div></div><div class="enhanced-export-options"><div class="enhanced-export-option active" data-type="excel"><i class="fas fa-file-excel" style="color:#1d6f42;"></i><span>Excel</span></div><div class="enhanced-export-option" data-type="pdf"><i class="fas fa-file-pdf" style="color:#e74c3c;"></i><span>PDF (चार्ट सहित)</span></div></div><p style="font-size:0.8rem;color:#94a3b8;text-align:center;margin-bottom:12px;"><i class="fas fa-info-circle"></i> ' + (currentDashboardView === 'survey' ? 'सर्वेक्षण' : currentDashboardView === 'monitoring' ? 'अनुगमन' : 'पोशाक') + ' डेटा (' + toNepaliDigits(count) + ' रेकर्ड)</p><div class="enhanced-export-actions"><button class="enhanced-export-btn-secondary" id="cancelEnhancedExport">रद्द</button><button class="enhanced-export-btn-primary" id="confirmEnhancedExport"><i class="fas fa-download"></i> डाउनलोड</button></div></div></div>';
+        overlay.innerHTML = '<div class="enhanced-export-modal"><div class="enhanced-export-header"><h3><i class="fas fa-file-export"></i>PDF Export (चार्ट सहित)</h3><button class="modal-close-btn" id="closeEnhancedExport" style="position:static;background:transparent;color:#94a3b8;"><i class="fas fa-times"></i></button></div><div class="enhanced-export-body"><div class="enhanced-export-preview" id="exportPreviewContainer"><div style="text-align:center;color:#94a3b8;"><i class="fas fa-chart-simple" style="font-size:3rem;margin-bottom:10px;display:block;"></i><span>चार्ट पूर्वावलोकन</span></div></div><div class="enhanced-export-options"><div class="enhanced-export-option active" data-type="excel"><i class="fas fa-file-excel" style="color:#1d6f42;"></i><span>Excel</span></div><div class="enhanced-export-option" data-type="pdf"><i class="fas fa-file-pdf" style="color:#e74c3c;"></i><span>PDF (चार्ट सहित)</span></div></div><p style="font-size:0.8rem;color:#94a3b8;text-align:center;margin-bottom:12px;"><i class="fas fa-info-circle"></i> ' + (currentDashboardView === 'survey' ? 'सर्वेक्षण' : currentDashboardView === 'monitoring' ? 'अनुगमन' : 'पोशाक') + ' डेटा (' + toNepaliDigits(count) + ' रेकर्ड)</p><div class="enhanced-export-actions"><button class="enhanced-export-btn-secondary" id="cancelEnhancedExport">रद्द</button><button class="enhanced-export-btn-primary" id="confirmEnhancedExport"><i class="fas fa-download"></i> डाउनलोड</button></div></div></div>';
         document.body.appendChild(overlay);
 
         setTimeout(() => {

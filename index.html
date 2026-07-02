@@ -87,7 +87,7 @@
 
             <nav class="flex-1 px-3 py-[18px] space-y-[9px] overflow-y-auto custom-scrollbar" id="sidebar-nav">
                 <button
-                    class="w-full flex items-center gap-[6px] px-[9px] py-[6px] text-[10px] bg-blue-600/30 hover:bg-blue-500/40 rounded-xl transition-all font-medium border border-blue-400/30 shadow-[0_0_15px_rgba(59,130,246,0.15)] nav-btn active group"
+                    class="w-full flex items-center gap-[6px] px-[9px] py-[6px] text-[10px] bg-blue-600/40 hover:bg-blue-500/50 rounded-xl transition-all font-medium border border-blue-400/40 shadow-[0_0_20px_rgba(59,130,246,0.3)] nav-btn active group"
                     data-tab="dashboard-tab">
                     <div class="bg-blue-500/20 p-1 rounded-md group-hover:bg-blue-500/40 transition-colors"><i
                             class="fas fa-chart-pie text-blue-300 text-sm"></i></div> <span
@@ -189,9 +189,9 @@
             </header>
 
             <!-- Scrollable Content Container -->
-            <div class="flex-1 overflow-y-auto p-3 md:p-6 scroll-smooth" id="main-scroll-area">
+            <div class="flex-1 overflow-y-auto px-1.5 md:px-3 py-3 md:py-6 scroll-smooth" id="main-scroll-area">
                 <div id="main-content-wrapper"
-                    class="max-w-[95%] mx-auto w-full glass-panel transition-all duration-700">
+                    class="max-w-[97.5%] mx-auto w-full glass-panel transition-all duration-700">
                     <!-- FORM PANEL -->
                     <div id="form-tab" class="panel">
                         <div class="survey-card">
@@ -647,6 +647,32 @@
                                     <div class="field-group"><span class="field-label">अनुगमन मिति :<span
                                                 class="required-asterisk">*</span></span><input type="text"
                                             name="m_date" id="m_date" class="nepali-datepicker" readonly required></div>
+                                    <div class="field-group"><span class="field-label">अनुगमनकर्ताको नाम:<span
+                                                class="required-asterisk">*</span></span>
+                                        <div class="voice-input-wrapper">
+                                            <input type="text" id="m_monitor_name" name="m_monitor_name"
+                                                placeholder="अनुगमनकर्ताको नाम" required>
+                                            <button type="button" class="voice-btn"
+                                                onclick="startVoiceTyping(event, 'm_monitor_name')">🎤 <span
+                                                    class="btn-text">आवाज टाइप</span></button>
+                                            <button type="button" class="clear-btn"
+                                                onclick="clearInput('m_monitor_name')">🗑️ <span
+                                                    class="btn-text">मेटाउनुहोस्</span></button>
+                                        </div>
+                                    </div>
+                                    <div class="field-group"><span class="field-label">अनुगमनकर्ताको पद:<span
+                                                class="required-asterisk">*</span></span>
+                                        <div class="voice-input-wrapper">
+                                            <input type="text" id="m_monitor_designation" name="m_monitor_designation"
+                                                placeholder="अनुगमनकर्ताको पद" required>
+                                            <button type="button" class="voice-btn"
+                                                onclick="startVoiceTyping(event, 'm_monitor_designation')">🎤 <span
+                                                    class="btn-text">आवाज टाइप</span></button>
+                                            <button type="button" class="clear-btn"
+                                                onclick="clearInput('m_monitor_designation')">🗑️ <span
+                                                    class="btn-text">मेटाउनुहोस्</span></button>
+                                        </div>
+                                    </div>
 
                                     <div class="section-title">नागरिक बडापत्र तथा सेवा प्रवाहको अवस्था</div>
                                     <div class="field-group"><span class="field-label">१. नागरिक बडापत्र
@@ -1109,6 +1135,8 @@
                                     </select></div>
                                 <div class="filter-item"><label>कार्यालय/निकाय</label><input type="text"
                                         id="filterOffice" placeholder="कार्यालयको नाम"></div>
+                                <div class="filter-item"><label>अनुगमनकर्ता</label><input type="text"
+                                        id="filterMonitor" placeholder="अनुगमनकर्ताको नाम"></div>
                                 <div class="filter-item"><label>लिङ्ग</label><select id="filterGender">
                                         <option value="">सबै</option>
                                         <option>पुरुष</option>
@@ -1199,8 +1227,8 @@
                                     style="display: block; background:#1d6f42; border:none; border-radius:6px; color:white; cursor:pointer; font-family: 'Kalimati', sans-serif;">Excel
                                     Export</button>
                                 <button id="enhancedExportBtn"
-                                    style="display: block; background:#7c3aed; border:none; border-radius:6px; color:white; cursor:pointer; font-family: 'Kalimati', sans-serif;">📊
-                                    उन्नत Export (चार्ट सहित)</button>
+                                    style="display: block; background:#7c3aed; border:none; border-radius:6px; color:white; cursor:pointer; font-family: 'Kalimati', sans-serif;">
+                                    PDF Export (चार्ट सहित)</button>
                             </div>
 
                             <!-- विशिष्ट प्रश्न विश्लेषण खण्ड -->
@@ -1418,7 +1446,7 @@
 
                             <div class="table-wrapper">
                                 <table id="dataTable">
-                                    <thead>
+                                    <thead id="dataTableHeader">
                                         <tr>
                                             <th>मिति</th>
                                             <th>जिल्ला</th>
@@ -1428,6 +1456,7 @@
                                             <th>सहयोग</th>
                                             <th>सन्तुष्टि</th>
                                             <th>विकास कार्यको जानकारी</th>
+                                            <th>कार्य</th>
                                         </tr>
                                     </thead>
                                     <tbody></tbody>
@@ -1818,7 +1847,7 @@
 
                     // Update active state styling for sidebar tabs
                     tabBtns.forEach(b => {
-                        b.classList.remove('active', 'bg-blue-600/30', 'border-blue-400/30', 'shadow-[0_0_15px_rgba(59,130,246,0.15)]', 'text-white');
+                        b.classList.remove('active', 'bg-blue-600/40', 'border-blue-400/40', 'shadow-[0_0_20px_rgba(59,130,246,0.3)]', 'text-white');
                         b.classList.add('hover:bg-white/5', 'border-transparent', 'text-slate-300');
 
                         const iconDiv = b.querySelector('div');
@@ -1834,7 +1863,7 @@
                         }
                     });
 
-                    btn.classList.add('active', 'bg-blue-600/30', 'border-blue-400/30', 'shadow-[0_0_15px_rgba(59,130,246,0.15)]', 'text-white');
+                    btn.classList.add('active', 'bg-blue-600/40', 'border-blue-400/40', 'shadow-[0_0_20px_rgba(59,130,246,0.3)]', 'text-white');
                     btn.classList.remove('hover:bg-white/5', 'border-transparent', 'text-slate-300');
 
                     const activeDiv = btn.querySelector('div');
