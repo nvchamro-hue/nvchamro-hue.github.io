@@ -1,12 +1,14 @@
 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw_4PQ_3JeMGqKuKz3_lYzUXPbvrjlkdwpQDCGIwuRVpF3L8aUpUTE0zppg5ZktEgCr/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwSh34LtDzVu9Hs0IZ6YDBrjxBkXfo3WpYpMw9dQV4i9dUJfsnfDwyrPyTMgvgNUAjO/exec";
 
 
 let allSubmissions = [];
 let allMonitorings = [];
 let allAttendanceMonitorings = [];
+let allProjectMonitorings = [];
 let currentFilteredMonitorings = [];
 let currentFilteredAttendance = [];
+let currentFilteredProjectMonitorings = [];
 let currentDashboardView = 'monitoring';
 let consecutiveErrorCount = 0;
 let currentFilteredSubmissions = [];
@@ -16,6 +18,86 @@ let itemsPerPage = 10;
 let activeTagId = null;
 let dismissedAlerts = new Set(JSON.parse(localStorage.getItem("dismissedAlerts_nsc") || "[]"));
 let showAllAlertsMode = false;
+let autoRefreshInterval = null;
+const SETTINGS_STORAGE_KEY = 'nsc_settings';
+const DEFAULT_SETTINGS = {
+    theme: 'default',
+    darkMode: false,
+    autoRefresh: false
+};
+let appSettings = { ...DEFAULT_SETTINGS };
+
+function normalizeVisibilityValue(value) {
+    if (value === null || value === undefined) return '';
+    return String(value).trim().toLowerCase().replace(/[\s\-_/]/g, '');
+}
+
+function getCurrentUserVisibilityContext() {
+    try {
+        const candidates = [
+            sessionStorage.getItem('loggedInUser'),
+            localStorage.getItem('currentUser'),
+            localStorage.getItem('loggedInUser')
+        ];
+
+        for (const raw of candidates) {
+            if (!raw) continue;
+
+            let parsed = raw;
+            try {
+                parsed = JSON.parse(raw);
+            } catch (e) {
+                // keep raw string as-is
+            }
+
+            if (parsed && typeof parsed === 'object') {
+                const role = parsed.role || parsed.userRole || '';
+                const localLevel = parsed.localLevel || parsed.local_level || parsed.locallevel || '';
+                return {
+                    isAdmin: String(role).toLowerCase().includes('admin'),
+                    localLevel: String(localLevel || '').trim()
+                };
+            }
+
+            if (typeof parsed === 'string' && parsed.trim()) {
+                return {
+                    isAdmin: parsed.toLowerCase().includes('admin'),
+                    localLevel: ''
+                };
+            }
+        }
+    } catch (e) {
+        console.warn('Unable to read current user visibility context:', e);
+    }
+
+    return { isAdmin: false, localLevel: '' };
+}
+
+function normalizeMonitoringRecord(record) {
+    if (!record || typeof record !== 'object') return record;
+    if (!record.m_sthaaniya) {
+        record.m_sthaaniya = record.sthaaniya || record['स्थानीय तह'] || record.localLevel || record.local_level || record.locallevel || '';
+    }
+    return record;
+}
+
+function shouldShowRecordForCurrentUser(value) {
+    const context = getCurrentUserVisibilityContext();
+    if (context.isAdmin) return true;
+
+    const userLocalLevel = normalizeVisibilityValue(context.localLevel);
+    const recordLocalLevel = normalizeVisibilityValue(value);
+
+    if (!userLocalLevel || !recordLocalLevel) return false;
+    return recordLocalLevel === userLocalLevel || recordLocalLevel.includes(userLocalLevel) || userLocalLevel.includes(recordLocalLevel);
+}
+
+// Audit Log Variables
+let allAuditLogs = [];
+let filteredAuditLogs = [];
+let currentAuditPage = 1;
+let auditItemsPerPage = 20;
+let auditLogsLoaded = false;
 
 
 const TAG_CONFIG = [
@@ -62,6 +144,157 @@ function createGradient(ctx, color, isHorizontal = false, isRadial = false, isHo
     return gradient;
 }
 
+/* Project modal view/edit handlers */
+function showProjectModal(timestamp, editable = false) {
+    const container = document.getElementById('projectModalContainer');
+    const titleEl = document.getElementById('projectModalTitle');
+    const contentEl = document.getElementById('projectModalContent');
+    const saveBtn = document.getElementById('projectModalSaveBtn');
+    const cancelBtn = document.getElementById('projectModalCancelBtn');
+
+    const record = allProjectMonitorings.find(r => r.timestamp === timestamp);
+    if (!record) return Swal.fire({ icon: 'info', text: 'रेकर्ड फेला परेन।' });
+
+    titleEl.textContent = record.pm_project_name || 'आयोजना';
+    contentEl.innerHTML = '';
+
+    const fields = [
+        ['pm_project_name', 'आयोजनाको नाम'],
+        ['pm_monitoring_date', 'मिति'],
+        ['pm_pradesh', 'प्रदेश'],
+        ['pm_jilla', 'जिल्ला'],
+        ['pm_sthaaniya_taha', 'स्थानीय तह'],
+        ['pm_implementing_agency', 'कार्यान्वयन निकाय'],
+        ['pm_contractor_name', 'ठेकेदार'],
+        ['pm_physical_progress', 'भौतिक प्रगति (%)'],
+        ['pm_approved_cost', 'स्वीकृत लागत (रु.)'],
+        ['pm_spent_amount', 'खर्च भएको (रु.)'],
+        ['pm_quality_1', 'गुणस्तर: डिजाइन मापदण्ड अनुरूप'],
+        ['pm_quality_2', 'गुणस्तर: सामग्रीको गुणस्तर'],
+        ['pm_quality_3', 'नियम पालन'],
+        ['pm_quality_4', 'Lab Test भएको'],
+        ['pm_economic_1', 'बजेट समयमै'],
+        ['pm_economic_2', 'Schedule अनुसार'],
+        ['pm_economic_3', 'लागतभित्र सम्पन्न'],
+        ['pm_economic_4', 'Variation भएको'],
+        ['pm_comment', 'अन्य टिप्पणी']
+    ];
+    function formatToLakhs(v) {
+        const n = parseFloat(v) || 0;
+        const lakhs = n / 100000;
+        return `${toNepaliDigits(lakhs.toFixed(2))} लाख`;
+    }
+
+    fields.forEach(([key, label]) => {
+        const val = record[key] || '';
+        if (editable) {
+            let inputValue = val;
+            if (key === 'pm_approved_cost' || key === 'pm_spent_amount') {
+                const n = parseFloat(val) || 0;
+                inputValue = n.toFixed(2); // show in rupees for editing
+            } else if (key === 'pm_physical_progress') {
+                inputValue = parseFloat(val) || 0;
+            } else if (key === 'pm_monitoring_date') {
+                inputValue = val;
+            }
+
+            const el = document.createElement('div');
+            el.style.marginBottom = '8px';
+            el.innerHTML = `<label style="font-weight:700; display:block; margin-bottom:4px;">${label}</label>` +
+                (key === 'pm_comment' ? `<textarea id="pm_field_${key}" style="width:100%; min-height:80px;">${inputValue}</textarea>` : `<input id="pm_field_${key}" style="width:100%; padding:6px;" value="${inputValue}">`);
+            contentEl.appendChild(el);
+        } else {
+            let display = val || '-';
+            if (key === 'pm_approved_cost' || key === 'pm_spent_amount') {
+                const n = parseFloat(val) || 0;
+                display = `रु. ${toNepaliDigits(n.toLocaleString())}`;
+            } else if (key === 'pm_physical_progress') {
+                display = `${toNepaliDigits(parseFloat(val) || 0)}%`;
+            } else if (key === 'pm_monitoring_date') {
+                display = toNepaliDigits(val || '-');
+            } else {
+                display = toNepaliDigits(display) || display;
+            }
+
+            const el = document.createElement('div');
+            el.style.marginBottom = '6px';
+            el.innerHTML = `<div style="font-weight:700; color:#334155">${label}</div><div style="color:#475569">${display || '-'}</div>`;
+            contentEl.appendChild(el);
+        }
+    });
+
+    if (editable) {
+        saveBtn.style.display = '';
+        cancelBtn.style.display = '';
+        saveBtn.onclick = async () => {
+            // collect values and update record (values entered as rupees)
+            fields.forEach(([key]) => {
+                const el = document.getElementById(`pm_field_${key}`);
+                if (!el) return;
+                let v = el.value;
+                if (key === 'pm_approved_cost' || key === 'pm_spent_amount') {
+                    const num = parseFloat(v) || 0;
+                    record[key] = num.toString();
+                } else if (key === 'pm_physical_progress') {
+                    record[key] = v.toString();
+                } else {
+                    record[key] = v;
+                }
+            });
+
+            // show saving indicator
+            Swal.fire({ title: 'सेभ हुँदैछ...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+            const payload = { action: 'update', type: 'project-monitoring', timestamp: record.timestamp, data: record };
+            try {
+                const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+                const resText = await response.text();
+                if (resText === 'Success') {
+                    try { localStorage.setItem('projectMonitoringData_nsc', JSON.stringify(allProjectMonitorings)); } catch (e) {}
+                    refreshDashboard();
+                    closeProjectModal();
+                    Swal.fire({ icon: 'success', text: 'आयोजना विवरण सर्वरमा सुरक्षित भयो।', timer: 1500, showConfirmButton: false });
+                    return;
+                } else {
+                    throw new Error(resText || 'Server error');
+                }
+            } catch (error) {
+                console.error('Update Error:', error);
+                // fallback: save locally and inform user
+                try { localStorage.setItem('projectMonitoringData_nsc', JSON.stringify(allProjectMonitorings)); } catch (e) {}
+                refreshDashboard();
+                closeProjectModal();
+                Swal.fire({ icon: 'warning', title: 'नेटवर्क समस्या', text: 'सर्भरमा सेभ विफल भयो, परिवर्तनहरू स्थानीय रुपमा सुरक्षित गरियो।' });
+                return;
+            }
+        };
+        cancelBtn.onclick = () => { closeProjectModal(); };
+    } else {
+        saveBtn.style.display = 'none';
+        cancelBtn.style.display = 'none';
+    }
+
+    container.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeProjectModal() {
+    const container = document.getElementById('projectModalContainer');
+    if (!container) return;
+    container.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+// attach close handlers
+const closeProjectBtn = document.getElementById('closeProjectModal');
+const projectModalContainer = document.getElementById('projectModalContainer');
+if (closeProjectBtn && projectModalContainer) {
+    closeProjectBtn.addEventListener('click', closeProjectModal);
+    projectModalContainer.addEventListener('click', (e) => {
+        if (e.target === projectModalContainer) closeProjectModal();
+    });
+}
+
 
 const shadowPlugin = {
     id: 'shadowPlugin',
@@ -87,7 +320,7 @@ Chart.register(ChartDataLabels);
 Chart.defaults.plugins.legend.labels.color = '#334155';
 Chart.defaults.plugins.legend.labels.font = {
     family: 'Kalimati',
-    size: 12,
+    size: 9,
     weight: '600'
 };
 Chart.defaults.plugins.legend.labels.usePointStyle = true;
@@ -356,6 +589,43 @@ function fromNepaliDigits(text) {
     }).join("");
 }
 
+// Helpers to safely render AI output (strip code fences, escape HTML, and format paragraphs)
+function escapeHtml(str) {
+    return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function stripCodeFence(text) {
+    if (!text) return '';
+    let t = String(text);
+    t = t.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+    return t.trim();
+}
+
+function formatAiTextToParagraphs(text) {
+    const cleaned = stripCodeFence(text);
+    const escaped = escapeHtml(cleaned);
+    return escaped.split(/\r?\n/).filter(l => l.trim()).map(p => '<p>' + p + '</p>').join('');
+}
+
+// Throttle helper: allow one invocation per `wait` ms. Shows a brief notice when suppressed.
+function throttle(func, wait) {
+    let last = 0;
+    return function() {
+        const now = Date.now();
+        if (now - last >= wait) {
+            last = now;
+            try { return func.apply(this, arguments); } catch (e) { console.error(e); }
+        } else {
+            try { Swal.fire({ icon: 'info', text: 'कृपया केही समय पर्खनुहोस्।', timer: 1200, showConfirmButton: false }); } catch (e) { /* ignore */ }
+        }
+    };
+}
+
 function formatNepaliDateParts(year, month, day) {
     return `${toNepaliDigits(year)} ${BS_MONTHS[month - 1]} ${toNepaliDigits(day)}`;
 }
@@ -548,7 +818,7 @@ function handleNepaliPickerOutsideClick(event) {
 }
 
 function populateProvinces() {
-    const pradeshSelects = [document.getElementById("pradesh"), document.getElementById("filterPradesh"), document.getElementById("m_pradesh"), document.getElementById("a_pradesh")];
+    const pradeshSelects = [document.getElementById("pradesh"), document.getElementById("filterPradesh"), document.getElementById("m_pradesh"), document.getElementById("a_pradesh"), document.getElementById("pm_pradesh")];
     pradeshSelects.forEach(sel => {
         if (!sel) return;
         sel.innerHTML = '<option value="">प्रदेश छान्नुहोस्</option>';
@@ -636,46 +906,233 @@ function updateFilterMunicipalities() {
 }
 
 
-// ========== DARK MODE SYSTEM ==========
-function initDarkMode() {
-    const toggleBtn = document.getElementById('themeToggleBtn');
-    const icon = toggleBtn?.querySelector('i');
-
-    // Load saved preference
-    const savedTheme = localStorage.getItem('nsc_darkMode');
-    if (savedTheme === 'true') {
-        document.body.classList.add('dark-mode');
-        if (icon) {
-            icon.classList.remove('fa-moon');
-            icon.classList.add('fa-sun');
+function loadAppSettings() {
+    try {
+        const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
+        if (saved) {
+            appSettings = { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
         }
+    } catch (e) {
+        console.warn('Settings could not be loaded:', e);
+        appSettings = { ...DEFAULT_SETTINGS };
     }
 
-    if (toggleBtn) {
-        toggleBtn.addEventListener('click', function () {
-            document.body.classList.toggle('dark-mode');
-            const isDark = document.body.classList.contains('dark-mode');
-            localStorage.setItem('nsc_darkMode', isDark ? 'true' : 'false');
+    if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('nsc_darkMode', appSettings.darkMode ? 'true' : 'false');
+    }
 
-            if (icon) {
-                if (isDark) {
-                    icon.classList.remove('fa-moon');
-                    icon.classList.add('fa-sun');
-                } else {
-                    icon.classList.remove('fa-sun');
-                    icon.classList.add('fa-moon');
-                }
-            }
+    applyAppSettings();
+    return appSettings;
+}
 
-            // Play click sound
-            playClickSound();
+function applyAppSettings() {
+    const isDark = Boolean(appSettings.darkMode);
+    const selectedTheme = appSettings.theme || 'default';
+    activeTheme = selectedTheme;
+    document.body.classList.toggle('dark-mode', isDark);
+    localStorage.setItem('nsc_darkMode', isDark ? 'true' : 'false');
 
-            // Refresh charts to match theme
+    const themeSelects = [document.getElementById('settingsThemeSelect'), document.getElementById('themeSelector')];
+    themeSelects.forEach(select => {
+        if (select) {
+            select.value = appSettings.theme || 'default';
+        }
+    });
+
+    const darkModeSwitch = document.getElementById('settingsDarkMode');
+    if (darkModeSwitch) {
+        darkModeSwitch.checked = isDark;
+    }
+
+    const autoRefreshSwitch = document.getElementById('settingsAutoRefresh');
+    if (autoRefreshSwitch) {
+        autoRefreshSwitch.checked = Boolean(appSettings.autoRefresh);
+    }
+
+    const toggleBtn = document.getElementById('themeToggleBtn');
+    const icon = toggleBtn?.querySelector('i');
+    if (icon) {
+        icon.classList.toggle('fa-sun', isDark);
+        icon.classList.toggle('fa-moon', !isDark);
+    }
+
+    if (typeof refreshDashboard === 'function') {
+        refreshDashboard();
+    }
+}
+
+function saveAppSettings() {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(appSettings));
+    applyAppSettings();
+}
+
+function setAutoRefreshEnabled(enabled, showToastMessage = true) {
+    appSettings.autoRefresh = Boolean(enabled);
+    saveAppSettings();
+
+    const btn = document.getElementById('autoRefreshToggle');
+    const ind = document.getElementById('autoRefreshIndicator');
+    if (btn) {
+        btn.classList.toggle('active', Boolean(enabled));
+        btn.title = enabled ? 'अटो-रिफ्रेस रद्द गर्नुहोस्' : 'अटो-रिफ्रेस गर्नुहोस्';
+    }
+    if (ind) {
+        ind.classList.toggle('hidden', !enabled);
+    }
+
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+    }
+
+    if (enabled) {
+        autoRefreshInterval = setInterval(function () {
             if (typeof refreshDashboard === 'function') {
                 refreshDashboard();
             }
+            showToast('🔄 तथ्याङ्क स्वतः रिफ्रेस', 'info', 1500);
+        }, 30000);
+    }
+
+    if (showToastMessage) {
+        showToast(enabled ? '🔄 अटो-रिफ्रेस सक्रिय' : '⏸️ अटो-रिफ्रेस बन्द', enabled ? 'success' : 'info', 2000);
+    }
+}
+
+function initSettingsPanel() {
+    loadAppSettings();
+
+    const form = document.getElementById('settingsForm');
+    const themeSelect = document.getElementById('settingsThemeSelect');
+    const darkModeSwitch = document.getElementById('settingsDarkMode');
+    const autoRefreshSwitch = document.getElementById('settingsAutoRefresh');
+
+    if (themeSelect) {
+        themeSelect.addEventListener('change', function () {
+            appSettings.theme = this.value || 'default';
+            saveAppSettings();
         });
     }
+
+    if (darkModeSwitch) {
+        darkModeSwitch.addEventListener('change', function () {
+            appSettings.darkMode = this.checked;
+            saveAppSettings();
+        });
+    }
+
+    if (autoRefreshSwitch) {
+        autoRefreshSwitch.addEventListener('change', function () {
+            setAutoRefreshEnabled(this.checked, true);
+        });
+    }
+
+    if (form) {
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            saveAppSettings();
+            setAutoRefreshEnabled(Boolean(appSettings.autoRefresh), false);
+            showToast('✅ सेटिङ्ग्स सुरक्षित गरियो', 'success', 2000);
+        });
+    }
+
+    const clearAuditLogBtn = document.getElementById('clearAuditLogBtn');
+    if (clearAuditLogBtn) {
+        clearAuditLogBtn.addEventListener('click', clearAuditLog);
+    }
+}
+
+async function clearAuditLog() {
+    const confirmation = await Swal.fire({
+        title: 'के तपाईं पक्का हुनुहुन्छ?',
+        text: 'यो कार्यले सबै अडिट लग रिकर्डहरू स्थायी रूपमा मेट्छ।',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'हो, मेटाउनूस्',
+        cancelButtonText: 'रद्द गर्नुहोस्',
+        reverseButtons: true
+    });
+
+    if (!confirmation.isConfirmed) {
+        return;
+    }
+
+    try {
+        Swal.fire({
+            title: 'अडिट लग क्लियर हुँदैछ...',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+
+        const response = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'clear_audit_log' })
+        });
+        const result = await response.json();
+        Swal.close();
+
+        if (result.status === 'success') {
+            allAuditLogs = [];
+            filteredAuditLogs = [];
+            auditLogsLoaded = false;
+            renderAuditLogTable();
+            showToast('✅ अडिट लग सफलतापूर्वक क्लियर भयो', 'success', 2500);
+        } else {
+            Swal.fire({ icon: 'error', text: result.message || 'अडिट लग खाली गर्न असफल भयो।' });
+        }
+    } catch (error) {
+        Swal.close();
+        Swal.fire({ icon: 'error', text: 'अडिट लग क्लियर गर्दा त्रुटि आयो।' });
+        console.error('clearAuditLog error:', error);
+    }
+}
+
+function toggleDarkMode(shouldEnable = null) {
+    const toggleBtn = document.getElementById('themeToggleBtn');
+    const icon = toggleBtn?.querySelector('i');
+    const resolved = shouldEnable === null ? !document.body.classList.contains('dark-mode') : Boolean(shouldEnable);
+
+    document.body.classList.toggle('dark-mode', resolved);
+    appSettings.darkMode = resolved;
+    localStorage.setItem('nsc_darkMode', resolved ? 'true' : 'false');
+    saveAppSettings();
+
+    if (icon) {
+        icon.classList.toggle('fa-sun', resolved);
+        icon.classList.toggle('fa-moon', !resolved);
+    }
+
+    if (toggleBtn) {
+        toggleBtn.setAttribute('aria-pressed', resolved ? 'true' : 'false');
+    }
+
+    playClickSound();
+
+    if (typeof refreshDashboard === 'function') {
+        refreshDashboard();
+    }
+}
+
+// ========== DARK MODE SYSTEM ==========
+function initDarkMode() {
+    const toggleBtn = document.getElementById('themeToggleBtn');
+    if (!toggleBtn) return;
+
+    const isDark = Boolean(appSettings.darkMode);
+    if (isDark) {
+        document.body.classList.add('dark-mode');
+    }
+
+    toggleBtn.addEventListener('click', function () {
+        toggleDarkMode();
+    });
+
+    const icon = toggleBtn.querySelector('i');
+    if (icon) {
+        icon.classList.toggle('fa-sun', isDark);
+        icon.classList.toggle('fa-moon', !isDark);
+    }
+    toggleBtn.setAttribute('aria-pressed', isDark ? 'true' : 'false');
 }
 
 // ========== ANIMATED COUNTERS ==========
@@ -704,6 +1161,18 @@ function animateCounter(el, target, suffix = '') {
     requestAnimationFrame(update);
 }
 
+function reparentPanelsIntoWrapper() {
+    const wrapper = document.getElementById('main-content-wrapper');
+    if (!wrapper) return;
+
+    const panels = Array.from(document.querySelectorAll('.panel'));
+    panels.forEach(panel => {
+        if (panel.parentElement !== wrapper) {
+            wrapper.appendChild(panel);
+        }
+    });
+}
+
 // ========== SMOOTH TAB TRANSITIONS ==========
 function initSmoothTabTransitions() {
     const tabBtns = document.querySelectorAll('.nav-btn[data-tab]');
@@ -711,39 +1180,67 @@ function initSmoothTabTransitions() {
         'dashboard-tab': document.getElementById('dashboard-tab'),
         'form-tab': document.getElementById('form-tab'),
         'monitoring-tab': document.getElementById('monitoring-tab'),
-        'attendance-tab': document.getElementById('attendance-tab')
+        'attendance-tab': document.getElementById('attendance-tab'),
+        'project-monitoring-tab': document.getElementById('project-monitoring-tab'),
+        'audit-log-tab': document.getElementById('audit-log-tab'),
+        'user-management-tab': document.getElementById('user-management-tab'),
+        'settings-tab': document.getElementById('settings-tab'),
+        'change-password-tab': document.getElementById('change-password-tab')
+    };
+
+    const setActiveTabButton = (tabId) => {
+        tabBtns.forEach(btn => {
+            const isActive = btn.dataset.tab === tabId;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-current', isActive ? 'page' : 'false');
+        });
     };
 
     tabBtns.forEach(btn => {
         btn.addEventListener('click', function (e) {
+            e.preventDefault();
             const tabId = this.dataset.tab;
             const targetPanel = panels[tabId];
-            if (!targetPanel) return;
+            if (!targetPanel) {
+                console.warn('Tab panel not found for:', tabId);
+                return;
+            }
 
-            // Hide all panels with slide-out animation
-            Object.values(panels).forEach(panel => {
-                if (panel && panel !== targetPanel && panel.classList.contains('active-panel')) {
-                    panel.style.animation = 'tabExit 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards';
-                    setTimeout(() => {
-                        panel.classList.remove('active-panel');
-                        panel.style.animation = '';
-                    }, 300);
+            document.querySelectorAll('.panel').forEach(panel => {
+                if (panel && panel !== targetPanel) {
+                    panel.classList.remove('active-panel');
+                    panel.style.animation = '';
                 }
             });
 
-            // Show target panel with slide-in animation
+            targetPanel.classList.add('active-panel');
+            targetPanel.style.animation = 'tabEnter 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards';
+            const wrapper = document.getElementById('main-content-wrapper');
+            if (wrapper) {
+                wrapper.style.minHeight = 'fit-content';
+                wrapper.style.height = 'auto';
+                wrapper.style.overflow = 'visible';
+            }
             setTimeout(() => {
-                targetPanel.classList.add('active-panel');
-                targetPanel.style.animation = 'tabEnter 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards';
-                setTimeout(() => {
-                    targetPanel.style.animation = '';
-                }, 400);
-            }, 200);
+                targetPanel.style.animation = '';
+                if (wrapper) {
+                    wrapper.style.height = 'auto';
+                }
+            }, 400);
 
-            // Switch dashboard view if dashboard tab
+            setActiveTabButton(tabId);
+
+            const scrollContainer = document.getElementById('main-scroll-area');
+            if (scrollContainer) {
+                scrollContainer.scrollTop = 0;
+                scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+
             if (tabId === 'dashboard-tab' && typeof switchDashboardView === 'function') {
                 setTimeout(() => switchDashboardView(currentDashboardView), 300);
             }
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         });
     });
 }
@@ -877,8 +1374,14 @@ function hideDashboardSkeleton() {
 }
 
 document.addEventListener("DOMContentLoaded", function () {
+    // Ensure panels are rendered inside the main content wrapper
+    reparentPanelsIntoWrapper();
+
+    loadAppSettings();
+
     // Initialize dark mode
     initDarkMode();
+    initSettingsPanel();
 
     // Initialize smooth tab transitions
     initSmoothTabTransitions();
@@ -925,9 +1428,12 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById("m_jilla")?.addEventListener("change", () => updateMunicipalities("m_pradesh", "m_jilla", "m_sthaaniya"));
     document.getElementById("a_pradesh")?.addEventListener("change", () => updateDistricts("a_pradesh", "a_jilla", "a_sthaaniya"));
     document.getElementById("a_jilla")?.addEventListener("change", () => updateMunicipalities("a_pradesh", "a_jilla", "a_sthaaniya"));
+    document.getElementById("pm_pradesh")?.addEventListener("change", () => updateDistricts("pm_pradesh", "pm_jilla", "pm_sthaaniya_taha"));
+    document.getElementById("pm_jilla")?.addEventListener("change", () => updateMunicipalities("pm_pradesh", "pm_jilla", "pm_sthaaniya_taha"));
 
 
     addAttendanceRow();
+    addProjectMonitoringTeamRow();
 
 
     document.getElementById("dynamicFieldSelector")?.addEventListener("change", refreshDashboard);
@@ -946,6 +1452,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     document.getElementById("themeSelector")?.addEventListener("change", function () {
         activeTheme = this.value;
+        appSettings.theme = this.value;
+        saveAppSettings();
         refreshDashboard();
     });
 
@@ -1012,9 +1520,9 @@ document.addEventListener("DOMContentLoaded", function () {
         progressBar.style.width = scrolled + '%';
 
         if (mainScrollArea.scrollTop > 400) {
-            scrollTopBtn.style.display = "flex";
+            if (scrollTopBtn) scrollTopBtn.style.display = "flex";
         } else {
-            scrollTopBtn.style.display = "none";
+            if (scrollTopBtn) scrollTopBtn.style.display = "none";
         }
     });
 
@@ -1047,6 +1555,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 <i class="fas fa-user-clock"></i>
                 <span class="fab-label">पोशाक</span>
             </button>
+            <button class="fab-action-btn" data-action="project-monitoring" title="आयोजना अनुगमन फारम">
+                <i class="fas fa-hard-hat"></i>
+                <span class="fab-label">आयोजना</span>
+            </button>
             <button class="fab-action-btn" data-action="dashboard" title="ड्यासबोर्ड">
                 <i class="fas fa-chart-pie"></i>
                 <span class="fab-label">ड्यासबोर्ड</span>
@@ -1063,8 +1575,8 @@ document.addEventListener("DOMContentLoaded", function () {
     const fabStyle = document.createElement('style');
     fabStyle.textContent = `
         #fabContainer { position:fixed; bottom:90px; right:20px; z-index:9999; display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
-        .fab-main-btn { width:48px; height:48px; border-radius:50%; background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:white; border:none; cursor:pointer; box-shadow:0 4px 16px rgba(59,130,246,0.4); display:flex; align-items:center; justify-content:center; font-size:1.3rem; transition:all 0.3s cubic-bezier(0.4,0,0.2,1); }
-        .fab-main-btn:hover { transform:scale(1.1) rotate(90deg); box-shadow:0 6px 20px rgba(59,130,246,0.6); }
+        .fab-main-btn { width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg,#3b82f6,#3FD81E); color:white; border:none; cursor:pointer; box-shadow:0 4px 16px rgba(59,130,246,0.4); display:flex; align-items:center; justify-content:center; font-size:1.1rem; transition:all 0.3s cubic-bezier(0.4,0,0.2,1); }
+        .fab-main-btn:hover { transform:scale(1.1) rotate(90deg); box-shadow:0 6px 20px rgba(63,216,30,0.5); }
         .fab-main-btn.active { transform:rotate(45deg); background:linear-gradient(135deg,#ef4444,#dc2626); }
         .fab-actions { display:none; flex-direction:column; gap:6px; align-items:flex-end; }
         .fab-actions.show { display:flex; animation:fabSlideIn 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards; }
@@ -1074,6 +1586,7 @@ document.addEventListener("DOMContentLoaded", function () {
         .fab-action-btn[data-action="survey"] i { background:linear-gradient(135deg,#3b82f6,#1d4ed8); }
         .fab-action-btn[data-action="monitoring"] i { background:linear-gradient(135deg,#14b8a6,#0d9488); }
         .fab-action-btn[data-action="attendance"] i { background:linear-gradient(135deg,#8b5cf6,#6d28d9); }
+        .fab-action-btn[data-action="project-monitoring"] i { background:linear-gradient(135deg,#ef4444,#b91c1c); }
         .fab-action-btn[data-action="dashboard"] i { background:linear-gradient(135deg,#f97316,#ea580c); }
         .fab-action-btn[data-action="top"] i { background:linear-gradient(135deg,#64748b,#475569); }
         .fab-label { white-space:nowrap; }
@@ -1083,10 +1596,139 @@ document.addEventListener("DOMContentLoaded", function () {
     `;
     document.head.appendChild(fabStyle);
 
-    // FAB toggle logic
-    const fabMain = document.getElementById('fabMain');
-    const fabActions = document.getElementById('fabActions');
-    fabMain?.addEventListener('click', function () {
+    // FAB drag logic - make it draggable
+    const fabContainerEl = document.getElementById('fabContainer');
+    const fabMainBtn = document.getElementById('fabMain');
+    let isDragging = false;
+    let dragStartX, dragStartY, dragOrigLeft, dragOrigBottom;
+    let dragClickPrevented = false;
+
+    function initFabPosition() {
+        const saved = localStorage.getItem('nsc_fab_position');
+        if (saved) {
+            const pos = JSON.parse(saved);
+            fabContainerEl.style.right = pos.right;
+            fabContainerEl.style.bottom = pos.bottom;
+            fabContainerEl.style.left = 'auto';
+            fabContainerEl.style.top = 'auto';
+        }
+    }
+    initFabPosition();
+
+    fabMainBtn.addEventListener('mousedown', function (e) {
+        if (e.button !== 0) return;
+        const rect = fabContainerEl.getBoundingClientRect();
+        isDragging = false;
+        dragClickPrevented = false;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        dragOrigLeft = rect.left;
+        dragOrigBottom = window.innerHeight - rect.bottom;
+        fabMainBtn.style.cursor = 'grabbing';
+        fabMainBtn.style.transition = 'none';
+        fabContainerEl.style.transition = 'none';
+        e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', function (e) {
+        if (!fabMainBtn || fabMainBtn.style.cursor !== 'grabbing') return;
+        const dx = e.clientX - dragStartX;
+        const dy = e.clientY - dragStartY;
+        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+            isDragging = true;
+            dragClickPrevented = true;
+        }
+        if (isDragging) {
+            const newLeft = dragOrigLeft + dx;
+            const newBottom = dragOrigBottom - dy;
+            fabContainerEl.style.left = newLeft + 'px';
+            fabContainerEl.style.bottom = newBottom + 'px';
+            fabContainerEl.style.right = 'auto';
+            fabContainerEl.style.top = 'auto';
+        }
+    });
+
+    document.addEventListener('mouseup', function () {
+        if (fabMainBtn && fabMainBtn.style.cursor === 'grabbing') {
+            fabMainBtn.style.cursor = 'pointer';
+            fabMainBtn.style.transition = '';
+            fabContainerEl.style.transition = '';
+            if (isDragging) {
+                const rect = fabContainerEl.getBoundingClientRect();
+                const right = window.innerWidth - rect.left;
+                const bottom = window.innerHeight - rect.bottom;
+                // Clamp within viewport
+                const clampedRight = Math.max(10, Math.min(right, window.innerWidth - 60));
+                const clampedBottom = Math.max(10, Math.min(bottom, window.innerHeight - 60));
+                fabContainerEl.style.left = 'auto';
+                fabContainerEl.style.right = clampedRight + 'px';
+                fabContainerEl.style.bottom = clampedBottom + 'px';
+                fabContainerEl.style.top = 'auto';
+                try {
+                    localStorage.setItem('nsc_fab_position', JSON.stringify({ right: clampedRight + 'px', bottom: clampedBottom + 'px' }));
+                } catch(e) {}
+            }
+        }
+    });
+
+    // Touch support
+    fabMainBtn.addEventListener('touchstart', function (e) {
+        const touch = e.touches[0];
+        const rect = fabContainerEl.getBoundingClientRect();
+        isDragging = false;
+        dragClickPrevented = false;
+        dragStartX = touch.clientX;
+        dragStartY = touch.clientY;
+        dragOrigLeft = rect.left;
+        dragOrigBottom = window.innerHeight - rect.bottom;
+        fabContainerEl.style.transition = 'none';
+    }, { passive: true });
+
+    document.addEventListener('touchmove', function (e) {
+        if (!fabMainBtn || dragStartX === undefined) return;
+        const touch = e.touches[0];
+        const dx = touch.clientX - dragStartX;
+        const dy = touch.clientY - dragStartY;
+        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+            isDragging = true;
+            dragClickPrevented = true;
+        }
+        if (isDragging) {
+            const newLeft = dragOrigLeft + dx;
+            const newBottom = dragOrigBottom - dy;
+            fabContainerEl.style.left = newLeft + 'px';
+            fabContainerEl.style.bottom = newBottom + 'px';
+            fabContainerEl.style.right = 'auto';
+            fabContainerEl.style.top = 'auto';
+        }
+    }, { passive: true });
+
+    document.addEventListener('touchend', function () {
+        if (fabMainBtn && isDragging) {
+            fabContainerEl.style.transition = '';
+            const rect = fabContainerEl.getBoundingClientRect();
+            const right = window.innerWidth - rect.left;
+            const bottom = window.innerHeight - rect.bottom;
+            const clampedRight = Math.max(10, Math.min(right, window.innerWidth - 60));
+            const clampedBottom = Math.max(10, Math.min(bottom, window.innerHeight - 60));
+            fabContainerEl.style.left = 'auto';
+            fabContainerEl.style.right = clampedRight + 'px';
+            fabContainerEl.style.bottom = clampedBottom + 'px';
+            fabContainerEl.style.top = 'auto';
+            try {
+                localStorage.setItem('nsc_fab_position', JSON.stringify({ right: clampedRight + 'px', bottom: clampedBottom + 'px' }));
+            } catch(e) {}
+            dragStartX = undefined;
+            dragStartY = undefined;
+        }
+    }, { passive: true });
+
+    // FAB toggle logic (only if not dragging)
+    fabMainBtn?.addEventListener('click', function (e) {
+        if (dragClickPrevented) {
+            dragClickPrevented = false;
+            return;
+        }
         this.classList.toggle('active');
         fabActions.classList.toggle('show');
         playClickSound();
@@ -1111,6 +1753,9 @@ document.addEventListener("DOMContentLoaded", function () {
             } else if (action === 'attendance') {
                 const attendBtn = document.querySelector('.nav-btn[data-tab="attendance-tab"]');
                 if (attendBtn) attendBtn.click();
+            } else if (action === 'project-monitoring') {
+                const projectBtn = document.querySelector('.nav-btn[data-tab="project-monitoring-tab"]');
+                if (projectBtn) projectBtn.click();
             }
 
             fabMain.classList.remove('active');
@@ -1187,6 +1832,14 @@ let chartTypes = {
     vacantPercentPieChart: 'pie',
     staffingChart: 'bar',
     facilitiesChart: 'bar'
+    ,
+    pmGeographicChart: 'bar',
+    pmPhysicalProgressChart: 'bar',
+    pmEconomicProgressChart: 'bar',
+    pmQualityChart: 'bar',
+    pmTimeManagementChart: 'bar',
+    pmComplianceChart: 'pie',
+    pmRiskChart: 'pie'
 };
 
 
@@ -1213,6 +1866,14 @@ const CHART_TYPE_CYCLES = {
     vacantPercentPieChart: ['pie', 'doughnut', 'bar'],
     staffingChart: ['bar', 'pie', 'doughnut', 'line'],
     facilitiesChart: ['bar', 'pie', 'doughnut', 'line']
+    ,
+    pmGeographicChart: ['bar', 'pie', 'doughnut', 'line'],
+    pmPhysicalProgressChart: ['bar', 'pie', 'doughnut', 'line'],
+    pmEconomicProgressChart: ['bar', 'pie', 'doughnut', 'line'],
+    pmQualityChart: ['bar', 'pie', 'doughnut', 'line'],
+    pmTimeManagementChart: ['bar', 'pie', 'doughnut', 'line'],
+    pmComplianceChart: ['pie', 'doughnut', 'bar', 'line'],
+    pmRiskChart: ['pie', 'doughnut', 'bar', 'line']
 };
 
 function updateWordCountDisplay(inputEl, counterId, limit) {
@@ -1439,9 +2100,11 @@ async function loadData() {
 
     loadLocalDataFallback();
     const storedMonitoring = localStorage.getItem("monitoringData_nsc");
-    if (storedMonitoring) allMonitorings = JSON.parse(storedMonitoring);
+    if (storedMonitoring) allMonitorings = JSON.parse(storedMonitoring).map(normalizeMonitoringRecord);
     const storedAttendance = localStorage.getItem("attendanceData_nsc");
     if (storedAttendance) allAttendanceMonitorings = JSON.parse(storedAttendance);
+    const storedProjectMonitoring = localStorage.getItem("projectMonitoringData_nsc");
+    if (storedProjectMonitoring) allProjectMonitorings = JSON.parse(storedProjectMonitoring);
 
 
     switchDashboardView(currentDashboardView);
@@ -1478,7 +2141,7 @@ async function loadData() {
         if (loadingOverlay && loadingOverlay.style.display === "flex" && loadingText) {
             loadingText.innerHTML = `
                 नेटवर्क ढिलो भएकोले डाटा लोड हुन समय लागिरहेको छ।<br>
-                <button onclick="location.reload()" style="margin-top:15px; padding:10px 20px; background:#387ae6; color:white; border:none; border-radius:10px; cursor:pointer; font-family:'Kalimati'; box-shadow: 0 4px 10px rgba(56, 122, 230, 0.3);">🔄 पुनः लोड गर्नुहोस्</button>
+                <button onclick="location.reload()" style="margin-top:15px; padding:5px 10px; background:#387ae6; color:white; border:none; border-radius:10px; cursor:pointer; font-family:'Kalimati'; box-shadow: 0 4px 10px rgba(56, 122, 230, 0.3);">🔄 पुनः लोड गर्नुहोस्</button>
             `;
         }
     }, 10000);
@@ -1503,7 +2166,10 @@ async function loadData() {
                         if (r.monitor_rank && !r.m_monitor_designation) {
                             r.m_monitor_designation = r.monitor_rank;
                         }
-                        return r;
+                        if (!r.m_sthaaniya) {
+                            r.m_sthaaniya = r.sthaaniya || r['स्थानीय तह'] || r['localLevel'] || r['local_level'] || r['locallevel'] || '';
+                        }
+                        return normalizeMonitoringRecord(r);
                     });
                     allMonitorings.reverse();
                     localStorage.setItem("monitoringData_nsc", JSON.stringify(allMonitorings));
@@ -1512,6 +2178,11 @@ async function loadData() {
                     allAttendanceMonitorings = result.attendance;
                     allAttendanceMonitorings.reverse();
                     localStorage.setItem("attendanceData_nsc", JSON.stringify(allAttendanceMonitorings));
+                }
+                if (result.projectMonitoring) {
+                    allProjectMonitorings = result.projectMonitoring;
+                    allProjectMonitorings.reverse();
+                    localStorage.setItem("projectMonitoringData_nsc", JSON.stringify(allProjectMonitorings));
                 }
 
                 refreshDashboard();
@@ -1708,7 +2379,7 @@ document.getElementById("submitSurvey").addEventListener("click", async function
 
             // Clear editing state
             if (payload.editTimestamp) {
-                window.editingRecord = null;
+            closeSurveyEditModal();
                 document.getElementById("submitSurvey").innerHTML = 'पेश गर्नुहोस्';
             }
 
@@ -1850,6 +2521,7 @@ document.getElementById("submitMonitoring")?.addEventListener("click", async fun
         }
 
         if (payload.editTimestamp) {
+            closeMonitoringEditModal();
             window.editingRecord = null;
             document.getElementById("submitMonitoring").innerHTML = 'पेश गर्नुहोस्';
         }
@@ -1875,10 +2547,9 @@ document.getElementById("submitMonitoring")?.addEventListener("click", async fun
 });
 
 
-function addAttendanceRow() {
-    const tbody = document.getElementById("attendanceEntryBody");
+function addAttendanceRow(targetTbodyId = "attendanceEntryBody") {
+    const tbody = document.getElementById(targetTbodyId);
     if (!tbody) return;
-    const rowCount = tbody.rows.length + 1;
     const tr = document.createElement("tr");
     tr.innerHTML = `
         <td>
@@ -1893,6 +2564,20 @@ function addAttendanceRow() {
         <td><input type="text" name="emp_symbol[]" placeholder="संकेत नं."></td>
         <td><input type="text" name="emp_name[]" placeholder="कर्मचारीको नाम"></td>
         <td><input type="text" name="emp_extra[]" placeholder="कैफियत/मिति"></td>
+        <td><button type="button" onclick="this.closest('tr').remove()" style="background:#e74c3c; color:white; border:none; padding:3px 8px; border-radius:4px; font-size: 0.84rem;">हटाउने</button></td>
+    `;
+    tbody.appendChild(tr);
+}
+
+function addProjectMonitoringTeamRow() {
+    const tbody = document.getElementById("pmTeamBody");
+    if (!tbody) return;
+    const rowCount = tbody.rows.length + 1;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+        <td><input type="text" name="pm_team_name[]" placeholder="नाम, थर"></td>
+        <td><input type="text" name="pm_team_rank[]" placeholder="पद"></td>
+        <td><input type="text" name="pm_team_date[]" class="nepali-datepicker" readonly placeholder="मिति"></td>
         <td><button type="button" onclick="this.closest('tr').remove()" style="background:#e74c3c; color:white; border:none; padding:3px 8px; border-radius:4px; font-size: 0.84rem;">हटाउने</button></td>
     `;
     tbody.appendChild(tr);
@@ -2049,6 +2734,95 @@ document.getElementById("submitAttendance")?.addEventListener("click", async fun
     }
 });
 
+document.getElementById("submitProjectMonitoring")?.addEventListener("click", async function () {
+    const form = document.getElementById("projectMonitoringForm");
+    form.classList.add('was-validated');
+
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        playErrorSound("विवरण अधुरो छ, कृपया रातो चिन्ह लागेका क्षेत्रहरू भर्नुहोस्।");
+        return;
+    }
+
+    const formData = new FormData(form);
+    let payload = {
+        type: 'project-monitoring',
+        timestamp: new Date().toISOString()
+    };
+
+    for (let [key, val] of formData.entries()) {
+        if (payload[key]) {
+            if (!Array.isArray(payload[key])) payload[key] = [payload[key]];
+            payload[key].push(val);
+        } else {
+            payload[key] = val;
+        }
+    }
+
+    // Use original timestamp if editing
+    if (window.editingRecord && window.editingRecord.type === 'project-monitoring') {
+        payload.editTimestamp = window.editingRecord.timestamp;
+        payload.timestamp = window.editingRecord.timestamp;
+    }
+
+    payload.pm_pradesh = PROVINCE[payload.pm_pradesh] || payload.pm_pradesh;
+
+    const loadingOverlay = document.getElementById("loadingOverlay");
+    const loadingText = loadingOverlay?.querySelector(".loading-text");
+    if (loadingOverlay) {
+        if (loadingText) loadingText.textContent = "डाटा सुरक्षित हुँदैछ, कृपया केही समय पर्खनुहोस्...";
+        loadingOverlay.style.display = "flex";
+    }
+
+    try {
+        if (payload.editTimestamp) {
+            const idx = allProjectMonitorings.findIndex(r => String(r.timestamp) === String(payload.editTimestamp));
+            if (idx !== -1) {
+                allProjectMonitorings[idx] = payload;
+            } else {
+                allProjectMonitorings.unshift(payload);
+            }
+        } else {
+            allProjectMonitorings.unshift(payload);
+        }
+        localStorage.setItem("projectMonitoringData_nsc", JSON.stringify(allProjectMonitorings));
+
+        if (SCRIPT_URL) {
+            try {
+                await fetch(SCRIPT_URL, { method: "POST", mode: 'no-cors', body: JSON.stringify(payload) });
+            } catch (err) {
+                addToPendingSync(payload);
+                throw err;
+            }
+        }
+
+        if (payload.editTimestamp) {
+            window.editingRecord = null;
+            document.getElementById("submitProjectMonitoring").innerHTML = '✅ आयोजना अनुगमन फारम सुरक्षित गर्नुहोस्';
+        }
+
+        playSuccessSound();
+        Swal.fire({ icon: 'success', title: 'सफल!', text: 'आयोजना अनुगमन फारम सुरक्षित भयो।', confirmButtonColor: '#387ae6' });
+        form.reset();
+        document.getElementById("pmTeamBody").innerHTML = "";
+        addProjectMonitoringTeamRow();
+
+        setTimeout(() => {
+            const dashboardBtn = document.querySelector('.nav-btn[data-tab="dashboard-tab"]');
+            if (dashboardBtn) {
+                dashboardBtn.click();
+            }
+        }, 2000);
+        form.classList.remove('was-validated');
+    } catch (e) {
+        playErrorSound();
+        console.error(e);
+        Swal.fire({ icon: 'info', text: 'डाटा स्थानीय भण्डारणमा सेभ भयो।' });
+    } finally {
+        if (loadingOverlay) loadingOverlay.style.display = "none";
+    }
+});
+
 /**
  * पेन्डिङ रहेका डाटाहरू सर्भरमा पठाउने (Auto Sync)
  */
@@ -2105,6 +2879,10 @@ function refreshDashboard() {
         refreshAttendanceDashboard();
         return;
     }
+    if (currentDashboardView === 'project-monitoring') {
+        refreshProjectMonitoringDashboard();
+        return;
+    }
 
     const pradeshFilter = document.getElementById("filterPradesh")?.value || "";
     const districtFilter = document.getElementById("filterDistrict")?.value || "";
@@ -2134,6 +2912,7 @@ function refreshDashboard() {
         const rOffice = getVal(r, 'mukhya_karyalay', 'कार्यालय');
         const rGender = getVal(r, 'gender', 'लिङ्ग');
 
+        if (!shouldShowRecordForCurrentUser(rSthaaniya)) return false;
         if (pradeshFilter) {
             const provinceName = PROVINCE[pradeshFilter];
             if (rPradesh != pradeshFilter && rPradesh !== provinceName) return false;
@@ -2164,6 +2943,8 @@ function refreshMonitoringDashboard() {
     const monitorFilter = document.getElementById("filterMonitor")?.value.toLowerCase() || "";
 
     let filtered = allMonitorings.filter(r => {
+        const rSthaaniya = getVal(r, 'm_sthaaniya', 'स्थानीय तह');
+        if (!shouldShowRecordForCurrentUser(rSthaaniya)) return false;
         if (pradeshFilter) {
             const provinceName = PROVINCE[pradeshFilter];
             if (r.m_pradesh !== provinceName) return false;
@@ -2306,7 +3087,7 @@ function refreshAttendanceDashboard() {
         const rOffice = getVal(item, 'office', 'कार्यालय');
         const rDate = getVal(item, 'date', 'मिति');
 
-
+        if (!shouldShowRecordForCurrentUser(rSthaaniya)) return false;
         if (pradeshFilter) {
             const provinceName = PROVINCE[pradeshFilter];
             const pStr = String(rPradesh || "").trim();
@@ -2488,6 +3269,455 @@ function refreshAttendanceDashboard() {
     document.getElementById("dynamicChartLabel").textContent = categoryFilter
         ? `कार्यालय अनुसार विवरण (${categoryFilter})`
         : "अपरिपालनाको वर्गीकरण";
+}
+
+function refreshProjectMonitoringDashboard() {
+    const pradeshFilter = (document.getElementById("filterPradesh")?.value || "").trim();
+    const districtFilter = (document.getElementById("filterDistrict")?.value || "").trim();
+    const sthaaniyaFilter = (document.getElementById("filterSthaaniya")?.value || "").trim();
+    const officeFilter = (document.getElementById("filterOffice")?.value || "").toLowerCase().trim();
+    const fromDate = getStandardDate(document.getElementById("filterDateFrom")?.value || "");
+    const toDate = getStandardDate(document.getElementById("filterDateTo")?.value || "");
+
+    const today = estimateCurrentBsDate();
+    const currentMonthStr = BS_MONTHS[today.month - 1];
+    const currentYearStr = toNepaliDigits(today.year);
+
+    let filtered = allProjectMonitorings.filter(r => {
+        const rPradesh = getVal(r, 'pm_pradesh', 'प्रदेश');
+        const rJilla = getVal(r, 'pm_jilla', 'जिल्ला');
+        const rSthaaniya = getVal(r, 'pm_sthaaniya_taha', 'स्थानीय तह');
+        const rOffice = getVal(r, 'pm_implementing_agency', 'कार्यान्वयन निकाय');
+        const rDate = getVal(r, 'pm_monitoring_date', 'मिति');
+
+        if (!shouldShowRecordForCurrentUser(rSthaaniya)) return false;
+        if (pradeshFilter) {
+            const provinceName = PROVINCE[pradeshFilter];
+            const pStr = String(rPradesh || "").trim();
+            if (pStr != pradeshFilter && pStr !== provinceName) return false;
+        }
+        if (districtFilter && String(rJilla || "").trim() !== districtFilter) return false;
+        if (sthaaniyaFilter && String(rSthaaniya || "").trim() !== sthaaniyaFilter) return false;
+        if (officeFilter && !(rOffice || "").toLowerCase().includes(officeFilter)) return false;
+
+        const recDate = getStandardDate(rDate || "");
+        if (fromDate && recDate < fromDate) return false;
+        if (toDate && recDate > toDate) return false;
+
+        return true;
+    });
+
+    currentFilteredProjectMonitorings = filtered;
+
+    const totalProjects = filtered.length;
+    const monthProjects = filtered.filter(r => {
+        const rDate = getVal(r, 'pm_monitoring_date', 'मिति');
+        return rDate && rDate.includes(currentMonthStr) && rDate.includes(currentYearStr);
+    }).length;
+
+    const avgProgress = filtered.length > 0 
+        ? (filtered.reduce((sum, r) => sum + (parseFloat(r.pm_physical_progress) || 0), 0) / filtered.length).toFixed(1)
+        : 0;
+
+    const totalApprovedCost = filtered.reduce((sum, r) => sum + (parseFloat(r.pm_approved_cost) || 0), 0);
+    const totalSpent = filtered.reduce((sum, r) => sum + (parseFloat(r.pm_spent_amount) || 0), 0);
+
+    const highProgressProjects = filtered.filter(r => parseFloat(r.pm_physical_progress) >= 75).length;
+    const lowProgressProjects = filtered.filter(r => parseFloat(r.pm_physical_progress) < 25).length;
+
+    document.getElementById("statCardsContainer").innerHTML = `
+        <div class="stat-card" style="--stat-border-color:#3b82f6; cursor:pointer;" onclick="showDetailedTable(currentFilteredProjectMonitorings, 'कूल आयोजना अनुगमन', 'project-monitoring')">
+            <div class="stat-number"><i class="fas fa-hard-hat" style="color:#3b82f6"></i> ${toNepaliDigits(totalProjects)}</div>
+            <div style="color:#4a5568">कूल आयोजना अनुगमन</div>
+        </div>
+        <div class="stat-card" style="--stat-border-color:#8b5cf6; cursor:pointer;" onclick="showDetailedTable(currentFilteredProjectMonitorings.filter(r => r.pm_monitoring_date && r.pm_monitoring_date.includes('${currentMonthStr}') && r.pm_monitoring_date.includes('${currentYearStr}')), 'यस महिनाको आयोजना अनुगमन', 'project-monitoring')">
+            <div class="stat-number"><i class="fas fa-calendar-check" style="color:#8b5cf6"></i> ${toNepaliDigits(monthProjects)}</div>
+            <div style="color:#4a5568">यस महिनाको आयोजना अनुगमन</div>
+        </div>
+        <div class="stat-card" style="--stat-border-color:#10b981; cursor:pointer;">
+            <div class="stat-number"><i class="fas fa-chart-line" style="color:#10b981"></i> ${toNepaliDigits(avgProgress)}%</div>
+            <div style="color:#4a5568">औसत भौतिक प्रगति</div>
+        </div>
+        <div class="stat-card" style="--stat-border-color:#f59e0b; cursor:pointer;">
+            <div class="stat-number"><i class="fas fa-money-bill-wave" style="color:#f59e0b"></i> ${toNepaliDigits(totalApprovedCost.toLocaleString())}</div>
+            <div style="color:#4a5568">कूल स्वीकृत लागत (रु.)/लाखमा</div>
+        </div>
+        <div class="stat-card" style="--stat-border-color:#ef4444; cursor:pointer;">
+            <div class="stat-number"><i class="fas fa-coins" style="color:#ef4444"></i> ${toNepaliDigits(totalSpent.toLocaleString())}</div>
+            <div style="color:#4a5568">कूल खर्च भएको (रु.)/लाखमा</div>
+        </div>
+        <div class="stat-card" style="--stat-border-color:#6366f1; cursor:pointer;" onclick="showDetailedTable(currentFilteredProjectMonitorings.filter(r => parseFloat(r.pm_physical_progress) >= 75), '७५% भन्दा बढी प्रगति', 'project-monitoring')">
+            <div class="stat-number"><i class="fas fa-arrow-up" style="color:#6366f1"></i> ${toNepaliDigits(highProgressProjects)}</div>
+            <div style="color:#4a5568">७५% भन्दा बढी प्रगति</div>
+        </div>
+        <div class="stat-card" style="--stat-border-color:#ec4899; cursor:pointer;" onclick="showDetailedTable(currentFilteredProjectMonitorings.filter(r => parseFloat(r.pm_physical_progress) < 25), '२५% भन्दा कम प्रगति', 'project-monitoring')">
+            <div class="stat-number"><i class="fas fa-arrow-down" style="color:#ec4899"></i> ${toNepaliDigits(lowProgressProjects)}</div>
+            <div style="color:#4a5568">२५% भन्दा कम प्रगति</div>
+        </div>
+    `;
+
+    const tbody = document.querySelector("#dataTable tbody");
+    if (tbody) {
+        tbody.innerHTML = "";
+        const startIdx = (currentPage - 1) * itemsPerPage;
+        const endIdx = startIdx + itemsPerPage;
+        const pageData = filtered.slice(startIdx, endIdx);
+
+        pageData.forEach(r => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td style="width:10%" data-label="मिति">${getVal(r, 'pm_monitoring_date', 'मिति')}</td>
+                <td style="width:14%" data-label="आयोजनाको नाम">${getVal(r, 'pm_project_name', 'आयोजनाको नाम')}</td>
+                <td style="width:11%" data-label="जिल्ला">${getVal(r, 'pm_jilla', 'जिल्ला')}</td>
+                <td style="width:14%" data-label="कार्यान्वयन निकाय">${getVal(r, 'pm_implementing_agency', 'कार्यान्वयन निकाय')}</td>
+                <td style="width:20%" data-label="ठेकेदार">${getVal(r, 'pm_contractor_name', 'ठेकेदार')}</td>
+                <td style="width:8%" data-label="भौतिक प्रगति (%)">${toNepaliDigits(getVal(r, 'pm_physical_progress', '०'))}%</td>
+                <td style="width:8%" data-label="स्वीकृत लागत (रु. लाखमा)">${toNepaliDigits(parseFloat(getVal(r, 'pm_approved_cost', '0')).toLocaleString())}</td>
+                <td style="width:8%" data-label="खर्च भएको (रु. लाखमा)">${toNepaliDigits(parseFloat(getVal(r, 'pm_spent_amount', '0')).toLocaleString())}</td>
+                <td style="width:9%" data-label="कार्य">
+                    <button class="action-btn btn-view" onclick="showProjectModal('${r.timestamp}', false)" title="हेर्नुहोस्"><i class="fas fa-eye"></i></button>
+                    <button class="action-btn btn-edit" onclick="showProjectModal('${r.timestamp}', true)" title="सम्पादन"><i class="fas fa-edit"></i></button>
+                    <button class="action-btn btn-delete" onclick="deleteRecord('${r.timestamp}', 'project-monitoring')" title="मेटाउनुहोस्"><i class="fas fa-trash"></i></button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        renderPaginationUI(filtered.length);
+    }
+
+    // १. आयोजनाको भौगोलिक वितरण (प्रदेश अनुसार)
+    const provinceCounts = {};
+    filtered.forEach(r => {
+        const pradesh = getVal(r, 'pm_pradesh', 'अज्ञात');
+        provinceCounts[pradesh] = (provinceCounts[pradesh] || 0) + 1;
+    });
+    const provinceLabels = Object.keys(provinceCounts);
+    const provinceValues = Object.values(provinceCounts);
+    const provincePalette = getThemeColors(0.8);
+
+    const pmGeographicCanvas = document.getElementById("pmGeographicChart");
+    if (pmGeographicCanvas) {
+        const pmGeographicCtx = pmGeographicCanvas.getContext('2d');
+        if (window.pmGeographicChart && typeof window.pmGeographicChart.destroy === 'function') window.pmGeographicChart.destroy();
+        const pmGeographicType = chartTypes.pmGeographicChart || 'bar';
+        window.pmGeographicChart = new Chart(pmGeographicCtx, {
+            type: pmGeographicType,
+            data: {
+                labels: provinceLabels,
+                datasets: [{
+                    label: 'आयोजना संख्या',
+                    data: provinceValues,
+                    backgroundColor: provincePalette,
+                    borderRadius: 5,
+                    borderWidth: 1,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                animation: { duration: 2500, easing: 'easeInOutQuart' },
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: pmGeographicType !== 'bar', position: 'bottom' },
+                    tooltip: { callbacks: { label: (ctx) => ` आयोजना संख्या: ${toNepaliDigits(ctx.raw)}` } }
+                },
+                scales: (pmGeographicType === 'bar') ? { y: { beginAtZero: true, ticks: { stepSize: 1, callback: (v) => toNepaliDigits(v) } } } : {}
+            }
+        });
+    }
+
+    // २. आयोजना प्रगति (भौतिक प्रगति)
+    const progressRanges = {
+        '०-२५%': 0,
+        '२६-५०%': 0,
+        '५१-७५%': 0,
+        '७६-१००%': 0
+    };
+
+    filtered.forEach(r => {
+        const progress = parseFloat(r.pm_physical_progress) || 0;
+        if (progress <= 25) progressRanges['०-२५%']++;
+        else if (progress <= 50) progressRanges['२६-५०%']++;
+        else if (progress <= 75) progressRanges['५१-७५%']++;
+        else progressRanges['७६-१००%']++;
+    });
+
+    const progressLabels = Object.keys(progressRanges);
+    const progressValues = Object.values(progressRanges);
+
+    const pmPhysicalProgressCanvas = document.getElementById("pmPhysicalProgressChart");
+    if (pmPhysicalProgressCanvas) {
+        const pmPhysicalProgressCtx = pmPhysicalProgressCanvas.getContext('2d');
+        if (window.pmPhysicalProgressChart && typeof window.pmPhysicalProgressChart.destroy === 'function') window.pmPhysicalProgressChart.destroy();
+        const pmPhysicalType = chartTypes.pmPhysicalProgressChart || 'bar';
+        window.pmPhysicalProgressChart = new Chart(pmPhysicalProgressCtx, {
+            type: pmPhysicalType,
+            data: {
+                labels: progressLabels,
+                datasets: [{
+                    label: 'आयोजना संख्या',
+                    data: progressValues,
+                    backgroundColor: ['#ef4444', '#f59e0b', '#3b82f6', '#10b981'],
+                    borderRadius: 5,
+                    borderWidth: 1,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                animation: { duration: 2500, easing: 'easeInOutQuart' },
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: pmPhysicalType !== 'bar', position: 'bottom' },
+                    tooltip: { callbacks: { label: (ctx) => ` आयोजना संख्या: ${toNepaliDigits(ctx.raw)}` } }
+                },
+                scales: (pmPhysicalType === 'bar') ? { y: { beginAtZero: true, ticks: { stepSize: 1, callback: (v) => toNepaliDigits(v) } } } : {}
+            }
+        });
+    }
+
+    // ३. आर्थिक प्रगति (स्वीकृत लागत vs खर्च)
+    const totalApproved = filtered.reduce((sum, r) => sum + (parseFloat(r.pm_approved_cost) || 0), 0);
+    const totalSpentForChart = filtered.reduce((sum, r) => sum + (parseFloat(r.pm_spent_amount) || 0), 0);
+    const avgSpentPercent = totalApproved > 0 ? ((totalSpentForChart / totalApproved) * 100).toFixed(1) : 0;
+
+    const pmEconomicProgressCanvas = document.getElementById("pmEconomicProgressChart");
+    if (pmEconomicProgressCanvas) {
+        const pmEconomicProgressCtx = pmEconomicProgressCanvas.getContext('2d');
+        if (window.pmEconomicProgressChart && typeof window.pmEconomicProgressChart.destroy === 'function') window.pmEconomicProgressChart.destroy();
+        const pmEconomicType = chartTypes.pmEconomicProgressChart || 'bar';
+        window.pmEconomicProgressChart = new Chart(pmEconomicProgressCtx, {
+        type: pmEconomicType,
+        data: {
+            labels: ['स्वीकृत लागत', 'हालसम्म खर्च'],
+            datasets: [{
+                label: 'रकम (रु.)',
+                data: [totalApproved, totalSpentForChart],
+                backgroundColor: ['#3b82f6', '#10b981'],
+                borderRadius: 5,
+                borderWidth: 1,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            animation: { duration: 2500, easing: 'easeInOutQuart' },
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: pmEconomicType !== 'bar', position: 'bottom' },
+                tooltip: { callbacks: { label: (ctx) => ` ${toNepaliDigits(ctx.raw.toLocaleString())} रु.` } }
+            },
+            scales: (pmEconomicType === 'bar') ? { y: { beginAtZero: true, ticks: { callback: (v) => toNepaliDigits(v.toLocaleString()) } } } : {}
+        }
+        });
+    }
+
+    // ४. गुणस्तर तथा प्राविधिक पक्ष
+    const qualityMetrics = {
+        'डिजाइन मापदण्ड अनुरूप': { yes: 0, no: 0 },
+        'सामग्रीको गुणस्तर': { yes: 0, no: 0 },
+        'कानून/निर्देशिका पालना': { yes: 0, no: 0 },
+        'Lab Test भएको': { yes: 0, no: 0 }
+    };
+
+    filtered.forEach(r => {
+        if (r.pm_quality_1 === 'छ') qualityMetrics['डिजाइन मापदण्ड अनुरूप'].yes++; else if (r.pm_quality_1 === 'छैन') qualityMetrics['डिजाइन मापदण्ड अनुरूप'].no++;
+        if (r.pm_quality_2 === 'छ') qualityMetrics['सामग्रीको गुणस्तर'].yes++; else if (r.pm_quality_2 === 'छैन') qualityMetrics['सामग्रीको गुणस्तर'].no++;
+        if (r.pm_quality_3 === 'छ') qualityMetrics['कानून/निर्देशिका पालना'].yes++; else if (r.pm_quality_3 === 'छैन') qualityMetrics['कानून/निर्देशिका पालना'].no++;
+        if (r.pm_quality_4 === 'छ') qualityMetrics['Lab Test भएको'].yes++; else if (r.pm_quality_4 === 'छैन') qualityMetrics['Lab Test भएको'].no++;
+    });
+
+    const qualityLabels = Object.keys(qualityMetrics);
+    const qualityYesValues = qualityLabels.map(k => qualityMetrics[k].yes);
+    const qualityNoValues = qualityLabels.map(k => qualityMetrics[k].no);
+
+    const pmQualityCanvas = document.getElementById("pmQualityChart");
+    if (pmQualityCanvas) {
+        const pmQualityCtx = pmQualityCanvas.getContext('2d');
+        if (window.pmQualityChart && typeof window.pmQualityChart.destroy === 'function') window.pmQualityChart.destroy();
+        const pmQualityType = chartTypes.pmQualityChart || 'bar';
+        window.pmQualityChart = new Chart(pmQualityCtx, {
+        type: pmQualityType,
+        data: {
+            labels: qualityLabels,
+            datasets: [
+                {
+                    label: 'छ',
+                    data: qualityYesValues,
+                    backgroundColor: '#10b981',
+                    borderRadius: 5
+                },
+                {
+                    label: 'छैन',
+                    data: qualityNoValues,
+                    backgroundColor: '#ef4444',
+                    borderRadius: 5
+                }
+            ]
+        },
+        options: Object.assign({
+            animation: { duration: 2500, easing: 'easeInOutQuart' },
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', display: pmQualityType !== 'bar' },
+                tooltip: { callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${toNepaliDigits(ctx.raw)}` } }
+            }
+        }, pmQualityType === 'bar' ? { indexAxis: 'y', scales: { x: { beginAtZero: true, ticks: { stepSize: 1, callback: (v) => toNepaliDigits(v) } } } } : {} )
+        });
+    }
+
+    // ५. आर्थिक तथा समय व्यवस्थापन
+    const timeMetrics = {
+        'बजेट समयमै': { yes: 0, no: 0 },
+        'Schedule अनुसार': { yes: 0, no: 0 },
+        'लागतभित्र सम्पन्न': { yes: 0, no: 0 },
+        'Variation भएको': { yes: 0, no: 0 }
+    };
+
+    filtered.forEach(r => {
+        if (r.pm_economic_1 === 'छ') timeMetrics['बजेट समयमै'].yes++; else if (r.pm_economic_1 === 'छैन') timeMetrics['बजेट समयमै'].no++;
+        if (r.pm_economic_2 === 'छ') timeMetrics['Schedule अनुसार'].yes++; else if (r.pm_economic_2 === 'छैन') timeMetrics['Schedule अनुसार'].no++;
+        if (r.pm_economic_3 === 'छ') timeMetrics['लागतभित्र सम्पन्न'].yes++; else if (r.pm_economic_3 === 'छैन') timeMetrics['लागतभित्र सम्पन्न'].no++;
+        if (r.pm_economic_4 === 'छ') timeMetrics['Variation भएको'].yes++; else if (r.pm_economic_4 === 'छैन') timeMetrics['Variation भएको'].no++;
+    });
+
+    const timeLabels = Object.keys(timeMetrics);
+    const timeYesValues = timeLabels.map(k => timeMetrics[k].yes);
+    const timeNoValues = timeLabels.map(k => timeMetrics[k].no);
+
+    const pmTimeManagementCanvas = document.getElementById("pmTimeManagementChart");
+    if (pmTimeManagementCanvas) {
+        const pmTimeManagementCtx = pmTimeManagementCanvas.getContext('2d');
+        if (window.pmTimeManagementChart && typeof window.pmTimeManagementChart.destroy === 'function') window.pmTimeManagementChart.destroy();
+        const pmTimeType = chartTypes.pmTimeManagementChart || 'bar';
+        window.pmTimeManagementChart = new Chart(pmTimeManagementCtx, {
+        type: pmTimeType,
+        data: {
+            labels: timeLabels,
+            datasets: [
+                {
+                    label: 'छ',
+                    data: timeYesValues,
+                    backgroundColor: '#10b981',
+                    borderRadius: 5
+                },
+                {
+                    label: 'छैन',
+                    data: timeNoValues,
+                    backgroundColor: '#ef4444',
+                    borderRadius: 5
+                }
+            ]
+        },
+        options: Object.assign({
+            animation: { duration: 2500, easing: 'easeInOutQuart' },
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', display: pmTimeType !== 'bar' },
+                tooltip: { callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${toNepaliDigits(ctx.raw)}` } }
+            }
+        }, pmTimeType === 'bar' ? { scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1, callback: (v) => toNepaliDigits(v) } } } } : {} )
+        });
+    }
+
+    // ६. समग्र अनुपालन स्कोर
+    const complianceScores = { '८०-१००% (उत्कृष्ट)': 0, '६०-७९% (राम्रो)': 0, '४०-५९% (सुधार आवश्यक)': 0, '४०% भन्दा कम (कमजोर)': 0 };
+    
+    filtered.forEach(r => {
+        let yesCount = 0;
+        let totalCount = 0;
+        const qualityFields = ['pm_quality_1', 'pm_quality_2', 'pm_quality_3', 'pm_quality_4', 'pm_economic_1', 'pm_economic_2', 'pm_economic_3', 'pm_economic_4', 'pm_procurement_1', 'pm_procurement_2', 'pm_procurement_3'];
+        qualityFields.forEach(field => {
+            if (r[field]) {
+                totalCount++;
+                if (r[field] === 'छ') yesCount++;
+            }
+        });
+        
+        if (totalCount > 0) {
+            const score = (yesCount / totalCount) * 100;
+            if (score >= 80) complianceScores['८०-१००% (उत्कृष्ट)']++;
+            else if (score >= 60) complianceScores['६०-७९% (राम्रो)']++;
+            else if (score >= 40) complianceScores['४०-५९% (सुधार आवश्यक)']++;
+            else complianceScores['४०% भन्दा कम (कमजोर)']++;
+        }
+    });
+
+    const complianceLabels = Object.keys(complianceScores);
+    const complianceValues = Object.values(complianceScores);
+
+    const pmComplianceCanvas = document.getElementById("pmComplianceChart");
+    if (pmComplianceCanvas) {
+        const pmComplianceCtx = pmComplianceCanvas.getContext('2d');
+        if (window.pmComplianceChart && typeof window.pmComplianceChart.destroy === 'function') window.pmComplianceChart.destroy();
+        const pmComplianceType = chartTypes.pmComplianceChart || 'pie';
+        window.pmComplianceChart = new Chart(pmComplianceCtx, {
+        type: pmComplianceType,
+        data: {
+            labels: complianceLabels,
+            datasets: [{
+                data: complianceValues,
+                backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'],
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            animation: { duration: 2500, easing: 'easeInOutQuart' },
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', display: pmComplianceType !== 'bar' },
+                tooltip: { callbacks: { label: (ctx) => ` ${ctx.label}: ${toNepaliDigits(ctx.raw)}` } }
+            },
+            scales: (pmComplianceType === 'bar') ? { y: { beginAtZero: true, ticks: { callback: (v) => toNepaliDigits(v) } } } : {}
+        }
+        });
+    }
+
+    // ७. समय र लागत जोखिम
+    const riskCounts = { 'म्याद थप भएको': 0, 'लागत वृद्धि भएको': 0, 'समयमै सम्पन्न': 0 };
+    
+    filtered.forEach(r => {
+        if (r.pm_economic_4 === 'छ') riskCounts['म्याद थप भएको']++;
+        if (r.pm_economic_4 === 'छैन') riskCounts['समयमै सम्पन्न']++;
+        if (r.pm_economic_3 === 'छैन') riskCounts['लागत वृद्धि भएको']++;
+    });
+
+    const riskLabels = Object.keys(riskCounts);
+    const riskValues = Object.values(riskCounts);
+
+    const pmRiskCanvas = document.getElementById("pmRiskChart");
+    if (pmRiskCanvas) {
+        const pmRiskCtx = pmRiskCanvas.getContext('2d');
+        if (window.pmRiskChart && typeof window.pmRiskChart.destroy === 'function') window.pmRiskChart.destroy();
+        const pmRiskType = chartTypes.pmRiskChart || 'pie';
+        window.pmRiskChart = new Chart(pmRiskCtx, {
+        type: pmRiskType,
+        data: {
+            labels: riskLabels,
+            datasets: [{
+                data: riskValues,
+                backgroundColor: ['#ef4444', '#f59e0b', '#10b981'],
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            animation: { duration: 2500, easing: 'easeInOutQuart' },
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', display: pmRiskType !== 'bar' },
+                tooltip: { callbacks: { label: (ctx) => ` ${ctx.label}: ${toNepaliDigits(ctx.raw)}` } }
+            },
+            scales: (pmRiskType === 'bar') ? { y: { beginAtZero: true, ticks: { callback: (v) => toNepaliDigits(v) } } } : {}
+        }
+        });
+    }
 }
 
 
@@ -3703,8 +4933,15 @@ function switchDashboardView(view) {
     const surveyBtn = document.getElementById("showSurveyView");
     const monitoringBtn = document.getElementById("showMonitoringView");
     const attendanceBtn = document.getElementById("showAttendanceView");
+    const projectMonitoringBtn = document.getElementById("showProjectMonitoringView");
     const pdfBtn = document.getElementById("downloadAttendancePDF");
     const excelBtn = document.getElementById("exportExcelBtn");
+
+    // AI buttons
+    const surveyAiBtn = document.getElementById("generateSurveyAiSummaryBtn");
+    const monitoringAiBtn = document.getElementById("generateMonitoringAiSummaryBtn");
+    const attendanceAiBtn = document.getElementById("generateAttendanceAiSummaryBtn");
+    const projectAiBtn = document.getElementById("generateProjectAiSummaryBtn");
 
     const tableHead = document.querySelector("#dataTable thead");
     const extraFilters = document.getElementById("attendanceExtraFilters");
@@ -3712,12 +4949,20 @@ function switchDashboardView(view) {
     const toggleMBtn = document.getElementById("toggleMonitoringFilters");
     const toggleAlertsBtn = document.getElementById("toggleAlertsVisibilityBtn");
 
+    // Hide all AI buttons first
+    if (surveyAiBtn) surveyAiBtn.style.display = "none";
+    if (monitoringAiBtn) monitoringAiBtn.style.display = "none";
+    if (attendanceAiBtn) attendanceAiBtn.style.display = "none";
+    if (projectAiBtn) projectAiBtn.style.display = "none";
+
     if (view === 'survey') {
         if (pdfBtn) pdfBtn.style.display = "none";
         if (excelBtn) excelBtn.style.display = "block";
+        if (surveyAiBtn) surveyAiBtn.style.display = "inline-block";
         surveyBtn?.classList.add("active");
         monitoringBtn?.classList.remove("active");
         attendanceBtn?.classList.remove("active");
+        projectMonitoringBtn?.classList.remove("active");
         if (extraFilters) extraFilters.style.display = "none";
         if (monitoringExtraFilters) monitoringExtraFilters.style.display = "none";
         if (toggleMBtn) toggleMBtn.style.display = "none";
@@ -3735,6 +4980,7 @@ function switchDashboardView(view) {
         document.getElementById("monitoringChartsRow")?.style.setProperty('display', 'none', 'important');
         document.getElementById("monitoringAlertsSection")?.style.setProperty('display', 'none', 'important');
         document.getElementById("monitoringDetailsSection")?.style.setProperty('display', 'none', 'important');
+        document.getElementById("projectMonitoringChartsRow")?.style.setProperty('display', 'none', 'important');
 
         if (tableHead) {
             tableHead.innerHTML = `<tr>
@@ -3755,9 +5001,11 @@ function switchDashboardView(view) {
     } else if (view === 'attendance') {
         if (pdfBtn) pdfBtn.style.display = "block";
         if (excelBtn) excelBtn.style.display = "block";
+        if (attendanceAiBtn) attendanceAiBtn.style.display = "inline-block";
         attendanceBtn?.classList.add("active");
         surveyBtn?.classList.remove("active");
         monitoringBtn?.classList.remove("active");
+        projectMonitoringBtn?.classList.remove("active");
         if (extraFilters) extraFilters.style.display = "flex";
         if (monitoringExtraFilters) monitoringExtraFilters.style.display = "none";
         if (toggleMBtn) toggleMBtn.style.display = "none";
@@ -3775,6 +5023,7 @@ function switchDashboardView(view) {
         }
 
         document.getElementById("monitoringDetailsSection")?.style.setProperty('display', 'none', 'important');
+        document.getElementById("projectMonitoringChartsRow")?.style.setProperty('display', 'none', 'important');
 
         if (tableHead) {
             tableHead.innerHTML = `<tr>
@@ -3792,12 +5041,54 @@ function switchDashboardView(view) {
 
         const genderFilter = document.getElementById("filterGender")?.closest('.filter-item');
         if (genderFilter) genderFilter.style.display = "none";
+    } else if (view === 'project-monitoring') {
+        if (pdfBtn) pdfBtn.style.display = "none";
+        if (excelBtn) excelBtn.style.display = "block";
+        if (projectAiBtn) projectAiBtn.style.display = "inline-block";
+        projectMonitoringBtn?.classList.add("active");
+        surveyBtn?.classList.remove("active");
+        monitoringBtn?.classList.remove("active");
+        attendanceBtn?.classList.remove("active");
+        if (extraFilters) extraFilters.style.display = "none";
+        if (monitoringExtraFilters) monitoringExtraFilters.style.display = "none";
+        if (toggleMBtn) toggleMBtn.style.display = "none";
+        if (toggleAlertsBtn) toggleAlertsBtn.style.display = "none";
+
+        document.getElementById("surveyChartsRow")?.style.setProperty('display', 'none', 'important');
+        document.getElementById("monitoringChartsRow")?.style.setProperty('display', 'none', 'important');
+        document.getElementById("topOfficesRow")?.style.setProperty('display', 'none', 'important');
+        document.getElementById("surveyDynamicAnalysis")?.style.setProperty('display', 'none', 'important');
+        document.getElementById("monitoringAlertsSection")?.style.setProperty('display', 'none', 'important');
+        document.getElementById("monitoringDetailsSection")?.style.setProperty('display', 'none', 'important');
+        document.getElementById("projectMonitoringChartsRow")?.style.setProperty('display', 'flex', 'important');
+
+        if (tableHead) {
+            tableHead.innerHTML = `<tr>
+                <th style="width:10%">मिति</th>
+                <th style="width:14%">आयोजनाको नाम</th>
+                <th style="width:11%">जिल्ला</th>
+                <th style="width:14%">कार्यान्वयन निकाय</th>
+                <th style="width:20%">ठेकेदार</th>
+                <th style="width:8%">भौतिक प्रगति (%)</th>
+                <th style="width:8%">स्वीकृत लागत (रु. लाखमा)</th>
+                <th style="width:8%">खर्च भएको (रु. लाखमा)</th>
+                <th style="width:9%">कार्य</th>
+            </tr>`;
+        }
+
+        const genderFilter = document.getElementById("filterGender")?.closest('.filter-item');
+        if (genderFilter) genderFilter.style.display = "none";
+
+        const stored = localStorage.getItem("projectMonitoringData_nsc");
+        if (stored) allProjectMonitorings = JSON.parse(stored);
     } else {
         if (pdfBtn) pdfBtn.style.display = "none";
         if (excelBtn) excelBtn.style.display = "block";
+        if (monitoringAiBtn) monitoringAiBtn.style.display = "inline-block";
         monitoringBtn?.classList.add("active");
         surveyBtn?.classList.remove("active");
         attendanceBtn?.classList.remove("active");
+        projectMonitoringBtn?.classList.remove("active");
         if (extraFilters) extraFilters.style.display = "none";
         if (toggleMBtn) toggleMBtn.style.display = "block";
         if (toggleAlertsBtn) toggleAlertsBtn.style.display = "inline-flex";
@@ -3808,6 +5099,7 @@ function switchDashboardView(view) {
         document.getElementById("monitoringChartsRow")?.style.setProperty('display', 'flex', 'important');
         document.getElementById("monitoringAlertsSection")?.style.setProperty('display', 'block', 'important');
         document.getElementById("monitoringDetailsSection")?.style.setProperty('display', 'block', 'important');
+        document.getElementById("projectMonitoringChartsRow")?.style.setProperty('display', 'none', 'important');
 
         if (tableHead) {
             tableHead.innerHTML = `<tr>
@@ -3836,9 +5128,543 @@ function switchDashboardView(view) {
 document.getElementById("showSurveyView")?.addEventListener("click", () => switchDashboardView('survey'));
 document.getElementById("showMonitoringView")?.addEventListener("click", () => switchDashboardView('monitoring'));
 document.getElementById("showAttendanceView")?.addEventListener("click", () => switchDashboardView('attendance'));
+document.getElementById("showProjectMonitoringView")?.addEventListener("click", () => switchDashboardView('project-monitoring'));
 document.getElementById("downloadAttendancePDF")?.addEventListener("click", downloadAttendancePDF);
 document.getElementById("exportExcelBtn")?.addEventListener("click", exportToExcel);
 
+// AI Summary button handlers for different dashboard views
+document.getElementById('generateSurveyAiSummaryBtn')?.addEventListener('click', throttle(async () => {
+    const data = currentFilteredSubmissions.length ? currentFilteredSubmissions : allSubmissions;
+    if (!data || data.length === 0) return Swal.fire({ icon: 'info', text: 'समावेश गर्ने सर्वेक्षण डाटा छैन।' });
+
+    Swal.fire({ title: 'AI सारांश तयार गर्दै...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+    try {
+        // Calculate aggregates
+        const satisfied = data.filter(d => d.main_satisfaction === 'सन्तुष्ट').length;
+        const unsatisfied = data.filter(d => d.main_satisfaction === 'असन्तुष्ट').length;
+        const ghusCases = data.filter(d => d.ghus_parera === 'हो').length;
+        const brokerCases = data.filter(d => d.sahayog_parera === 'हो' && d.helper_type === 'दलाल/मध्यस्थकर्ता').length;
+        
+        const aggregates = {
+            total_surveys: data.length,
+            satisfied_count: satisfied,
+            unsatisfied_count: unsatisfied,
+            satisfaction_rate: ((satisfied / data.length) * 100).toFixed(2),
+            corruption_cases: ghusCases,
+            broker_cases: brokerCases
+        };
+
+        const payload = {
+            action: 'analyze',
+            data: {
+                aggregates: aggregates,
+                type: 'survey'
+            }
+        };
+
+        const resp = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+        const text = await resp.text();
+        Swal.close();
+
+        // Expect JSON string from server
+        let json;
+        try { json = JSON.parse(text); } catch (e) { json = { error: text }; }
+
+        // store last response + payload for manual save
+        window.lastAiSummaryResponse = json && json.parsed ? json : { raw: text };
+        window.lastAiSummaryPayload = payload;
+
+        const modal = document.getElementById('aiSummaryModal');
+        const content = document.getElementById('aiSummaryContent');
+        const title = document.getElementById('aiSummaryTitle');
+        
+        if (title) title.textContent = 'सेवाग्राही सर्वेक्षण AI सारांश र सुझावहरू';
+        
+        if (json && json.error) {
+            if (json.detail && json.detail.includes('429') || json.detail && json.detail.includes('quota')) {
+                content.innerHTML = '<div class="ai-error">❌ API Quota Exceeded<br><br>तपाईंले Gemini API को दैनिक quota (20 requests) पूरा गरिसक्नुभयो।<br>कृपया केही समय पछि पुन: प्रयास गर्नुहोस् वा paid plan मा upgrade गर्नुहोस्।<br><br>विस्तृत जानकारी: <a href="https://ai.google.dev/gemini-api/docs/rate-limits" target="_blank">Gemini API Rate Limits</a></div>';
+            } else {
+                content.innerHTML = '<div class="ai-error">❌ त्रुटि: ' + json.error + (json.detail ? '<br><br>' + json.detail : '') + '</div>';
+            }
+        } else if (json && json.parsed) {
+            const p = json.parsed;
+            let html = '';
+            
+            if (p.summary) {
+                html += '<div class="ai-section">';
+                html += '<h3>📋 सारांश</h3>';
+                html += formatAiTextToParagraphs(p.summary);
+                html += '</div>';
+            }
+            
+            if (p.suggestions && p.suggestions.length) {
+                html += '<div class="ai-section">';
+                html += '<h3>💡 सुझावहरू</h3>';
+                html += '<ol class="ai-suggestions-list">';
+                p.suggestions.forEach((s, i) => {
+                    html += '<li class="ai-suggestion-item">';
+                    if (typeof s === 'object' && s !== null) {
+                        if (s.action) html += '<strong class="ai-action">' + s.action + '</strong>';
+                        if (s.details) {
+                            html += formatAiTextToParagraphs(s.details).replace(/<p>/g, '<p class="ai-details">');
+                        }
+                        if (s.who || s.when) {
+                            html += '<div class="ai-meta">';
+                            if (s.who) html += '<span class="ai-who">👤 ' + s.who + '</span>';
+                            if (s.when) html += '<span class="ai-when">⏰ ' + s.when + '</span>';
+                            html += '</div>';
+                        }
+                    } else {
+                        // Handle string suggestions
+                        html += s;
+                    }
+                    html += '</li>';
+                });
+                html += '</ol>';
+                html += '</div>';
+            }
+            
+            if (p.kpis && p.kpis.length) {
+                html += '<div class="ai-section">';
+                html += '<h3>📊 KPIs (प्रदर्शन सूचकहरू)</h3>';
+                html += '<ul class="ai-kpis-list">';
+                p.kpis.forEach((k, i) => {
+                    html += '<li>' + k + '</li>';
+                });
+                html += '</ul>';
+                html += '</div>';
+            }
+            
+            if (json.raw) {
+                html += '<div class="ai-section">';
+                html += '<details class="ai-raw-details">';
+                html += '<summary>Raw AI Output देखाउनुहोस्</summary>';
+                html += '<pre class="ai-raw-content">' + escapeHtml(stripCodeFence(json.raw || '')) + '</pre>';
+                html += '</details>';
+                html += '</div>';
+            }
+            
+            content.innerHTML = html;
+        } else {
+            content.innerHTML = '<pre>' + (typeof text === 'string' ? text : JSON.stringify(json, null, 2)) + '</pre>';
+        }
+        
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    } catch (err) {
+        Swal.close();
+        console.error(err);
+        Swal.fire({ icon: 'error', text: 'AI सारांश प्राप्त गर्दा समस्या भयो।' });
+    }
+}, 30000));
+
+document.getElementById('generateMonitoringAiSummaryBtn')?.addEventListener('click', throttle(async () => {
+    const data = currentFilteredMonitorings.length ? currentFilteredMonitorings : allMonitorings;
+    if (!data || data.length === 0) return Swal.fire({ icon: 'info', text: 'समावेश गर्ने अनुगमन डाटा छैन।' });
+
+    Swal.fire({ title: 'AI सारांश तयार गर्दै...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+    try {
+        const charterClear = data.filter(d => d.m_q1 === 'हो').length;
+        const processClear = data.filter(d => d.m_q2 === 'हो').length;
+        const staffFound = data.filter(d => d.m_q9 === 'हो').length;
+        
+        const aggregates = {
+            total_monitorings: data.length,
+            charter_clear_count: charterClear,
+            process_clear_count: processClear,
+            staff_found_count: staffFound,
+            compliance_rate: (((charterClear + processClear + staffFound) / (data.length * 3)) * 100).toFixed(2)
+        };
+
+        const payload = {
+            action: 'analyze',
+            data: {
+                aggregates: aggregates,
+                type: 'monitoring'
+            }
+        };
+
+        const resp = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+        const text = await resp.text();
+        Swal.close();
+
+        let json;
+        try { json = JSON.parse(text); } catch (e) { json = { error: text }; }
+
+        window.lastAiSummaryResponse = json && json.parsed ? json : { raw: text };
+        window.lastAiSummaryPayload = payload;
+
+        const modal = document.getElementById('aiSummaryModal');
+        const content = document.getElementById('aiSummaryContent');
+        const title = document.getElementById('aiSummaryTitle');
+        
+        if (title) title.textContent = 'कार्यालय अनुगमन AI सारांश र सुझावहरू';
+        
+        if (json && json.error) {
+            if (json.detail && json.detail.includes('429') || json.detail && json.detail.includes('quota')) {
+                content.innerHTML = '<div class="ai-error">❌ API Quota Exceeded<br><br>तपाईंले Gemini API को दैनिक quota (20 requests) पूरा गरिसक्नुभयो।<br>कृपया केही समय पछि पुन: प्रयास गर्नुहोस् वा paid plan मा upgrade गर्नुहोस्।<br><br>विस्तृत जानकारी: <a href="https://ai.google.dev/gemini-api/docs/rate-limits" target="_blank">Gemini API Rate Limits</a></div>';
+            } else {
+                content.innerHTML = '<div class="ai-error">❌ त्रुटि: ' + json.error + (json.detail ? '<br><br>' + json.detail : '') + '</div>';
+            }
+        } else if (json && json.parsed) {
+            const p = json.parsed;
+            let html = '';
+            
+            if (p.summary) {
+                html += '<div class="ai-section">';
+                html += '<h3>📋 सारांश</h3>';
+                html += formatAiTextToParagraphs(p.summary);
+                html += '</div>';
+            }
+            
+            if (p.suggestions && p.suggestions.length) {
+                html += '<div class="ai-section">';
+                html += '<h3>💡 सुझावहरू</h3>';
+                html += '<ol class="ai-suggestions-list">';
+                p.suggestions.forEach((s, i) => {
+                    html += '<li class="ai-suggestion-item">';
+                    if (typeof s === 'object' && s !== null) {
+                        if (s.action) html += '<strong class="ai-action">' + s.action + '</strong>';
+                        if (s.details) {
+                            html += formatAiTextToParagraphs(s.details).replace(/<p>/g, '<p class="ai-details">');
+                        }
+                        if (s.who || s.when) {
+                            html += '<div class="ai-meta">';
+                            if (s.who) html += '<span class="ai-who">👤 ' + s.who + '</span>';
+                            if (s.when) html += '<span class="ai-when">⏰ ' + s.when + '</span>';
+                            html += '</div>';
+                        }
+                    } else {
+                        // Handle string suggestions
+                        html += s;
+                    }
+                    html += '</li>';
+                });
+                html += '</ol>';
+                html += '</div>';
+            }
+            
+            if (p.kpis && p.kpis.length) {
+                html += '<div class="ai-section">';
+                html += '<h3>📊 KPIs (प्रदर्शन सूचकहरू)</h3>';
+                html += '<ul class="ai-kpis-list">';
+                p.kpis.forEach((k, i) => {
+                    html += '<li>' + k + '</li>';
+                });
+                html += '</ul>';
+                html += '</div>';
+            }
+            
+            if (json.raw) {
+                html += '<div class="ai-section">';
+                html += '<details class="ai-raw-details">';
+                html += '<summary>Raw AI Output देखाउनुहोस्</summary>';
+                html += '<pre class="ai-raw-content">' + escapeHtml(stripCodeFence(json.raw || '')) + '</pre>';
+                html += '</details>';
+                html += '</div>';
+            }
+            
+            content.innerHTML = html;
+        } else {
+            content.innerHTML = '<pre>' + (typeof text === 'string' ? text : JSON.stringify(json, null, 2)) + '</pre>';
+        }
+        
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    } catch (err) {
+        Swal.close();
+        console.error(err);
+        Swal.fire({ icon: 'error', text: 'AI सारांश प्राप्त गर्दा समस्या भयो।' });
+    }
+}, 30000));
+
+document.getElementById('generateAttendanceAiSummaryBtn')?.addEventListener('click', throttle(async () => {
+    const data = currentFilteredAttendance.length ? currentFilteredAttendance : allAttendanceMonitorings;
+    if (!data || data.length === 0) return Swal.fire({ icon: 'info', text: 'समावेश गर्ने समय पालना डाटा छैन।' });
+
+    Swal.fire({ title: 'AI सारांश तयार गर्दै...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+    try {
+        const absentCount = data.reduce((sum, d) => sum + (d.total_staff - d.working_staff), 0);
+        const totalStaff = data.reduce((sum, d) => sum + d.total_staff, 0);
+        
+        const aggregates = {
+            total_monitorings: data.length,
+            total_staff_count: totalStaff,
+            absent_count: absentCount,
+            attendance_rate: ((totalStaff - absentCount) / totalStaff * 100).toFixed(2)
+        };
+
+        const payload = {
+            action: 'analyze',
+            data: {
+                aggregates: aggregates,
+                type: 'attendance'
+            }
+        };
+
+        const resp = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+        const text = await resp.text();
+        Swal.close();
+
+        let json;
+        try { json = JSON.parse(text); } catch (e) { json = { error: text }; }
+
+        window.lastAiSummaryResponse = json && json.parsed ? json : { raw: text };
+        window.lastAiSummaryPayload = payload;
+
+        const modal = document.getElementById('aiSummaryModal');
+        const content = document.getElementById('aiSummaryContent');
+        const title = document.getElementById('aiSummaryTitle');
+        
+        if (title) title.textContent = 'समय पालना AI सारांश र सुझावहरू';
+        
+        if (json && json.error) {
+            if (json.detail && json.detail.includes('429') || json.detail && json.detail.includes('quota')) {
+                content.innerHTML = '<div class="ai-error">❌ API Quota Exceeded<br><br>तपाईंले Gemini API को दैनिक quota (20 requests) पूरा गरिसक्नुभयो।<br>कृपया केही समय पछि पुन: प्रयास गर्नुहोस् वा paid plan मा upgrade गर्नुहोस्।<br><br>विस्तृत जानकारी: <a href="https://ai.google.dev/gemini-api/docs/rate-limits" target="_blank">Gemini API Rate Limits</a></div>';
+            } else {
+                content.innerHTML = '<div class="ai-error">❌ त्रुटि: ' + json.error + (json.detail ? '<br><br>' + json.detail : '') + '</div>';
+            }
+        } else if (json && json.parsed) {
+            const p = json.parsed;
+            let html = '';
+            
+            if (p.summary) {
+                html += '<div class="ai-section">';
+                html += '<h3>📋 सारांश</h3>';
+                html += formatAiTextToParagraphs(p.summary);
+                html += '</div>';
+            }
+            
+            if (p.suggestions && p.suggestions.length) {
+                html += '<div class="ai-section">';
+                html += '<h3>💡 सुझावहरू</h3>';
+                html += '<ol class="ai-suggestions-list">';
+                p.suggestions.forEach((s, i) => {
+                    html += '<li class="ai-suggestion-item">';
+                    if (typeof s === 'object' && s !== null) {
+                        if (s.action) html += '<strong class="ai-action">' + s.action + '</strong>';
+                        if (s.details) {
+                            html += formatAiTextToParagraphs(s.details).replace(/<p>/g, '<p class="ai-details">');
+                        }
+                        if (s.who || s.when) {
+                            html += '<div class="ai-meta">';
+                            if (s.who) html += '<span class="ai-who">👤 ' + s.who + '</span>';
+                            if (s.when) html += '<span class="ai-when">⏰ ' + s.when + '</span>';
+                            html += '</div>';
+                        }
+                    } else {
+                        // Handle string suggestions
+                        html += s;
+                    }
+                    html += '</li>';
+                });
+                html += '</ol>';
+                html += '</div>';
+            }
+            
+            if (p.kpis && p.kpis.length) {
+                html += '<div class="ai-section">';
+                html += '<h3>📊 KPIs (प्रदर्शन सूचकहरू)</h3>';
+                html += '<ul class="ai-kpis-list">';
+                p.kpis.forEach((k, i) => {
+                    html += '<li>' + k + '</li>';
+                });
+                html += '</ul>';
+                html += '</div>';
+            }
+            
+            if (json.raw) {
+                html += '<div class="ai-section">';
+                html += '<details class="ai-raw-details">';
+                html += '<summary>Raw AI Output देखाउनुहोस्</summary>';
+                html += '<pre class="ai-raw-content">' + escapeHtml(stripCodeFence(json.raw || '')) + '</pre>';
+                html += '</details>';
+                html += '</div>';
+            }
+            
+            content.innerHTML = html;
+        } else {
+            content.innerHTML = '<pre>' + (typeof text === 'string' ? text : JSON.stringify(json, null, 2)) + '</pre>';
+        }
+        
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    } catch (err) {
+        Swal.close();
+        console.error(err);
+        Swal.fire({ icon: 'error', text: 'AI सारांश प्राप्त गर्दा समस्या भयो।' });
+    }
+}, 30000));
+
+// AI Summary button handler for project-monitoring
+document.getElementById('generateProjectAiSummaryBtn')?.addEventListener('click', throttle(async () => {
+    const data = currentFilteredProjectMonitorings.length ? currentFilteredProjectMonitorings : allProjectMonitorings;
+    if (!data || data.length === 0) return Swal.fire({ icon: 'info', text: 'समावेश गर्ने आयोजना डाटा छैन।' });
+
+    // Prepare aggregates
+    const totalProjects = data.length;
+    const avgProgress = (data.reduce((s, r) => s + (parseFloat(r.pm_physical_progress) || 0), 0) / totalProjects) || 0;
+    const totalApproved = data.reduce((s, r) => s + (parseFloat(r.pm_approved_cost) || 0), 0);
+    const totalSpent = data.reduce((s, r) => s + (parseFloat(r.pm_spent_amount) || 0), 0);
+    const highProgress = data.filter(r => parseFloat(r.pm_physical_progress) >= 75).length;
+    const lowProgress = data.filter(r => parseFloat(r.pm_physical_progress) < 25).length;
+
+    // Top issues: overspend ratio, stalled projects
+    const byOverspend = data.map(r => ({ r, ratio: ((parseFloat(r.pm_spent_amount)||0) / (parseFloat(r.pm_approved_cost)||1)) })).sort((a,b)=>b.ratio-a.ratio).slice(0,5).map(x=>({project: x.r.pm_project_name, agency: x.r.pm_implementing_agency, contractor: x.r.pm_contractor_name, approved: x.r.pm_approved_cost, spent: x.r.pm_spent_amount, ratio: (x.r.ratio || 0).toFixed(2)}));
+    const stalled = data.filter(r => (parseFloat(r.pm_physical_progress)||0) < 30).slice(0,5).map(r=>({project: r.pm_project_name, progress: r.pm_physical_progress, agency: r.pm_implementing_agency, contractor: r.pm_contractor_name}));
+
+    const examples = data.slice(0,3).map(r=>({project: r.pm_project_name, date: r.pm_monitoring_date, progress: r.pm_physical_progress, approved: r.pm_approved_cost, spent: r.pm_spent_amount, agency: r.pm_implementing_agency, contractor: r.pm_contractor_name, note: r.pm_overall_remark || r.pm_recommendation || ''}));
+
+    const payload = { action: 'analyze', type: 'project-monitoring', data: { aggregates: { totalProjects, avgProgress, totalApproved, totalSpent, highProgress, lowProgress }, topOverspend: byOverspend, stalled, examples } };
+
+    Swal.fire({ title: 'AI सारांश बनाइँदैछ...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+    try {
+        const resp = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+        const text = await resp.text();
+        Swal.close();
+        // Expect JSON string from server
+        let json;
+        try { json = JSON.parse(text); } catch (e) { json = { error: text }; }
+
+        // store last response + payload for manual save
+        window.lastAiSummaryResponse = json && json.parsed ? json : { raw: text };
+        window.lastAiSummaryPayload = payload;
+
+        const modal = document.getElementById('aiSummaryModal');
+        const content = document.getElementById('aiSummaryContent');
+        const title = document.getElementById('aiSummaryTitle');
+        
+        if (title) title.textContent = 'आयोजना अनुगमन AI सारांश र सुझावहरू';
+        
+        console.log('AI Response:', json);
+        console.log('Has parsed?', !!json.parsed);
+        console.log('Parsed data:', json.parsed);
+        
+        if (json && json.error) {
+            // Handle API quota error specifically
+            if (json.detail && json.detail.includes('429') || json.detail && json.detail.includes('quota')) {
+                content.innerHTML = '<div class="ai-error">❌ API Quota Exceeded<br><br>तपाईंले Gemini API को दैनिक quota (20 requests) पूरा गरिसक्नुभयो।<br>कृपया केही समय पछि पुन: प्रयास गर्नुहोस् वा paid plan मा upgrade गर्नुहोस्।<br><br>विस्तृत जानकारी: <a href="https://ai.google.dev/gemini-api/docs/rate-limits" target="_blank">Gemini API Rate Limits</a></div>';
+            } else {
+                content.innerHTML = '<div class="ai-error">❌ त्रुटि: ' + json.error + (json.detail ? '<br><br>' + json.detail : '') + '</div>';
+            }
+        } else if (json && json.parsed) {
+            const p = json.parsed;
+            let html = '';
+            
+            // Summary section
+            if (p.summary) {
+                html += '<div class="ai-section">';
+                html += '<h3>📋 सारांश</h3>';
+                html += formatAiTextToParagraphs(p.summary);
+                html += '</div>';
+            }
+            
+            // Suggestions section
+            if (p.suggestions && p.suggestions.length) {
+                html += '<div class="ai-section">';
+                html += '<h3>💡 सुझावहरू</h3>';
+                html += '<ol class="ai-suggestions-list">';
+                p.suggestions.forEach((s, i) => {
+                    html += '<li class="ai-suggestion-item">';
+                    if (typeof s === 'object' && s !== null) {
+                        // Structured suggestion with action, details, who, when
+                        if (s.action) {
+                            html += '<strong class="ai-action">' + s.action + '</strong>';
+                        }
+                        if (s.details) {
+                            html += formatAiTextToParagraphs(s.details).replace(/<p>/g, '<p class="ai-details">');
+                        }
+                        if (s.who || s.when) {
+                            html += '<div class="ai-meta">';
+                            if (s.who) html += '<span class="ai-who">👤 ' + s.who + '</span>';
+                            if (s.when) html += '<span class="ai-when">⏰ ' + s.when + '</span>';
+                            html += '</div>';
+                        }
+                    } else {
+                        // Simple string suggestion
+                        html += s;
+                    }
+                    html += '</li>';
+                });
+                html += '</ol>';
+                html += '</div>';
+            }
+            
+            // KPIs section
+            if (p.kpis && p.kpis.length) {
+                html += '<div class="ai-section">';
+                html += '<h3>📊 KPIs (प्रदर्शन सूचकहरू)</h3>';
+                html += '<ul class="ai-kpis-list">';
+                p.kpis.forEach((k, i) => {
+                    html += '<li>' + k + '</li>';
+                });
+                html += '</ul>';
+                html += '</div>';
+            }
+            
+            // Show raw as collapsible
+            if (json.raw) {
+                html += '<div class="ai-section">';
+                html += '<details class="ai-raw-details">';
+                html += '<summary>Raw AI Output देखाउनुहोस्</summary>';
+                html += '<pre class="ai-raw-content">' + escapeHtml(stripCodeFence(json.raw || '')) + '</pre>';
+                html += '</details>';
+                html += '</div>';
+            }
+            
+            content.innerHTML = html;
+        } else {
+            content.innerHTML = '<pre>' + (typeof text === 'string' ? text : JSON.stringify(json, null, 2)) + '</pre>';
+        }
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    } catch (err) {
+        Swal.close();
+        console.error(err);
+        Swal.fire({ icon: 'error', text: 'AI सारांश प्राप्त गर्दा समस्या भयो।' });
+    }
+}, 30000));
+
+// Close AI modal
+document.getElementById('closeAiSummary')?.addEventListener('click', () => {
+    const modal = document.getElementById('aiSummaryModal');
+    if (modal) { modal.style.display = 'none'; document.body.style.overflow = ''; }
+});
+
+// Save AI summary to spreadsheet (manual)
+document.getElementById('saveAiSummaryBtn')?.addEventListener('click', async () => {
+    const lastResp = window.lastAiSummaryResponse;
+    const lastPayload = window.lastAiSummaryPayload;
+    if (!lastResp) return Swal.fire({ icon: 'info', text: 'सेभ गर्नको लागि कुनै AI नतिजा उपलब्ध छैन।' });
+
+    const confirm = await Swal.fire({ title: 'सारांश सर्भरमा सेभ गर्ने?', showCancelButton: true, confirmButtonText: 'सेभ गर्नुहोस्', cancelButtonText: 'रद्द', icon: 'question' });
+    if (!confirm.isConfirmed) return;
+
+    Swal.fire({ title: 'सेभ हुँदैछ...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+    try {
+        const savePayload = { action: 'save_ai_summary', type: 'project-monitoring', data: { requestPayload: lastPayload.data || {}, parsed: lastResp.parsed || null, raw: lastResp.raw || (lastResp.result || ''), created_at: (new Date()).toISOString() } };
+        const resp = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(savePayload) });
+        const txt = await resp.text();
+        Swal.close();
+        if (txt && txt.indexOf('Success') !== -1) {
+            Swal.fire({ icon: 'success', text: 'AI सारांश सर्भरमा सुरक्षित भयो।' });
+            // optionally disable save button
+            document.getElementById('saveAiSummaryBtn').disabled = true;
+        } else {
+            Swal.fire({ icon: 'warning', text: 'सेभ गर्दा समस्या भयो: ' + txt });
+        }
+    } catch (err) {
+        Swal.close();
+        console.error(err);
+        Swal.fire({ icon: 'error', text: 'सेभ गर्दा त्रुटि आयो।' });
+    }
+});
+
+// Duplicate tab switching logic disabled - using initSmoothTabTransitions instead
+/*
 document.querySelectorAll(".nav-btn").forEach(btn => {
     btn.addEventListener("click", () => {
         const targetTab = btn.dataset.tab;
@@ -3857,24 +5683,285 @@ document.querySelectorAll(".nav-btn").forEach(btn => {
             switchDashboardView('monitoring');
         }
 
-
         window.scrollTo({ top: 0, behavior: 'smooth' });
     });
+*/
 
 
-    const themeToggleBtn = document.getElementById('themeToggleBtn');
-    themeToggleBtn?.addEventListener('click', () => {
-        document.body.classList.toggle('dark-mode');
-        const isDark = document.body.classList.contains('dark-mode');
-        themeToggleBtn.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+// Password Change Form Handler
+document.getElementById('dashboardChangePasswordForm')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const currentPassword = document.getElementById('dashboardCurrentPassword').value;
+    const newPassword = document.getElementById('dashboardNewPassword').value;
+    const confirmPassword = document.getElementById('dashboardConfirmPassword').value;
+    
+    // Try to get current user from multiple possible sources
+    let currentUser = localStorage.getItem('currentUser');
+    console.log('Current user from localStorage (currentUser):', currentUser);
+    
+    // If not found, try other common keys
+    if (!currentUser) {
+        const allKeys = Object.keys(localStorage);
+        console.log('All localStorage keys:', allKeys);
+        
+        // Try to find user-related keys
+        for (const key of allKeys) {
+            if (key.toLowerCase().includes('user') || key.toLowerCase().includes('login') || key.toLowerCase().includes('session')) {
+                console.log(`Found potential user key: ${key} =`, localStorage.getItem(key));
+                try {
+                    const value = JSON.parse(localStorage.getItem(key));
+                    if (value.username) {
+                        currentUser = value.username;
+                        console.log('Using username from:', key);
+                        break;
+                    }
+                } catch (e) {
+                    // If not JSON, try using the value directly
+                    currentUser = localStorage.getItem(key);
+                    console.log('Using direct value from:', key);
+                    break;
+                }
+            }
+        }
+    }
+    
+    // If still not found, check if user is stored in data arrays
+    if (!currentUser) {
+        console.log('User not found in localStorage, checking data arrays...');
+        
+        // Check survey data for user info
+        try {
+            const surveyData = JSON.parse(localStorage.getItem('surveyData_nsc_full') || '[]');
+            if (surveyData.length > 0 && surveyData[0].username) {
+                currentUser = surveyData[0].username;
+                console.log('Using username from survey data:', currentUser);
+            }
+        } catch (e) {
+            console.log('Error parsing survey data:', e);
+        }
+        
+        // Check monitoring data
+        if (!currentUser) {
+            try {
+                const monitoringData = JSON.parse(localStorage.getItem('monitoringData_nsc') || '[]');
+                if (monitoringData.length > 0 && monitoringData[0].username) {
+                    currentUser = monitoringData[0].username;
+                    console.log('Using username from monitoring data:', currentUser);
+                }
+            } catch (e) {
+                console.log('Error parsing monitoring data:', e);
+            }
+        }
+    }
+    
+    // If still not found, prompt user for username
+    if (!currentUser) {
+        console.log('User not found in any data source, prompting for username');
+        
+        // Create a custom HTML input to prevent Nepali digit conversion
+        const { value: username } = await Swal.fire({
+            title: 'युजरनेम',
+            text: 'कृपया आफ्नो युजरनेम प्रविष्ट गर्नुहोस्',
+            html: '<input id="swal-username-input" class="swal2-input" inputmode="latin" lang="en" placeholder="युजरनेम" style="font-family: Arial, sans-serif;">',
+            showCancelButton: true,
+            confirmButtonText: 'पुष्टि गर्नुहोस्',
+            cancelButtonText: 'रद्द गर्नुहोस्',
+            didOpen: () => {
+                const input = document.getElementById('swal-username-input');
+                if (input) {
+                    input.focus();
+                    // Prevent Nepali digit conversion for this input
+                    input.addEventListener('keydown', function(e) {
+                        if (e.ctrlKey || e.altKey || e.metaKey) return;
+                        if (e.key >= '0' && e.key <= '9') {
+                            e.preventDefault();
+                            const start = this.selectionStart;
+                            const end = this.selectionEnd;
+                            this.value = this.value.substring(0, start) + e.key + this.value.substring(end);
+                            this.setSelectionRange(start + 1, start + 1);
+                        }
+                    });
+                    input.addEventListener('input', function() {
+                        this.value = fromNepaliDigits(this.value);
+                    });
+                }
+            },
+            preConfirm: () => {
+                const input = document.getElementById('swal-username-input');
+                if (!input || !input.value) {
+                    Swal.showValidationMessage('कृपया युजरनेम प्रविष्ट गर्नुहोस्');
+                    return false;
+                }
+                return input.value;
+            }
+        });
+        
+        if (username) {
+            currentUser = username;
+            console.log('User entered username:', currentUser);
+        } else {
+            Swal.fire({ icon: 'error', text: 'युजरनेम आवश्यक छ।' });
+            return;
+        }
+    }
+    
+    console.log('Final username to use:', currentUser);
+    
+    if (!currentPassword || !newPassword || !confirmPassword) {
+        Swal.fire({ icon: 'warning', text: 'कृपया सबै फिल्डहरू भर्नुहोस्।' });
+        return;
+    }
+    
+    if (newPassword.length < 6) {
+        Swal.fire({ icon: 'warning', text: 'नयाँ पासवर्ड कम्तिमा ६ अक्षरको हुनुपर्छ।' });
+        return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+        Swal.fire({ icon: 'warning', text: 'नयाँ पासवर्ड र पुष्टि पासवर्ड मिलेन।' });
+        return;
+    }
+    
+    if (currentPassword === newPassword) {
+        Swal.fire({ icon: 'warning', text: 'नयाँ पासवर्ड हालको पासवर्ड भन्दा फरक हुनुपर्छ।' });
+        return;
+    }
+    
+    try {
+        Swal.fire({
+            icon: 'info',
+            text: 'पासवर्ड परिवर्तन हुँदैछ...',
+            allowOutsideClick: false,
+            showConfirmButton: false
+        });
+        
+        const response = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'change_password',
+                username: currentUser,
+                currentPassword: currentPassword,
+                newPassword: newPassword
+            })
+        });
+        
+        const result = await response.json();
+        Swal.close();
+        
+        if (result.status === 'success') {
+            Swal.fire({ icon: 'success', text: result.message });
+            document.getElementById('dashboardChangePasswordForm').reset();
+        } else {
+            Swal.fire({ icon: 'error', text: result.message });
+        }
+    } catch (error) {
+        Swal.close();
+        Swal.fire({ icon: 'error', text: 'पासवर्ड परिवर्तन गर्दा त्रुटि आयो।' });
+        console.error(error);
+    }
+});
 
-
-        Chart.defaults.plugins.legend.labels.color = isDark ? '#e2e8f0' : '#334155';
-        Chart.defaults.scale.grid.color = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)';
-
-        refreshDashboard();
-        playClickSound();
+// Cancel button handler
+document.getElementById('cancelChangePassword')?.addEventListener('click', function() {
+    document.getElementById('dashboardChangePasswordForm').reset();
+    Swal.fire({
+        icon: 'info',
+        text: 'पासवर्ड परिवर्तन रद्द गरियो।',
+        timer: 1500,
+        showConfirmButton: false
     });
+});
+
+// Password visibility toggle handlers
+function togglePasswordVisibility(inputId, iconId) {
+    const input = document.getElementById(inputId);
+    const icon = document.getElementById(iconId);
+    
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    }
+}
+
+document.getElementById('toggleCurrentPassword')?.addEventListener('click', function() {
+    togglePasswordVisibility('dashboardCurrentPassword', 'toggleCurrentPassword');
+});
+
+document.getElementById('toggleNewPassword')?.addEventListener('click', function() {
+    togglePasswordVisibility('dashboardNewPassword', 'toggleNewPassword');
+});
+
+document.getElementById('toggleConfirmPassword')?.addEventListener('click', function() {
+    togglePasswordVisibility('dashboardConfirmPassword', 'toggleConfirmPassword');
+});
+
+// Prevent Nepali digit conversion in password fields
+function preventNepaliDigits(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) {
+        console.error('Input not found:', inputId);
+        return;
+    }
+    
+    console.log('Preventing Nepali digits for:', inputId);
+    
+    // Use a more aggressive approach - intercept keydown and prevent IME
+    input.addEventListener('keydown', function(e) {
+        // Allow control keys
+        if (e.ctrlKey || e.altKey || e.metaKey) return;
+        
+        // If it's a digit key (0-9), prevent IME and insert directly
+        if (e.key >= '0' && e.key <= '9') {
+            e.preventDefault();
+            const start = this.selectionStart;
+            const end = this.selectionEnd;
+            this.value = this.value.substring(0, start) + e.key + this.value.substring(end);
+            this.setSelectionRange(start + 1, start + 1);
+        }
+    });
+    
+    // Also handle paste events
+    input.addEventListener('paste', function(e) {
+        e.preventDefault();
+        const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+        const converted = fromNepaliDigits(pastedText);
+        const start = this.selectionStart;
+        const end = this.selectionEnd;
+        this.value = this.value.substring(0, start) + converted + this.value.substring(end);
+        this.setSelectionRange(start + converted.length, start + converted.length);
+    });
+    
+    // Final cleanup on blur
+    input.addEventListener('blur', function() {
+        this.value = fromNepaliDigits(this.value);
+    });
+    
+    // Also clean up on focus in case something was changed while unfocused
+    input.addEventListener('focus', function() {
+        this.value = fromNepaliDigits(this.value);
+    });
+    
+    // Also clean up on input as a fallback
+    input.addEventListener('input', function() {
+        const original = this.value;
+        const converted = fromNepaliDigits(original);
+        if (original !== converted) {
+            this.value = converted;
+        }
+    });
+}
+
+// Delay initialization until DOM is fully loaded
+document.addEventListener('DOMContentLoaded', function() {
+    preventNepaliDigits('dashboardCurrentPassword');
+    preventNepaliDigits('dashboardNewPassword');
+    preventNepaliDigits('dashboardConfirmPassword');
 });
 
 document.getElementById("applyFilter")?.addEventListener("click", () => {
@@ -4596,6 +6683,32 @@ function showDetailedTable(data, title, viewType = 'survey') {
             </tr>
         `;
         }).join('');
+    } else if (viewType === 'project-monitoring') {
+        thead.innerHTML = `<tr><th>अनुगमन मिति</th><th>जिल्ला</th><th>आयोजनाको नाम</th><th>कार्यान्वयन गर्ने निकाय</th><th>ठेकेदार</th><th>स्वीकृत लागत (लाख)</th><th>भुक्तानी (लाख)</th><th>भौतिक प्रगति (%)</th><th>कार्य</th></tr>`;
+        tbody.innerHTML = data.map(r => {
+            const progress = parseFloat(r.pm_physical_progress || getVal(r, 'pm_physical_progress', '१०. भौतिक प्रगति (%)')) || 0;
+            let progressColor = '#de3053';
+            if (progress >= 75) progressColor = '#27ae60';
+            else if (progress >= 50) progressColor = '#f59e0b';
+            else if (progress >= 25) progressColor = '#f97316';
+
+            return `
+                <tr>
+                    <td>${getVal(r, 'pm_monitoring_date', '११. अनुगमन मिति')}</td>
+                    <td>${getVal(r, 'pm_jilla', '२. जिल्ला')}</td>
+                    <td>${getVal(r, 'pm_project_name', '१. आयोजनाको नाम')}</td>
+                    <td>${getVal(r, 'pm_implementing_agency', '३. कार्यान्वयन गर्ने निकाय')}</td>
+                    <td>${getVal(r, 'pm_contractor_name', '४. निर्माण व्यवसायी / ठेकेदारको नाम')}</td>
+                    <td>${getVal(r, 'pm_approved_cost', '८. स्वीकृत लागत अनुमान (रु. लाखमा)')}</td>
+                    <td>${getVal(r, 'pm_spent_amount', '९. हालसम्म भुक्तानी/खर्च भएको रकम (रु. लाखमा)')}</td>
+                    <td style="color: ${progressColor}; font-weight: 700;">${progress}%</td>
+                    <td data-label="कार्य">
+                        <button class="action-btn btn-edit" onclick="editRecord('${r.timestamp}', 'project-monitoring')" title="सम्पादन"><i class="fas fa-edit"></i></button>
+                        <button class="action-btn btn-delete" onclick="deleteRecord('${r.timestamp}', 'project-monitoring')" title="मेटाउनुहोस्"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
     }
 
 
@@ -4603,6 +6716,27 @@ function showDetailedTable(data, title, viewType = 'survey') {
 
 const detailTableCloseBtn = document.getElementById("closeDetailTable");
 const detailTableContainer = document.getElementById("dynamicDetailTableContainer");
+const closeAttendanceEditModalBtn = document.getElementById('closeAttendanceEditModal');
+const attendanceEditModalCancelBtn = document.getElementById('attendanceEditModalCancelBtn');
+const attendanceEditModalSaveBtn = document.getElementById('attendanceEditModalSaveBtn');
+const closeSurveyEditModalBtn = document.getElementById('closeSurveyEditModal');
+const closeMonitoringEditModalBtn = document.getElementById('closeMonitoringEditModal');
+
+if (closeAttendanceEditModalBtn) {
+    closeAttendanceEditModalBtn.addEventListener('click', closeAttendanceEditModal);
+}
+if (attendanceEditModalCancelBtn) {
+    attendanceEditModalCancelBtn.addEventListener('click', closeAttendanceEditModal);
+}
+if (attendanceEditModalSaveBtn) {
+    attendanceEditModalSaveBtn.addEventListener('click', saveAttendanceEditModal);
+}
+if (closeSurveyEditModalBtn) {
+    closeSurveyEditModalBtn.addEventListener('click', closeSurveyEditModal);
+}
+if (closeMonitoringEditModalBtn) {
+    closeMonitoringEditModalBtn.addEventListener('click', closeMonitoringEditModal);
+}
 
 if (detailTableCloseBtn && detailTableContainer) {
     detailTableCloseBtn.addEventListener("click", () => {
@@ -4665,6 +6799,12 @@ function toggleMapVisibility() {
     }
 }
 
+let districtLayerGroup = null;
+let districtData = {};
+let localLevelLayerGroup = null;
+let localLevelData = {};
+let currentMapView = 'district'; // 'district' or 'local'
+
 function initNepalMap() {
     if (mapObj) return;
     const mapContainer = document.getElementById('nepalMap');
@@ -4676,6 +6816,845 @@ function initNepalMap() {
         maxZoom: 19,
         detectRetina: true
     }).addTo(mapObj);
+
+    // Load Nepal districts GeoJSON
+    districtLayerGroup = L.layerGroup().addTo(mapObj);
+    loadDistrictGeoJSON();
+    
+    // Load local units GeoJSON
+    localLevelLayerGroup = L.layerGroup();
+    loadLocalLevelGeoJSON();
+}
+
+function loadDistrictGeoJSON() {
+    // Use GitHub raw URL directly to avoid CORS issues on file:// protocol
+    fetch('https://raw.githubusercontent.com/mesaugat/geoJSON-Nepal/master/nepal-districts-new.geojson')
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to fetch GeoJSON');
+            return response.json();
+        })
+        .then(data => {
+            data.features.forEach(feature => {
+                const districtName = feature.properties.DIST_EN || feature.properties.name_en || feature.properties.name;
+                districtData[districtName] = {
+                    feature: feature,
+                    score: 0,
+                    total: 0,
+                    unsatisfied: 0
+                };
+            });
+            updateChoroplethMap();
+        })
+        .catch(error => console.error('Error loading GeoJSON:', error));
+}
+
+function loadLocalLevelGeoJSON() {
+    // Use GitHub raw URL directly to avoid CORS issues on file:// protocol
+    fetch('https://raw.githubusercontent.com/manishacharya60/nepal-geojson/main/Nepal_Administrative_Boundary_Local_Units.geojson')
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to fetch GeoJSON');
+            return response.json();
+        })
+        .then(data => {
+            data.features.forEach(feature => {
+                const localName = feature.properties.name_en || feature.properties.name || feature.properties.Gaunpalika || feature.properties.Nagarpalika;
+                const districtName = feature.properties.district || feature.properties.District;
+                if (localName) {
+                    localLevelData[localName] = {
+                        feature: feature,
+                        district: districtName,
+                        score: 0,
+                        total: 0,
+                        unsatisfied: 0
+                    };
+                }
+            });
+        })
+        .catch(error => console.error('Error loading local units GeoJSON:', error));
+}
+
+window.switchMapView = function(view) {
+    currentMapView = view;
+    
+    const districtBtn = document.getElementById('districtViewBtn');
+    const localBtn = document.getElementById('localLevelViewBtn');
+    
+    if (view === 'district') {
+        districtBtn.style.background = '#306a95';
+        districtBtn.style.color = 'white';
+        localBtn.style.background = '#e5e7eb';
+        localBtn.style.color = '#374151';
+        
+        districtLayerGroup.addTo(mapObj);
+        localLevelLayerGroup.remove();
+        
+        mapObj.setZoom(7);
+        updateChoroplethMap();
+    } else {
+        localBtn.style.background = '#306a95';
+        localBtn.style.color = 'white';
+        districtBtn.style.background = '#e5e7eb';
+        districtBtn.style.color = '#374151';
+        
+        localLevelLayerGroup.addTo(mapObj);
+        districtLayerGroup.remove();
+        
+        mapObj.setZoom(8);
+        updateLocalLevelChoroplethMap();
+    }
+};
+
+function updateLocalLevelChoroplethMap() {
+    if (!localLevelLayerGroup) return;
+    
+    localLevelLayerGroup.clearLayers();
+    
+    // Aggregate data by local level
+    let data = [];
+    let dKey = '';
+    
+    if (currentDashboardView === 'survey') { data = currentFilteredSubmissions; dKey = 'local_level'; }
+    else if (currentDashboardView === 'monitoring') { data = currentFilteredMonitorings; dKey = 'm_local_level'; }
+    else if (currentDashboardView === 'attendance') { data = currentFilteredAttendance; dKey = 'local_level'; }
+    else if (currentDashboardView === 'project-monitoring') { data = currentFilteredProjectMonitorings; dKey = 'pm_local_level'; }
+    
+    // Reset local level data
+    Object.keys(localLevelData).forEach(localName => {
+        localLevelData[localName].total = 0;
+        localLevelData[localName].unsatisfied = 0;
+        localLevelData[localName].score = 0;
+    });
+    
+    // Calculate statistics for each local level
+    const stats = data.reduce((acc, item) => {
+        const localName = item[dKey] || getVal(item, dKey, 'स्थानीय तह');
+        if (!localName || !localLevelData[localName]) return acc;
+        
+        if (!acc[localName]) acc[localName] = { total: 0, unsatisfied: 0 };
+        acc[localName].total++;
+        
+        // Update local level data
+        if (localLevelData[localName]) {
+            localLevelData[localName].total = acc[localName].total;
+            localLevelData[localName].unsatisfied = acc[localName].unsatisfied;
+        }
+        
+        // Check for negative indicators
+        let isNegative = false;
+        if (currentDashboardView === 'survey') {
+            if (item.sahayog_parera === 'पर्‍यो' || item.ghus_parera === 'पर्‍यो' || 
+                item.satisfaction_flag === 'असन्तुष्ट' || item.yojana_santushti === 'असन्तुष्ट') {
+                isNegative = true;
+            }
+        } else if (currentDashboardView === 'monitoring') {
+            if (['स्पष्ट नबुझिने', 'पढ्न झन्झटिलो', 'नभएको'].includes(item.m_q1) ||
+                ['स्पष्ट उल्लेख नभएको', 'आंशिक', 'नभएको'].includes(item.m_q2) ||
+                item.m_q5 === 'देखियो' || ['आंशिक', 'भेटिएन'].includes(item.m_q10) ||
+                item.m_q12 === 'नराम्रो') {
+                isNegative = true;
+            }
+        }
+        
+        if (isNegative) {
+            acc[localName].unsatisfied++;
+            if (localLevelData[localName]) {
+                localLevelData[localName].unsatisfied = acc[localName].unsatisfied;
+            }
+        }
+        
+        return acc;
+    }, {});
+    
+    // Render local level polygons
+    Object.keys(localLevelData).forEach(localName => {
+        const data = localLevelData[localName];
+        if (!data.feature) return;
+        
+        // Calculate score based on unsatisfied ratio
+        let score = 0;
+        if (data.total > 0) {
+            score = (data.unsatisfied / data.total) * 100;
+        }
+        data.score = score;
+        
+        // Determine color based on score (compliance score: higher is better)
+        // Convert unsatisfied ratio to compliance score: 100 - unsatisfied%
+        let complianceScore = 100 - score;
+        
+        let fillColor = '#ef4444'; // Red (Poor - below 40%)
+        if (complianceScore >= 80) fillColor = '#10b981'; // Green (Excellent - 80-100%)
+        else if (complianceScore >= 60) fillColor = '#3b82f6'; // Blue (Good - 60-79%)
+        else if (complianceScore >= 40) fillColor = '#f59e0b'; // Orange (Needs Improvement - 40-59%)
+        
+        const layer = L.geoJSON(data.feature, {
+            style: {
+                fillColor: fillColor,
+                weight: 1,
+                opacity: 1,
+                color: 'white',
+                dashArray: '3',
+                fillOpacity: 0.7
+            },
+            onEachFeature: function(feature, layer) {
+                layer.on({
+                    click: function(e) {
+                        showLocalLevelPopup(localName, data, e.latlng);
+                    },
+                    mouseover: function(e) {
+                        layer.setStyle({
+                            weight: 2,
+                            color: '#666',
+                            dashArray: '',
+                            fillOpacity: 0.9
+                        });
+                    },
+                    mouseout: function(e) {
+                        layer.setStyle({
+                            weight: 1,
+                            color: 'white',
+                            dashArray: '3',
+                            fillOpacity: 0.7
+                        });
+                    }
+                });
+            }
+        }).addTo(localLevelLayerGroup);
+    });
+}
+
+function updateChoroplethMap() {
+    if (!districtLayerGroup) return;
+    
+    districtLayerGroup.clearLayers();
+    
+    Object.keys(districtData).forEach(districtName => {
+        const data = districtData[districtName];
+        if (!data.feature) return;
+        
+        // Calculate score based on unsatisfied ratio
+        let score = 0;
+        if (data.total > 0) {
+            score = (data.unsatisfied / data.total) * 100;
+        }
+        data.score = score;
+        
+        // Determine color based on score (compliance score: higher is better)
+        // Convert unsatisfied ratio to compliance score: 100 - unsatisfied%
+        let complianceScore = 100 - score;
+        
+        let fillColor = '#ef4444'; // Red (Poor - below 40%)
+        if (complianceScore >= 80) fillColor = '#10b981'; // Green (Excellent - 80-100%)
+        else if (complianceScore >= 60) fillColor = '#3b82f6'; // Blue (Good - 60-79%)
+        else if (complianceScore >= 40) fillColor = '#f59e0b'; // Orange (Needs Improvement - 40-59%)
+        
+        const layer = L.geoJSON(data.feature, {
+            style: {
+                fillColor: fillColor,
+                weight: 2,
+                opacity: 1,
+                color: 'white',
+                dashArray: '3',
+                fillOpacity: 0.7
+            },
+            onEachFeature: function(feature, layer) {
+                layer.on({
+                    click: function(e) {
+                        showDistrictPopup(districtName, data, e.latlng);
+                    },
+                    mouseover: function(e) {
+                        layer.setStyle({
+                            weight: 3,
+                            color: '#666',
+                            dashArray: '',
+                            fillOpacity: 0.9
+                        });
+                    },
+                    mouseout: function(e) {
+                        layer.setStyle({
+                            weight: 2,
+                            color: 'white',
+                            dashArray: '3',
+                            fillOpacity: 0.7
+                        });
+                    }
+                });
+            }
+        }).addTo(districtLayerGroup);
+    });
+    
+    // Add legend
+    addMapLegend();
+}
+
+function showDistrictPopup(districtName, data, latlng) {
+    const total = toNepaliDigits(data.total);
+    const unsatisfied = toNepaliDigits(data.unsatisfied);
+    
+    // Check if district has data
+    if (data.total === 0) {
+        const popupContent = `
+            <div style="font-family:'Kalimati', sans-serif; min-width: 200px;">
+                <h3 style="margin:0 0 10px 0; color:#306a95;">${districtName}</h3>
+                <div style="margin:5px 0; color:#ef4444; font-weight:bold;">
+                    <i class="fas fa-exclamation-circle"></i> डाटा उपलब्ध छैन
+                </div>
+                <div style="margin:5px 0; color:#666; font-size:0.9em;">
+                    यो जिल्लाको लागि कुनै रेकर्ड छैन।
+                </div>
+            </div>
+        `;
+        
+        L.popup()
+            .setLatLng(latlng)
+            .setContent(popupContent)
+            .openOn(mapObj);
+        return;
+    }
+    
+    const unsatisfiedPercent = data.score.toFixed(1);
+    const complianceScore = (100 - data.score).toFixed(1);
+    
+    let scoreColor = '#ef4444';
+    let scoreText = 'कमजोर';
+    if (complianceScore >= 80) {
+        scoreColor = '#10b981';
+        scoreText = 'उत्कृष्ट';
+    } else if (complianceScore >= 60) {
+        scoreColor = '#3b82f6';
+        scoreText = 'राम्रो';
+    } else if (complianceScore >= 40) {
+        scoreColor = '#f59e0b';
+        scoreText = 'सुधार आवश्यक';
+    }
+    
+    const popupContent = `
+        <div style="font-family:'Kalimati', sans-serif; min-width: 200px;">
+            <h3 style="margin:0 0 10px 0; color:#306a95;">${districtName}</h3>
+            <div style="margin:5px 0;">
+                <strong>अनुपालन स्कोर:</strong> 
+                <span style="color:${scoreColor}; font-weight:bold;">${toNepaliDigits(complianceScore)}% (${scoreText})</span>
+            </div>
+            <div style="margin:5px 0;">
+                <strong>कूल रेकर्ड:</strong> ${total}
+            </div>
+            <div style="margin:5px 0;">
+                <strong>नकारात्मक:</strong> ${unsatisfied}
+            </div>
+            <hr style="margin:10px 0;">
+            <button onclick="filterByDistrict('${districtName}')" 
+                    style="background:#306a95; color:white; border:none; padding:8px 16px; 
+                           border-radius:4px; cursor:pointer; width:100%; margin-bottom:5px;">
+                विवरण हेर्नुहोस्
+            </button>
+            <button onclick="analyzeDistrict('${districtName}')" 
+                    style="background:#8b5cf6; color:white; border:none; padding:8px 16px; 
+                           border-radius:4px; cursor:pointer; width:100%;">
+                <i class="fas fa-robot"></i> AI विश्लेषण
+            </button>
+        </div>
+    `;
+    
+    L.popup()
+        .setLatLng(latlng)
+        .setContent(popupContent)
+        .openOn(mapObj);
+}
+
+function showLocalLevelPopup(localName, data, latlng) {
+    const total = toNepaliDigits(data.total);
+    const unsatisfied = toNepaliDigits(data.unsatisfied);
+    const district = data.district || 'अज्ञात';
+    
+    // Check if local level has data
+    if (data.total === 0) {
+        const popupContent = `
+            <div style="font-family:'Kalimati', sans-serif; min-width: 200px;">
+                <h3 style="margin:0 0 10px 0; color:#306a95;">${localName}</h3>
+                <div style="margin:5px 0; font-size:0.9em; color:#666;">
+                    <strong>जिल्ला:</strong> ${district}
+                </div>
+                <div style="margin:5px 0; color:#ef4444; font-weight:bold;">
+                    <i class="fas fa-exclamation-circle"></i> डाटा उपलब्ध छैन
+                </div>
+                <div style="margin:5px 0; color:#666; font-size:0.9em;">
+                    यो स्थानीय तहको लागि कुनै रेकर्ड छैन।
+                </div>
+            </div>
+        `;
+        
+        L.popup()
+            .setLatLng(latlng)
+            .setContent(popupContent)
+            .openOn(mapObj);
+        return;
+    }
+    
+    const unsatisfiedPercent = data.score.toFixed(1);
+    const complianceScore = (100 - data.score).toFixed(1);
+    
+    let scoreColor = '#ef4444';
+    let scoreText = 'कमजोर';
+    if (complianceScore >= 80) {
+        scoreColor = '#10b981';
+        scoreText = 'उत्कृष्ट';
+    } else if (complianceScore >= 60) {
+        scoreColor = '#3b82f6';
+        scoreText = 'राम्रो';
+    } else if (complianceScore >= 40) {
+        scoreColor = '#f59e0b';
+        scoreText = 'सुधार आवश्यक';
+    }
+    
+    const popupContent = `
+        <div style="font-family:'Kalimati', sans-serif; min-width: 200px;">
+            <h3 style="margin:0 0 10px 0; color:#306a95;">${localName}</h3>
+            <div style="margin:5px 0; font-size:0.9em; color:#666;">
+                <strong>जिल्ला:</strong> ${district}
+            </div>
+            <div style="margin:5px 0;">
+                <strong>अनुपालन स्कोर:</strong> 
+                <span style="color:${scoreColor}; font-weight:bold;">${toNepaliDigits(complianceScore)}% (${scoreText})</span>
+            </div>
+            <div style="margin:5px 0;">
+                <strong>कूल रेकर्ड:</strong> ${total}
+            </div>
+            <div style="margin:5px 0;">
+                <strong>नकारात्मक:</strong> ${unsatisfied}
+            </div>
+            <hr style="margin:10px 0;">
+            <button onclick="filterByLocalLevel('${localName}')" 
+                    style="background:#306a95; color:white; border:none; padding:8px 16px; 
+                           border-radius:4px; cursor:pointer; width:100%; margin-bottom:5px;">
+                विवरण हेर्नुहोस्
+            </button>
+            <button onclick="analyzeLocalLevel('${localName}')" 
+                    style="background:#8b5cf6; color:white; border:none; padding:8px 16px; 
+                           border-radius:4px; cursor:pointer; width:100%;">
+                <i class="fas fa-robot"></i> AI विश्लेषण
+            </button>
+        </div>
+    `;
+    
+    L.popup()
+        .setLatLng(latlng)
+        .setContent(popupContent)
+        .openOn(mapObj);
+}
+
+function filterByDistrict(districtName) {
+    // Filter the current data by district
+    if (currentDashboardView === 'survey') {
+        currentFilteredSubmissions = currentFilteredSubmissions.filter(item => 
+            (item.jilla || getVal(item, 'jilla', 'जिल्ला')) === districtName
+        );
+        showDetailedTable(currentFilteredSubmissions, `${districtName} - सेवाग्राही सर्वेक्षण`, 'survey');
+    } else if (currentDashboardView === 'monitoring') {
+        currentFilteredMonitorings = currentFilteredMonitorings.filter(item => 
+            (item.m_jilla || getVal(item, 'm_jilla', 'जिल्ला')) === districtName
+        );
+        showDetailedTable(currentFilteredMonitorings, `${districtName} - कार्यालय अनुगमन`, 'monitoring');
+    } else if (currentDashboardView === 'attendance') {
+        currentFilteredAttendance = currentFilteredAttendance.filter(item => 
+            (item.jilla || getVal(item, 'jilla', 'जिल्ला')) === districtName
+        );
+        showDetailedTable(currentFilteredAttendance, `${districtName} - समय/पोशाक अनुगमन`, 'attendance');
+    } else if (currentDashboardView === 'project-monitoring') {
+        currentFilteredProjectMonitorings = currentFilteredProjectMonitorings.filter(item => 
+            (item.pm_jilla || getVal(item, 'pm_jilla', 'जिल्ला')) === districtName
+        );
+        showDetailedTable(currentFilteredProjectMonitorings, `${districtName} - आयोजना अनुगमन`, 'project-monitoring');
+    }
+    
+    mapObj.closePopup();
+}
+
+function filterByLocalLevel(localName) {
+    // Filter the current data by local level
+    if (currentDashboardView === 'survey') {
+        currentFilteredSubmissions = currentFilteredSubmissions.filter(item => 
+            (item.local_level || getVal(item, 'local_level', 'स्थानीय तह')) === localName
+        );
+        showDetailedTable(currentFilteredSubmissions, `${localName} - सेवाग्राही सर्वेक्षण`, 'survey');
+    } else if (currentDashboardView === 'monitoring') {
+        currentFilteredMonitorings = currentFilteredMonitorings.filter(item => 
+            (item.m_local_level || getVal(item, 'm_local_level', 'स्थानीय तह')) === localName
+        );
+        showDetailedTable(currentFilteredMonitorings, `${localName} - कार्यालय अनुगमन`, 'monitoring');
+    } else if (currentDashboardView === 'attendance') {
+        currentFilteredAttendance = currentFilteredAttendance.filter(item => 
+            (item.local_level || getVal(item, 'local_level', 'स्थानीय तह')) === localName
+        );
+        showDetailedTable(currentFilteredAttendance, `${localName} - समय/पोशाक अनुगमन`, 'attendance');
+    } else if (currentDashboardView === 'project-monitoring') {
+        currentFilteredProjectMonitorings = currentFilteredProjectMonitorings.filter(item => 
+            (item.pm_local_level || getVal(item, 'pm_local_level', 'स्थानीय तह')) === localName
+        );
+        showDetailedTable(currentFilteredProjectMonitorings, `${localName} - आयोजना अनुगमन`, 'project-monitoring');
+    }
+    
+    mapObj.closePopup();
+}
+
+async function analyzeDistrict(districtName) {
+    const data = districtData[districtName];
+    if (!data) return;
+    
+    mapObj.closePopup();
+    
+    // Show loading indicator
+    Swal.fire({
+        title: 'AI विश्लेषण गर्दै...',
+        text: `${districtName} जिल्लाको विश्लेषण तयार गरिदैछ`,
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+    
+    try {
+        // Get district-specific data
+        let districtDataForAI = {
+            district: districtName,
+            score: data.score.toFixed(1),
+            total: data.total,
+            unsatisfied: data.unsatisfied
+        };
+        
+        // Add context based on current view
+        if (currentDashboardView === 'survey') {
+            districtDataForAI.type = 'सेवाग्राही सर्वेक्षण';
+            districtDataForAI.details = currentFilteredSubmissions.filter(item => 
+                (item.jilla || getVal(item, 'jilla', 'जिल्ला')) === districtName
+            );
+        } else if (currentDashboardView === 'monitoring') {
+            districtDataForAI.type = 'कार्यालय अनुगमन';
+            districtDataForAI.details = currentFilteredMonitorings.filter(item => 
+                (item.m_jilla || getVal(item, 'm_jilla', 'जिल्ला')) === districtName
+            );
+        } else if (currentDashboardView === 'attendance') {
+            districtDataForAI.type = 'समय/पोशाक अनुगमन';
+            districtDataForAI.details = currentFilteredAttendance.filter(item => 
+                (item.jilla || getVal(item, 'jilla', 'जिल्ला')) === districtName
+            );
+        } else if (currentDashboardView === 'project-monitoring') {
+            districtDataForAI.type = 'आयोजना अनुगमन';
+            districtDataForAI.details = currentFilteredProjectMonitorings.filter(item => 
+                (item.pm_jilla || getVal(item, 'pm_jilla', 'जिल्ला')) === districtName
+            );
+        }
+        
+        const payload = {
+            action: 'analyze',
+            location: districtName,
+            mode: 'district_analysis',
+            districtData: districtDataForAI
+        };
+        
+        const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+        let resultText = await response.text();
+        
+        let analysisContent = "";
+        try {
+            const jsonRes = JSON.parse(resultText);
+            analysisContent = jsonRes.analysis || jsonRes.message || resultText;
+        } catch (e) {
+            analysisContent = resultText;
+        }
+        
+        Swal.close();
+        
+        // Format and display the analysis
+        let formattedText = analysisContent.trim();
+        formattedText = formattedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        formattedText = formattedText.replace(/^\s*[\*\-•]\s+(.*$)/gm, '<div style="display:flex; margin-bottom:4px; padding-left:15px;"><span style="margin-right:8px; color:#387ae6;">•</span><span>$1</span></div>');
+        
+        const formattedHtml = formattedText.split(/\n\n+/).map(para => {
+            if (para.trim().startsWith('<div')) return para;
+            return `<p style="margin-bottom:10px;">${para.replace(/\n/g, '<br>')}</p>`;
+        }).join('');
+        
+        Swal.fire({
+            title: `${districtName} - AI विश्लेषण`,
+            html: `<div style="text-align:justify; line-height:1.6; font-family:'Kalimati', sans-serif;">${formattedHtml}</div>`,
+            width: '600px',
+            confirmButtonText: 'ठीक छ',
+            confirmButtonColor: '#306a95'
+        });
+        
+    } catch (e) {
+        Swal.close();
+        Swal.fire({
+            icon: 'error',
+            title: 'त्रुटि',
+            text: 'AI विश्लेषण लोड गर्न सकिएन। कृपया पछि फेरि प्रयास गर्नुहोस्।',
+            confirmButtonColor: '#306a95'
+        });
+    }
+}
+
+async function analyzeLocalLevel(localName) {
+    const data = localLevelData[localName];
+    if (!data) return;
+    
+    mapObj.closePopup();
+    
+    // Show loading indicator
+    Swal.fire({
+        title: 'AI विश्लेषण गर्दै...',
+        text: `${localName} स्थानीय तहको विश्लेषण तयार गरिदैछ`,
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+    
+    try {
+        // Get local level-specific data
+        let localLevelDataForAI = {
+            localLevel: localName,
+            district: data.district,
+            score: data.score.toFixed(1),
+            total: data.total,
+            unsatisfied: data.unsatisfied
+        };
+        
+        // Add context based on current view
+        if (currentDashboardView === 'survey') {
+            localLevelDataForAI.type = 'सेवाग्राही सर्वेक्षण';
+            localLevelDataForAI.details = currentFilteredSubmissions.filter(item => 
+                (item.local_level || getVal(item, 'local_level', 'स्थानीय तह')) === localName
+            );
+        } else if (currentDashboardView === 'monitoring') {
+            localLevelDataForAI.type = 'कार्यालय अनुगमन';
+            localLevelDataForAI.details = currentFilteredMonitorings.filter(item => 
+                (item.m_local_level || getVal(item, 'm_local_level', 'स्थानीय तह')) === localName
+            );
+        } else if (currentDashboardView === 'attendance') {
+            localLevelDataForAI.type = 'समय/पोशाक अनुगमन';
+            localLevelDataForAI.details = currentFilteredAttendance.filter(item => 
+                (item.local_level || getVal(item, 'local_level', 'स्थानीय तह')) === localName
+            );
+        } else if (currentDashboardView === 'project-monitoring') {
+            localLevelDataForAI.type = 'आयोजना अनुगमन';
+            localLevelDataForAI.details = currentFilteredProjectMonitorings.filter(item => 
+                (item.pm_local_level || getVal(item, 'pm_local_level', 'स्थानीय तह')) === localName
+            );
+        }
+        
+        const payload = {
+            action: 'analyze',
+            location: `${data.district} - ${localName}`,
+            mode: 'local_level_analysis',
+            localLevelData: localLevelDataForAI
+        };
+        
+        const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+        let resultText = await response.text();
+        
+        let analysisContent = "";
+        try {
+            const jsonRes = JSON.parse(resultText);
+            analysisContent = jsonRes.analysis || jsonRes.message || resultText;
+        } catch (e) {
+            analysisContent = resultText;
+        }
+        
+        Swal.close();
+        
+        // Format and display the analysis
+        let formattedText = analysisContent.trim();
+        formattedText = formattedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        formattedText = formattedText.replace(/^\s*[\*\-•]\s+(.*$)/gm, '<div style="display:flex; margin-bottom:4px; padding-left:15px;"><span style="margin-right:8px; color:#387ae6;">•</span><span>$1</span></div>');
+        
+        const formattedHtml = formattedText.split(/\n\n+/).map(para => {
+            if (para.trim().startsWith('<div')) return para;
+            return `<p style="margin-bottom:10px;">${para.replace(/\n/g, '<br>')}</p>`;
+        }).join('');
+        
+        Swal.fire({
+            title: `${localName} - AI विश्लेषण`,
+            html: `<div style="text-align:justify; line-height:1.6; font-family:'Kalimati', sans-serif;">${formattedHtml}</div>`,
+            width: '600px',
+            confirmButtonText: 'ठीक छ',
+            confirmButtonColor: '#306a95'
+        });
+        
+    } catch (e) {
+        Swal.close();
+        Swal.fire({
+            icon: 'error',
+            title: 'त्रुटि',
+            text: 'AI विश्लेषण लोड गर्न सकिएन। कृपया पछि फेरि प्रयास गर्नुहोस्।',
+            confirmButtonColor: '#306a95'
+        });
+    }
+}
+
+function addMapLegend() {
+    if (!mapObj) return;
+    
+    // Remove existing legend
+    const existingLegend = document.querySelector('.map-legend');
+    if (existingLegend) existingLegend.remove();
+    
+    const legend = L.control({ position: 'bottomright' });
+    
+    legend.onAdd = function(map) {
+        const div = L.DomUtil.create('div', 'map-legend');
+        div.style.backgroundColor = 'white';
+        div.style.padding = '10px';
+        div.style.borderRadius = '5px';
+        div.style.boxShadow = '0 2px 5px rgba(0,0,0,0.3)';
+        div.style.fontFamily = "'Kalimati', sans-serif";
+        
+        div.innerHTML = `
+            <h4 style="margin:0 0 10px 0; color:#306a95;">स्कोर लिजेन्ड</h4>
+            <div style="display:flex; align-items:center; margin:5px 0;">
+                <div style="width:20px; height:20px; background:#10b981; margin-right:10px; border:1px solid #ccc;"></div>
+                <span>उत्कृष्ट (८०-१००%)</span>
+            </div>
+            <div style="display:flex; align-items:center; margin:5px 0;">
+                <div style="width:20px; height:20px; background:#3b82f6; margin-right:10px; border:1px solid #ccc;"></div>
+                <span>राम्रो (६०-७९%)</span>
+            </div>
+            <div style="display:flex; align-items:center; margin:5px 0;">
+                <div style="width:20px; height:20px; background:#f59e0b; margin-right:10px; border:1px solid #ccc;"></div>
+                <span>सुधार आवश्यक (४०-५९%)</span>
+            </div>
+            <div style="display:flex; align-items:center; margin:5px 0;">
+                <div style="width:20px; height:20px; background:#ef4444; margin-right:10px; border:1px solid #ccc;"></div>
+                <span>कमजोर (४०% भन्दा कम)</span>
+            </div>
+        `;
+        
+        return div;
+    };
+    
+    legend.addTo(mapObj);
+}
+
+// Map search functionality
+const mapSearchInput = document.getElementById('mapSearchInput');
+if (mapSearchInput) {
+    mapSearchInput.addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        
+        districtLayerGroup.eachLayer(function(layer) {
+            const feature = layer.feature;
+            const districtName = (feature.properties.DIST_EN || feature.properties.name_en || feature.properties.name || '').toLowerCase();
+            
+            if (districtName.includes(searchTerm)) {
+                layer.setStyle({
+                    fillOpacity: 0.7,
+                    weight: 2
+                });
+            } else {
+                layer.setStyle({
+                    fillOpacity: 0.2,
+                    weight: 1
+                });
+            }
+        });
+    });
+}
+
+function printMap() {
+    if (!mapObj) return;
+    
+    const mapContainer = document.getElementById('nepalMap');
+    if (!mapContainer) return;
+    
+    // Create a print window
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>नेपाल जिल्ला नक्सा</title>
+            <style>
+                body { margin: 0; padding: 20px; font-family: 'Kalimati', sans-serif; }
+                h1 { text-align: center; color: #306a95; }
+                .map-container { border: 2px solid #ccc; border-radius: 8px; overflow: hidden; }
+                .legend { margin-top: 20px; padding: 15px; background: #f5f5f5; border-radius: 8px; }
+                .legend-item { display: flex; align-items: center; margin: 5px 0; }
+                .color-box { width: 20px; height: 20px; margin-right: 10px; border: 1px solid #ccc; }
+            </style>
+        </head>
+        <body>
+            <h1>नेपालको जिल्ला अवस्थिति नक्सा</h1>
+            <div class="map-container">
+                <img src="${mapContainer.toDataURL()}" style="width: 100%; height: auto;">
+            </div>
+            <div class="legend">
+                <h3>स्कोर लिजेन्ड</h3>
+                <div class="legend-item">
+                    <div class="color-box" style="background: #90EE90;"></div>
+                    <span>राम्रो (0-30%)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="color-box" style="background: #FFD700;"></div>
+                    <span>मध्यम (30-50%)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="color-box" style="background: #FF6347;"></div>
+                    <span>कमजोर (50%+)</span>
+                </div>
+            </div>
+            <script>
+                window.onload = function() {
+                    window.print();
+                };
+            </script>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+}
+
+function exportMapData() {
+    let data = [];
+    let dKey = '';
+    
+    if (currentDashboardView === 'survey') { data = currentFilteredSubmissions; dKey = 'jilla'; }
+    else if (currentDashboardView === 'monitoring') { data = currentFilteredMonitorings; dKey = 'm_jilla'; }
+    else if (currentDashboardView === 'attendance') { data = currentFilteredAttendance; dKey = 'jilla'; }
+    else if (currentDashboardView === 'project-monitoring') { data = currentFilteredProjectMonitorings; dKey = 'pm_jilla'; }
+    
+    // Prepare CSV data
+    const headers = ['जिल्ला', 'कूल रेकर्ड', 'नकारात्मक सूचक', 'स्कोर (%)', 'स्थिति'];
+    const rows = [headers];
+    
+    Object.keys(districtData).forEach(districtName => {
+        const d = districtData[districtName];
+        const score = d.total > 0 ? ((d.unsatisfied / d.total) * 100).toFixed(1) : '0.0';
+        
+        let status = 'राम्रो';
+        if (parseFloat(score) > 30) status = 'मध्यम';
+        if (parseFloat(score) > 50) status = 'कमजोर';
+        
+        rows.push([
+            districtName,
+            d.total.toString(),
+            d.unsatisfied.toString(),
+            score,
+            status
+        ]);
+    });
+    
+    // Convert to CSV
+    const csvContent = rows.map(row => row.join(',')).join('\n');
+    
+    // Create download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `nepal-districts-data-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
 function updateMapMarkers() {
@@ -4691,7 +7670,14 @@ function updateMapMarkers() {
     if (currentDashboardView === 'survey') { data = currentFilteredSubmissions; dKey = 'jilla'; }
     else if (currentDashboardView === 'monitoring') { data = currentFilteredMonitorings; dKey = 'm_jilla'; }
     else if (currentDashboardView === 'attendance') { data = currentFilteredAttendance; dKey = 'jilla'; }
+    else if (currentDashboardView === 'project-monitoring') { data = currentFilteredProjectMonitorings; dKey = 'pm_jilla'; }
 
+    // Update district data for choropleth
+    Object.keys(districtData).forEach(dName => {
+        districtData[dName].total = 0;
+        districtData[dName].unsatisfied = 0;
+        districtData[dName].score = 0;
+    });
 
     const stats = data.reduce((acc, item) => {
         const dName = item[dKey] || getVal(item, dKey, 'जिल्ला');
@@ -4699,6 +7685,12 @@ function updateMapMarkers() {
 
         if (!acc[dName]) acc[dName] = { total: 0, unsatisfied: 0, reasons: {} };
         acc[dName].total++;
+
+        // Update district data
+        if (districtData[dName]) {
+            districtData[dName].total = acc[dName].total;
+            districtData[dName].unsatisfied = acc[dName].unsatisfied;
+        }
 
         let reasons = [];
         if (currentDashboardView === 'survey') {
@@ -4714,6 +7706,13 @@ function updateMapMarkers() {
             if ((item.m_q12 === 'नराम्रो' || getVal(item, 'm_q12', '१२. सरसफाइको अवस्था') === 'नराम्रो')) reasons.push('सरसफाइ कमजोर');
         } else if (currentDashboardView === 'attendance') {
             reasons.push(item.category || "अपरिपालना");
+        } else if (currentDashboardView === 'project-monitoring') {
+            const progress = parseFloat(item.pm_physical_progress || getVal(item, 'pm_physical_progress', '१०. भौतिक प्रगति (%)')) || 0;
+            if (progress < 25) reasons.push('प्रगति कम (२५% भन्दा कम)');
+            else if (progress < 50) reasons.push('प्रगति मध्यम (२५-५०%)');
+            else if (progress < 75) reasons.push('प्रगति राम्रो (५०-७५%)');
+            else reasons.push('प्रगति उत्कृष्ट (७५%+ )');
+            // For project monitoring, always add progress info regardless of whether it's "negative"
         }
 
         if (reasons.length > 0) {
@@ -4721,6 +7720,15 @@ function updateMapMarkers() {
             reasons.forEach(r => {
                 acc[dName].reasons[r] = (acc[dName].reasons[r] || 0) + 1;
             });
+        }
+        // For project monitoring, always track progress info for display
+        if (currentDashboardView === 'project-monitoring') {
+            const progress = parseFloat(item.pm_physical_progress || getVal(item, 'pm_physical_progress', '१०. भौतिक प्रगति (%)')) || 0;
+            if (!acc[dName].progressInfo) acc[dName].progressInfo = { low: 0, medium: 0, good: 0, excellent: 0 };
+            if (progress < 25) acc[dName].progressInfo.low++;
+            else if (progress < 50) acc[dName].progressInfo.medium++;
+            else if (progress < 75) acc[dName].progressInfo.good++;
+            else acc[dName].progressInfo.excellent++;
         }
         return acc;
     }, {});
@@ -4743,12 +7751,27 @@ function updateMapMarkers() {
         });
 
         const canvasId = `popup-chart-${dName.replace(/\s/g, '')}`;
+
+        // For project monitoring, show positive progress info instead of negative
+        let additionalInfo = '';
+        if (currentDashboardView === 'project-monitoring' && s.progressInfo) {
+            const pInfo = s.progressInfo;
+            const positiveInfo = [];
+            if (pInfo.excellent > 0) positiveInfo.push(`उत्कृष्ट: ${toNepaliDigits(pInfo.excellent)}`);
+            if (pInfo.good > 0) positiveInfo.push(`राम्रो: ${toNepaliDigits(pInfo.good)}`);
+            if (pInfo.medium > 0) positiveInfo.push(`मध्यम: ${toNepaliDigits(pInfo.medium)}`);
+            if (pInfo.low > 0) positiveInfo.push(`कम: ${toNepaliDigits(pInfo.low)}`);
+            additionalInfo = positiveInfo.length > 0 ? `<br><div style="color:#27ae60; font-size:0.85rem; margin-top:5px;"><strong>प्रगति स्थिति:</strong> ${positiveInfo.join(', ')}</div>` : '';
+        } else {
+            additionalInfo = negativeReasons ? `<br><div style="color:#de3053; font-size:0.85rem; margin-top:5px;"><strong>नकारात्मक पक्ष:</strong> ${negativeReasons}</div>` : '';
+        }
+
         const popupText = `
             <div style="font-family:'Kalimati';">
                 <strong style="color:#306a95;">${dName} जिल्ला</strong><br>
-                कूल रेकर्ड: <span style="color:#387ae6">${toNepaliDigits(s.total)}</span> | 
-                नकारात्मक सूचक: <span style="color:#de3053">${toNepaliDigits(s.unsatisfied)}</span>
-                ${negativeReasons ? `<br><div style="color:#de3053; font-size:0.85rem; margin-top:5px;"><strong>नकारात्मक पक्ष:</strong> ${negativeReasons}</div>` : ''}
+                कूल रेकर्ड: <span style="color:#387ae6">${toNepaliDigits(s.total)}</span> |
+                ${currentDashboardView === 'project-monitoring' ? 'आयोजना संख्या' : 'नकारात्मक सूचक'}: <span style="color:${currentDashboardView === 'project-monitoring' ? '#27ae60' : '#de3053'}">${toNepaliDigits(s.total)}</span>
+                ${additionalInfo}
                 <div style="margin-top:10px; height:120px; cursor:pointer;"><canvas id="${canvasId}"></canvas></div>
                 <hr style="margin: 5px 0;">
                 <div style="text-align:center; color:#e67e22; font-size:0.85rem; cursor:pointer;" class="view-details-link"><strong>विवरण हेर्न क्लिक गर्नुहोस्</strong></div>
@@ -4766,10 +7789,10 @@ function updateMapMarkers() {
                     new Chart(ctx, {
                         type: 'bar',
                         data: {
-                            labels: ['कूल रेकर्ड', 'नकारात्मक सूचक'],
+                            labels: currentDashboardView === 'project-monitoring' ? ['कूल आयोजना', 'उत्कृष्ट प्रगति (७५%+)'] : ['कूल रेकर्ड', 'नकारात्मक सूचक'],
                             datasets: [{
-                                data: [s.total, s.unsatisfied],
-                                backgroundColor: ['#387ae6cc', '#de3053cc'],
+                                data: currentDashboardView === 'project-monitoring' ? [s.total, s.progressInfo?.excellent || 0] : [s.total, s.unsatisfied],
+                                backgroundColor: currentDashboardView === 'project-monitoring' ? ['#387ae6cc', '#27ae60cc'] : ['#387ae6cc', '#de3053cc'],
                                 borderRadius: 4
                             }]
                         },
@@ -4781,7 +7804,17 @@ function updateMapMarkers() {
 
                                     let filtered = data.filter(item => (item[dKey] || getVal(item, dKey, 'जिल्ला')) === dName);
 
-                                    if (isNegative) {
+                                    if (currentDashboardView === 'project-monitoring') {
+                                        // For project monitoring, filter by progress category
+                                        if (idx === 1) {
+                                            // Show excellent progress projects
+                                            filtered = filtered.filter(item => {
+                                                const progress = parseFloat(item.pm_physical_progress || getVal(item, 'pm_physical_progress', '१०. भौतिक प्रगति (%)')) || 0;
+                                                return progress >= 75;
+                                            });
+                                        }
+                                        // idx === 0 shows all projects
+                                    } else if (isNegative) {
                                         filtered = filtered.filter(item => {
                                             if (currentDashboardView === 'survey') {
                                                 return (
@@ -4805,8 +7838,14 @@ function updateMapMarkers() {
                                         });
                                     }
 
-                                    showDetailedTable(filtered, `${dName}: ${isNegative ? 'नकारात्मक सूचक' : 'कूल रेकर्ड'}`,
-                                        currentDashboardView === 'survey' ? 'survey' : (currentDashboardView === 'monitoring' ? 'monitoring' : 'attendance'));
+                                    const label = currentDashboardView === 'project-monitoring' ?
+                                        (idx === 1 ? 'उत्कृष्ट प्रगति (७५%+)' : 'कूल आयोजना') :
+                                        (isNegative ? 'नकारात्मक सूचक' : 'कूल रेकर्ड');
+
+                                    const viewType = currentDashboardView === 'project-monitoring' ? 'project-monitoring' :
+                                        (currentDashboardView === 'survey' ? 'survey' : (currentDashboardView === 'monitoring' ? 'monitoring' : 'attendance'));
+
+                                    showDetailedTable(filtered, `${dName}: ${label}`, viewType);
                                 }
                             },
                             indexAxis: 'y',
@@ -4844,6 +7883,9 @@ function updateMapMarkers() {
                 }
             });
     });
+    
+    // Update choropleth map with new data
+    updateChoroplethMap();
 }
 
 const originalRefreshDashboard = refreshDashboard;
@@ -5490,7 +8532,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const h = String(now.getHours()).padStart(2, '0');
                 const m = String(now.getMinutes()).padStart(2, '0');
                 const s = String(now.getSeconds()).padStart(2, '0');
-                nepaliTimeEl.innerHTML = '<i class="fas fa-clock mr-1"></i>' + h + ':' + m + ':' + s;
+                nepaliTimeEl.textContent = h + ':' + m + ':' + s;
             }
             if (nepaliDateEl) {
                 const bs = estimateCurrentBsDate();
@@ -5503,30 +8545,19 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ========== NEW FEATURE 2: AUTO-REFRESH TOGGLE ==========
-    let autoRefreshInterval = null;
     function initAutoRefresh() {
         const btn = document.getElementById('autoRefreshToggle');
         const ind = document.getElementById('autoRefreshIndicator');
         if (!btn) return;
         btn.addEventListener('click', function () {
-            if (autoRefreshInterval) {
-                clearInterval(autoRefreshInterval); autoRefreshInterval = null;
-                btn.classList.remove('active');
-                if (ind) ind.classList.add('hidden');
-                btn.title = 'अटो-रिफ्रेस गर्नुहोस्';
-                showToast('⏸️ अटो-रिफ्रेस रद्द', 'info', 2000);
-            } else {
-                autoRefreshInterval = setInterval(function () {
-                    refreshDashboard();
-                    showToast('🔄 तथ्याङ्क स्वतः रिफ्रेस', 'info', 1500);
-                }, 30000);
-                btn.classList.add('active');
-                if (ind) ind.classList.remove('hidden');
-                btn.title = 'अटो-रिफ्रेस रद्द गर्नुहोस्';
-                showToast('🔄 अटो-रिफ्रेस सफल', 'success', 2000);
-            }
+            const enabled = !Boolean(autoRefreshInterval);
+            setAutoRefreshEnabled(enabled, true);
             playClickSound();
         });
+
+        if (appSettings.autoRefresh) {
+            setAutoRefreshEnabled(true, false);
+        }
     }
 
     // ========== NEW FEATURE 4: ENHANCED EXPORT ==========
@@ -5656,7 +8687,7 @@ async function deleteRecord(timestamp, type) {
 
     if (result.isConfirmed) {
         Swal.fire({
-            title: 'मेटाउँदैछ...',
+            title: 'मेटाईंदैछ...',
             text: 'कृपया पर्खनुहोस्',
             allowOutsideClick: false,
             didOpen: () => {
@@ -5715,12 +8746,25 @@ async function deleteRecord(timestamp, type) {
 // Edit Record Logic
 window.editingRecord = null;
 
-function setFieldValue(name, value) {
+function setFieldValue(name, value, context = document) {
     if (value === undefined || value === null) value = "";
 
-    let inputs = document.getElementsByName(name);
+    let inputs = [];
+    if (context && typeof context.getElementsByName === 'function') {
+        inputs = context.getElementsByName(name);
+    } else if (context && context.elements && typeof context.elements.namedItem === 'function') {
+        const namedItem = context.elements.namedItem(name);
+        inputs = namedItem ? (namedItem.length ? Array.from(namedItem) : [namedItem]) : [];
+    } else if (context && typeof context.querySelectorAll === 'function') {
+        inputs = context.querySelectorAll(`[name="${name}"]`);
+    } else {
+        inputs = document.getElementsByName(name);
+    }
+
     if (!inputs.length) {
-        const el = document.getElementById(name);
+        const el = context && typeof context.getElementById === 'function'
+            ? context.getElementById(name)
+            : document.getElementById(name);
         if (el) {
             el.value = value;
             return;
@@ -5743,10 +8787,328 @@ function setFieldValue(name, value) {
             inputs[i].checked = values.includes(inputs[i].value);
             inputs[i].dispatchEvent(new Event('change'));
         }
+    } else if (inputs[0].tagName === 'SELECT' || type === 'select-one') {
+        const select = inputs[0];
+        const valueStr = value === undefined || value === null ? '' : String(value).trim();
+        let matched = false;
+
+        for (let i = 0; i < select.options.length; i++) {
+            if (select.options[i].value === valueStr) {
+                select.value = select.options[i].value;
+                matched = true;
+                break;
+            }
+        }
+
+        if (!matched) {
+            const normalizedValue = valueStr.toLowerCase();
+            for (let i = 0; i < select.options.length; i++) {
+                const optionText = String(select.options[i].textContent || select.options[i].innerText || '').trim().toLowerCase();
+                const optionValue = String(select.options[i].value || '').trim().toLowerCase();
+                if (optionText === normalizedValue || optionValue === normalizedValue) {
+                    select.value = select.options[i].value;
+                    matched = true;
+                    break;
+                }
+            }
+        }
+
+        if (!matched) {
+            const normalizedValue = valueStr.toLowerCase();
+            for (let i = 0; i < select.options.length; i++) {
+                const optionText = String(select.options[i].textContent || select.options[i].innerText || '').trim().toLowerCase();
+                const optionValue = String(select.options[i].value || '').trim().toLowerCase();
+                if ((optionText && optionText.includes(normalizedValue)) || (optionValue && optionValue.includes(normalizedValue)) || (normalizedValue && normalizedValue.includes(optionText)) || (normalizedValue && normalizedValue.includes(optionValue))) {
+                    select.value = select.options[i].value;
+                    matched = true;
+                    break;
+                }
+            }
+        }
+
+        if (!matched) {
+            select.value = valueStr;
+        }
+        select.dispatchEvent(new Event('change'));
     } else {
         inputs[0].value = value;
         inputs[0].dispatchEvent(new Event('change'));
     }
+}
+
+function getRecordFieldValue(record, field, label, ...aliases) {
+    if (!record) return '';
+    const keysToTry = [field, label, ...aliases];
+    for (const key of keysToTry) {
+        if (key === undefined || key === null) continue;
+        if (record[key] !== undefined && record[key] !== null && record[key] !== '') {
+            return record[key];
+        }
+    }
+
+    for (const key of keysToTry) {
+        if (key === undefined || key === null) continue;
+        const value = getVal(record, key, label);
+        if (value) return value;
+    }
+
+    return '';
+}
+
+function setLocationFields(record, form, pradeshKey, jillaKey, sthaaniyaKey) {
+    if (!record || !form) return;
+    const pradeshValue = getRecordFieldValue(record, pradeshKey, 'प्रदेश', 'province', 'pradesh', 'प्रदेश');
+    const jillaValue = getRecordFieldValue(record, jillaKey, 'जिल्ला', 'district', 'jilla', 'जिल्ला');
+    const sthaaniyaValue = getRecordFieldValue(record, sthaaniyaKey, 'स्थानीय तह', 'sthaaniya', 'municipality', 'localLevel', 'local_level', 'locallevel', 'स्थानीय तह');
+
+    setFieldValue(pradeshKey, pradeshValue, form);
+    setFieldValue(jillaKey, jillaValue, form);
+    setFieldValue(sthaaniyaKey, sthaaniyaValue, form);
+}
+
+function openAttendanceEditModal(record) {
+    const modal = document.getElementById('attendanceEditModal');
+    const form = document.getElementById('attendanceEditModalForm');
+    const rowsBody = document.getElementById('attendanceEditRowsBody');
+    if (!modal || !form || !rowsBody) return false;
+
+    form.reset();
+    rowsBody.innerHTML = '';
+
+    setFieldValue('a_pradesh', getRecordFieldValue(record, 'pradesh', 'प्रदेश', 'province', 'pradesh'), form);
+    setFieldValue('a_jilla', getRecordFieldValue(record, 'jilla', 'जिल्ला', 'district', 'jilla'), form);
+    setFieldValue('a_sthaaniya', getRecordFieldValue(record, 'sthaaniya', 'स्थानीय तह', 'sthaaniya', 'municipality', 'localLevel', 'local_level', 'locallevel'), form);
+
+    Object.keys(record || {}).forEach(key => {
+        if (key === 'rows' || ['pradesh', 'jilla', 'sthaaniya'].includes(key)) {
+            return;
+        }
+        setFieldValue(key, record[key], form);
+    });
+
+    if (record?.rows && record.rows.length) {
+        record.rows.forEach(() => {
+            addAttendanceRow('attendanceEditRowsBody');
+        });
+
+        const rowElements = rowsBody.querySelectorAll('tr');
+        rowElements.forEach((row, index) => {
+            const rowData = record.rows[index] || {};
+            const category = row.querySelector('[name="emp_category[]"]');
+            const rank = row.querySelector('[name="emp_rank[]"]');
+            const symbol = row.querySelector('[name="emp_symbol[]"]');
+            const name = row.querySelector('[name="emp_name[]"]');
+            const extra = row.querySelector('[name="emp_extra[]"]');
+
+            if (category) category.value = rowData.category || '';
+            if (rank) rank.value = rowData.rank || '';
+            if (symbol) symbol.value = rowData.symbol || '';
+            if (name) name.value = rowData.name || '';
+            if (extra) extra.value = rowData.extra || '';
+        });
+    } else {
+        addAttendanceRow('attendanceEditRowsBody');
+    }
+
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    return true;
+}
+
+function closeAttendanceEditModal() {
+    const modal = document.getElementById('attendanceEditModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    document.body.style.overflow = '';
+}
+
+function openSurveyEditModal(record) {
+    const modal = document.getElementById('surveyEditModal');
+    const body = document.getElementById('surveyEditModalBody');
+    const form = document.getElementById('surveyForm');
+    if (!modal || !body || !form) return false;
+
+    if (!window._surveyFormHost) {
+        window._surveyFormHost = form.parentElement;
+    }
+    if (form.parentElement !== body) {
+        body.appendChild(form);
+    }
+
+    form.reset();
+    setLocationFields(record, form, 'pradesh', 'jilla', 'sthaaniya_taha');
+    Object.keys(record || {}).forEach(key => {
+        if (['pradesh', 'jilla', 'sthaaniya_taha'].includes(key)) return;
+        setFieldValue(key, record[key], form);
+    });
+    if (typeof updateSatisfactionVisibility === 'function') {
+        updateSatisfactionVisibility();
+    }
+    document.getElementById('submitSurvey').innerHTML = '<i class="fas fa-save"></i> अद्यावधिक गर्नुहोस्';
+
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    return true;
+}
+
+function closeSurveyEditModal() {
+    const modal = document.getElementById('surveyEditModal');
+    const form = document.getElementById('surveyForm');
+    const host = window._surveyFormHost || form?.parentElement;
+    if (form && host && form.parentElement !== host) {
+        host.appendChild(form);
+    }
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    document.body.style.overflow = '';
+}
+
+function openMonitoringEditModal(record) {
+    const modal = document.getElementById('monitoringEditModal');
+    const body = document.getElementById('monitoringEditModalBody');
+    const form = document.getElementById('monitoringForm');
+    if (!modal || !body || !form) return false;
+
+    if (!window._monitoringFormHost) {
+        window._monitoringFormHost = form.parentElement;
+    }
+    if (form.parentElement !== body) {
+        body.appendChild(form);
+    }
+
+    form.reset();
+    setLocationFields(record, form, 'm_pradesh', 'm_jilla', 'm_sthaaniya');
+    Object.keys(record || {}).forEach(key => {
+        if (['m_pradesh', 'm_jilla', 'm_sthaaniya'].includes(key)) return;
+        setFieldValue(key, record[key], form);
+    });
+    document.getElementById('submitMonitoring').innerHTML = '<i class="fas fa-save"></i> अद्यावधिक गर्नुहोस्';
+
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    return true;
+}
+
+function closeMonitoringEditModal() {
+    const modal = document.getElementById('monitoringEditModal');
+    const form = document.getElementById('monitoringForm');
+    const host = window._monitoringFormHost || form?.parentElement;
+    if (form && host && form.parentElement !== host) {
+        host.appendChild(form);
+    }
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    document.body.style.overflow = '';
+}
+
+function saveAttendanceEditModal() {
+    const form = document.getElementById('attendanceEditModalForm');
+    const modal = document.getElementById('attendanceEditModal');
+    if (!form) return;
+
+    form.classList.add('was-validated');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        playErrorSound('विवरण अधुरो छ, कृपया आवश्यक फिल्डहरू भर्नुहोस्।');
+        return;
+    }
+
+    const formData = new FormData(form);
+    const mandatoryFields = ['a_pradesh', 'a_jilla', 'a_sthaaniya', 'a_office', 'a_date', 'a_total_staff', 'a_working_staff', 'a_vacant_staff'];
+    for (const fieldId of mandatoryFields) {
+        const val = formData.get(fieldId);
+        if (!val || val.toString().trim() === '') {
+            Swal.fire({ icon: 'warning', title: 'अधुरो विवरण', text: 'कृपया सबै अनिवार्य फिल्डहरू भर्नुहोस्।', confirmButtonColor: '#387ae6' });
+            playErrorSound('अनिवार्य विवरणहरू भर्न बाँकी छ।');
+            return;
+        }
+    }
+
+    const total = parseInt(formData.get('a_total_staff') || 0);
+    const working = parseInt(formData.get('a_working_staff') || 0);
+    const vacant = parseInt(formData.get('a_vacant_staff') || 0);
+    if (total !== (working + vacant)) {
+        Swal.fire({ icon: 'error', title: 'तथ्याङ्क मिलेन', text: 'कुल दरबन्दी संख्या, कार्यरत र रिक्त संख्याको योगफलसँग मिल्नुपर्छ।', confirmButtonColor: '#387ae6' });
+        playErrorSound('तथ्याङ्कको गणितीय योगफल मिलेन।');
+        return;
+    }
+
+    const record = window.editingRecord && window.editingRecord.type === 'attendance'
+        ? allAttendanceMonitorings.find(r => String(r.timestamp) === String(window.editingRecord.timestamp))
+        : null;
+
+    let payload = {
+        type: 'attendance',
+        timestamp: record?.timestamp || new Date().toISOString(),
+        mainRecordId: record?.mainRecordId || new Date().getTime().toString(),
+        rows: []
+    };
+
+    if (record?.timestamp) {
+        payload.editTimestamp = record.timestamp;
+        payload.timestamp = record.timestamp;
+    }
+
+    payload.pradesh = (PROVINCE[formData.get('a_pradesh')] || formData.get('a_pradesh') || '').toString();
+    payload.jilla = formData.get('a_jilla') || '';
+    payload.sthaaniya = formData.get('a_sthaaniya') || '';
+    payload.office = formData.get('a_office');
+    payload.total_staff = formData.get('a_total_staff');
+    payload.working_staff = formData.get('a_working_staff');
+    payload.vacant_staff = formData.get('a_vacant_staff');
+    payload.date = formData.get('a_date');
+    payload.time = formData.get('a_time');
+    payload.phone = formData.get('a_phone');
+    payload.monitor_name = formData.get('a_monitor_name');
+    payload.monitor_rank = formData.get('a_monitor_rank');
+    payload.office_officer = formData.get('a_office_officer');
+    payload.office_rank = formData.get('a_office_rank');
+
+    const categories = formData.getAll('emp_category[]');
+    const ranks = formData.getAll('emp_rank[]');
+    const symbols = formData.getAll('emp_symbol[]');
+    const names = formData.getAll('emp_name[]');
+    const extras = formData.getAll('emp_extra[]');
+
+    let hasValidRow = false;
+    for (let i = 0; i < names.length; i++) {
+        if (names[i].trim() !== '' || symbols[i].trim() !== '') {
+            hasValidRow = true;
+            payload.rows.push({
+                category: categories[i],
+                rank: ranks[i],
+                symbol: symbols[i],
+                name: names[i],
+                extra: extras[i],
+                mainRecordId: payload.mainRecordId
+            });
+        }
+    }
+
+    if (!hasValidRow) {
+        Swal.fire({ icon: 'warning', title: 'कर्मचारी विवरण आवश्यक', text: 'कृपया कम्तिमा एक कर्मचारीको विवरण भर्नुहोस्।', confirmButtonColor: '#387ae6' });
+        playErrorSound('कम्तिमा एक कर्मचारीको विवरण भर्नुहोस्।');
+        return;
+    }
+
+    const idx = allAttendanceMonitorings.findIndex(r => String(r.timestamp) === String(payload.editTimestamp || payload.timestamp));
+    if (idx !== -1) {
+        allAttendanceMonitorings[idx] = payload;
+    } else {
+        allAttendanceMonitorings.unshift(payload);
+    }
+    localStorage.setItem('attendanceData_nsc', JSON.stringify(allAttendanceMonitorings));
+
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    document.body.style.overflow = '';
+    window.editingRecord = null;
+    refreshDashboard();
+    showToast('✅ समय पालना विवरण सम्पादित गरियो', 'success', 2000);
 }
 
 window.editRecord = function (timestamp, type) {
@@ -5755,61 +9117,784 @@ window.editRecord = function (timestamp, type) {
     if (type === 'survey') {
         const record = allSubmissions.find(r => String(r.timestamp) === String(timestamp));
         if (record) {
-            const tabBtn = document.querySelector('.nav-btn[data-tab="form-tab"]');
-            if (tabBtn) tabBtn.click();
-            document.getElementById("surveyForm").reset();
-            setTimeout(() => {
-                Object.keys(record).forEach(key => setFieldValue(key, record[key]));
-                document.getElementById("submitSurvey").innerHTML = '<i class="fas fa-save"></i> अद्यावधिक गर्नुहोस्';
-            }, 100);
+            openSurveyEditModal(record);
         }
     } else if (type === 'monitoring') {
         const record = allMonitorings.find(r => String(r.timestamp) === String(timestamp));
         if (record) {
-            const tabBtn = document.querySelector('.nav-btn[data-tab="monitoring-tab"]');
-            if (tabBtn) tabBtn.click();
-            document.getElementById("monitoringForm").reset();
-            setTimeout(() => {
-                Object.keys(record).forEach(key => setFieldValue(key, record[key]));
-                document.getElementById("submitMonitoring").innerHTML = '<i class="fas fa-save"></i> अद्यावधिक गर्नुहोस्';
-            }, 100);
+            openMonitoringEditModal(record);
         }
     } else if (type === 'attendance') {
         const record = allAttendanceMonitorings.find(r => String(r.timestamp) === String(timestamp));
         if (record) {
-            const tabBtn = document.querySelector('.nav-btn[data-tab="attendance-tab"]');
-            if (tabBtn) tabBtn.click();
-            document.getElementById("attendanceForm").reset();
-            setTimeout(() => {
-                Object.keys(record).forEach(key => {
-                    if (key !== 'rows') setFieldValue(key, record[key]);
-                });
+            window.editingRecord = { timestamp, type };
+            const opened = openAttendanceEditModal(record);
+            if (!opened) {
+                const tabBtn = document.querySelector('.nav-btn[data-tab="attendance-tab"]');
+                if (tabBtn) tabBtn.click();
+                document.getElementById("attendanceForm").reset();
+                setTimeout(() => {
+                    Object.keys(record).forEach(key => {
+                        if (key !== 'rows') setFieldValue(key, record[key]);
+                    });
 
-                const tb = document.getElementById("attendanceRecordsBody");
-                if (tb) {
-                    tb.innerHTML = '';
-                    if (record.rows && record.rows.length) {
-                        record.rows.forEach(r => {
-                            const tr = document.createElement("tr");
-                            tr.innerHTML = `
-                                <td><select class="category-select" required><option value="ढिला उपस्थित">ढिला उपस्थित</option><option value="पोशाक नलगाएको">पोशाक नलगाएको</option><option value="ढिला र पोशाक दुवै">ढिला र पोशाक दुवै</option><option value="अनुपस्थित">अनुपस्थित</option><option value="अन्य">अन्य</option></select></td>
-                                <td><input type="text" class="rank-input" placeholder="पद" required></td>
-                                <td><input type="text" class="symbol-input" placeholder="संकेत नं."></td>
-                                <td><input type="text" class="name-input" placeholder="नाम" required></td>
-                                <td><input type="text" class="extra-input" placeholder="कैफियत"></td>
-                                <td><button type="button" class="action-btn btn-delete" onclick="this.closest('tr').remove()" title="हटाउनुहोस्"><i class="fas fa-trash"></i></button></td>
-                            `;
-                            tr.querySelector('.category-select').value = r.category;
-                            tr.querySelector('.rank-input').value = r.rank;
-                            tr.querySelector('.symbol-input').value = r.symbol;
-                            tr.querySelector('.name-input').value = r.name;
-                            tr.querySelector('.extra-input').value = r.extra;
-                            tb.appendChild(tr);
-                        });
+                    const tb = document.getElementById("attendanceRecordsBody");
+                    if (tb) {
+                        tb.innerHTML = '';
+                        if (record.rows && record.rows.length) {
+                            record.rows.forEach(r => {
+                                const tr = document.createElement("tr");
+                                tr.innerHTML = `
+                                    <td><select class="category-select" required><option value="ढिला उपस्थित">ढिला उपस्थित</option><option value="पोशाक नलगाएको">पोशाक नलगाएको</option><option value="ढिला र पोशाक दुवै">ढिला र पोशाक दुवै</option><option value="अनुपस्थित">अनुपस्थित</option><option value="अन्य">अन्य</option></select></td>
+                                    <td><input type="text" class="rank-input" placeholder="पद" required></td>
+                                    <td><input type="text" class="symbol-input" placeholder="संकेत नं."></td>
+                                    <td><input type="text" class="name-input" placeholder="नाम" required></td>
+                                    <td><input type="text" class="extra-input" placeholder="कैफियत"></td>
+                                    <td><button type="button" class="action-btn btn-delete" onclick="this.closest('tr').remove()" title="हटाउनुहोस्"><i class="fas fa-trash"></i></button></td>
+                                `;
+                                tr.querySelector('.category-select').value = r.category;
+                                tr.querySelector('.rank-input').value = r.rank;
+                                tr.querySelector('.symbol-input').value = r.symbol;
+                                tr.querySelector('.name-input').value = r.name;
+                                tr.querySelector('.extra-input').value = r.extra;
+                                tb.appendChild(tr);
+                            });
+                        }
                     }
-                }
-                document.getElementById("submitAttendance").innerHTML = '<i class="fas fa-save"></i> अद्यावधिक गर्नुहोस्';
-            }, 100);
+                    document.getElementById("submitAttendance").innerHTML = '<i class="fas fa-save"></i> अद्यावधिक गर्नुहोस्';
+                }, 100);
+            }
         }
     }
-};
+}
+
+// ========== USER MANAGEMENT FUNCTIONS ==========
+
+// Load all users
+document.getElementById('loadUsersBtn')?.addEventListener('click', async function() {
+    try {
+        Swal.fire({
+            icon: 'info',
+            text: 'प्रयोगकर्ताहरू लोड हुँदैछ...',
+            allowOutsideClick: false,
+            showConfirmButton: false
+        });
+
+        const response = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'get_all_users' })
+        });
+
+        const result = await response.json();
+        Swal.close();
+
+        if (result.status === 'success') {
+            displayUsers(result.users, 'all');
+        } else {
+            Swal.fire({ icon: 'error', text: result.message });
+        }
+    } catch (error) {
+        Swal.close();
+        Swal.fire({ icon: 'error', text: 'प्रयोगकर्ताहरू लोड गर्दा त्रुटि आयो।' });
+        console.error(error);
+    }
+});
+
+// Load pending registrations
+document.getElementById('loadPendingRegistrationsBtn')?.addEventListener('click', async function() {
+    try {
+        Swal.fire({
+            icon: 'info',
+            text: 'पेन्डिङ नयाँ युजरहरू लोड हुँदैछ...',
+            allowOutsideClick: false,
+            showConfirmButton: false
+        });
+
+        const response = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'get_pending_registrations' })
+        });
+
+        const result = await response.json();
+        Swal.close();
+
+        if (result.status === 'success') {
+            displayUsers(result.users, 'pending');
+        } else {
+            Swal.fire({ icon: 'error', text: result.message });
+        }
+    } catch (error) {
+        Swal.close();
+        Swal.fire({ icon: 'error', text: 'पेन्डिङ नयाँ युजरहरू लोड गर्दा त्रुटि आयो।' });
+        console.error(error);
+    }
+});
+
+// Load password reset requests
+document.getElementById('loadPasswordResetRequestsBtn')?.addEventListener('click', async function() {
+    try {
+        Swal.fire({
+            icon: 'info',
+            text: 'पासवर्ड रिसेट अनुरोधहरू लोड हुँदैछ...',
+            allowOutsideClick: false,
+            showConfirmButton: false
+        });
+
+        const response = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'get_password_reset_requests' })
+        });
+
+        const result = await response.json();
+        Swal.close();
+
+        if (result.status === 'success') {
+            displayUsers(result.users, 'password_reset');
+        } else {
+            Swal.fire({ icon: 'error', text: result.message });
+        }
+    } catch (error) {
+        Swal.close();
+        Swal.fire({ icon: 'error', text: 'पासवर्ड रिसेट अनुरोधहरू लोड गर्दा त्रुटि आयो।' });
+        console.error(error);
+    }
+});
+
+// Display users in table
+function displayUsers(users, type) {
+    const tbody = document.getElementById('usersBody');
+    if (!tbody) return;
+
+    if (!users || users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px;">कुनै डाटा छैन।</td></tr>';
+        return;
+    }
+
+    let html = '';
+    users.forEach((user, index) => {
+        const serialNo = index + 1;
+        const actions = getActionButtons(user, type);
+        
+        html += `
+            <tr style="border-bottom: 1px solid #ddd;">
+                <td style="padding: 6px; border: 1px solid #ddd;">${serialNo}</td>
+                <td style="padding: 6px; border: 1px solid #ddd;">${user.ministry || '-'}</td>
+                <td style="padding: 6px; border: 1px solid #ddd;">${user.province || '-'}</td>
+                <td style="padding: 6px; border: 1px solid #ddd;">${user.district || '-'}</td>
+                <td style="padding: 6px; border: 1px solid #ddd;">${user.localLevel || '-'}</td>
+                <td style="padding: 6px; border: 1px solid #ddd;">${user.officeName || '-'}</td>
+                <td style="padding: 6px; border: 1px solid #ddd;">${user.username || '-'}</td>
+                <td style="padding: 6px; border: 1px solid #ddd;">${user.email || '-'}</td>
+                <td style="padding: 6px; border: 1px solid #ddd;">${actions}</td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+// Get action buttons based on user type
+function getActionButtons(user, type) {
+    let buttons = '';
+
+    if (type === 'pending') {
+        buttons += `
+            <button onclick="approveUser('${user.username}')" style="background: #10b981; color: white; padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer; margin-right: 4px;" title="Approve">
+                <i class="fas fa-check"></i>
+            </button>
+            <button onclick="rejectUser('${user.username}')" style="background: #ef4444; color: white; padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer; margin-right: 4px;" title="Reject">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+    } else if (type === 'password_reset') {
+        buttons += `
+            <button onclick="approvePasswordReset('${user.username}')" style="background: #10b981; color: white; padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer; margin-right: 4px;" title="Approve Reset">
+                <i class="fas fa-check"></i>
+            </button>
+            <button onclick="rejectPasswordReset('${user.username}')" style="background: #ef4444; color: white; padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer; margin-right: 4px;" title="Reject">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+    } else {
+        buttons += `
+            <button onclick="viewUser('${user.username}')" style="background: #3b82f6; color: white; padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer; margin-right: 4px;" title="View">
+                <i class="fas fa-eye"></i>
+            </button>
+            <button onclick="editUser('${user.username}')" style="background: #f59e0b; color: white; padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer; margin-right: 4px;" title="Edit">
+                <i class="fas fa-edit"></i>
+            </button>
+            <button onclick="deleteUser('${user.username}')" style="background: #ef4444; color: white; padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer;" title="Delete">
+                <i class="fas fa-trash"></i>
+            </button>
+        `;
+    }
+
+    return buttons;
+}
+
+// Approve user registration
+async function approveUser(username) {
+    const { value: confirm } = await Swal.fire({
+        title: 'पुष्टि गर्नुहोस्',
+        text: `के तपाईं ${username} लाई approve गर्न चाहनुहुन्छ?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'हो, approve गर्नुहोस्',
+        cancelButtonText: 'रद्द गर्नुहोस्'
+    });
+
+    if (confirm) {
+        try {
+            Swal.fire({
+                icon: 'info',
+                text: 'Approve हुँदैछ...',
+                allowOutsideClick: false,
+                showConfirmButton: false
+            });
+
+            const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'approve_user', username: username })
+            });
+
+            const result = await response.json();
+            Swal.close();
+
+            if (result.status === 'success') {
+                Swal.fire({ icon: 'success', text: result.message });
+                document.getElementById('loadPendingRegistrationsBtn').click();
+            } else {
+                Swal.fire({ icon: 'error', text: result.message });
+            }
+        } catch (error) {
+            Swal.close();
+            Swal.fire({ icon: 'error', text: 'Approve गर्दा त्रुटि आयो।' });
+            console.error(error);
+        }
+    }
+}
+
+// Reject user registration
+async function rejectUser(username) {
+    const { value: confirm } = await Swal.fire({
+        title: 'पुष्टि गर्नुहोस्',
+        text: `के तपाईं ${username} लाई reject गर्न चाहनुहुन्छ?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'हो, reject गर्नुहोस्',
+        cancelButtonText: 'रद्द गर्नुहोस्'
+    });
+
+    if (confirm) {
+        try {
+            Swal.fire({
+                icon: 'info',
+                text: 'Reject हुँदैछ...',
+                allowOutsideClick: false,
+                showConfirmButton: false
+            });
+
+            const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'reject_user', username: username })
+            });
+
+            const result = await response.json();
+            Swal.close();
+
+            if (result.status === 'success') {
+                Swal.fire({ icon: 'success', text: result.message });
+                document.getElementById('loadPendingRegistrationsBtn').click();
+            } else {
+                Swal.fire({ icon: 'error', text: result.message });
+            }
+        } catch (error) {
+            Swal.close();
+            Swal.fire({ icon: 'error', text: 'Reject गर्दा त्रुटि आयो।' });
+            console.error(error);
+        }
+    }
+}
+
+// Approve password reset
+async function approvePasswordReset(username) {
+    const { value: confirm } = await Swal.fire({
+        title: 'पुष्टि गर्नुहोस्',
+        text: `के तपाईं ${username} को पासवर्ड रिसेट approve गर्न चाहनुहुन्छ?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'हो, approve गर्नुहोस्',
+        cancelButtonText: 'रद्द गर्नुहोस्'
+    });
+
+    if (confirm) {
+        try {
+            Swal.fire({
+                icon: 'info',
+                text: 'Approve हुँदैछ...',
+                allowOutsideClick: false,
+                showConfirmButton: false
+            });
+
+            const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'approve_password_reset', username: username })
+            });
+
+            const result = await response.json();
+            Swal.close();
+
+            if (result.status === 'success') {
+                Swal.fire({ icon: 'success', text: result.message });
+                document.getElementById('loadPasswordResetRequestsBtn').click();
+            } else {
+                Swal.fire({ icon: 'error', text: result.message });
+            }
+        } catch (error) {
+            Swal.close();
+            Swal.fire({ icon: 'error', text: 'Approve गर्दा त्रुटि आयो।' });
+            console.error(error);
+        }
+    }
+}
+
+// Reject password reset
+async function rejectPasswordReset(username) {
+    const { value: confirm } = await Swal.fire({
+        title: 'पुष्टि गर्नुहोस्',
+        text: `के तपाईं ${username} को पासवर्ड रिसेट reject गर्न चाहनुहुन्छ?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'हो, reject गर्नुहोस्',
+        cancelButtonText: 'रद्द गर्नुहोस्'
+    });
+
+    if (confirm) {
+        try {
+            Swal.fire({
+                icon: 'info',
+                text: 'Reject हुँदैछ...',
+                allowOutsideClick: false,
+                showConfirmButton: false
+            });
+
+            const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'reject_password_reset', username: username })
+            });
+
+            const result = await response.json();
+            Swal.close();
+
+            if (result.status === 'success') {
+                Swal.fire({ icon: 'success', text: result.message });
+                document.getElementById('loadPasswordResetRequestsBtn').click();
+            } else {
+                Swal.fire({ icon: 'error', text: result.message });
+            }
+        } catch (error) {
+            Swal.close();
+            Swal.fire({ icon: 'error', text: 'Reject गर्दा त्रुटि आयो।' });
+            console.error(error);
+        }
+    }
+}
+
+// View user details
+async function viewUser(username) {
+    try {
+        const response = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'get_user', username: username })
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            const user = result.user;
+            Swal.fire({
+                title: 'प्रयोगकर्ता विवरण',
+                html: `
+                    <div style="text-align: left;">
+                        <p><strong>युजरनेम:</strong> ${user.username || '-'}</p>
+                        <p><strong>पूरा नाम:</strong> ${user.fullName || '-'}</p>
+                        <p><strong>इमेल:</strong> ${user.email || '-'}</p>
+                        <p><strong>मन्त्रालय:</strong> ${user.ministry || '-'}</p>
+                        <p><strong>प्रदेश:</strong> ${user.province || '-'}</p>
+                        <p><strong>जिल्ला:</strong> ${user.district || '-'}</p>
+                        <p><strong>स्थानीय तह:</strong> ${user.localLevel || '-'}</p>
+                        <p><strong>कार्यालयको नाम:</strong> ${user.officeName || '-'}</p>
+                        <p><strong>भूमिका:</strong> ${user.role || '-'}</p>
+                        <p><strong>स्थिति:</strong> ${user.status || '-'}</p>
+                    </div>
+                `,
+                icon: 'info'
+            });
+        } else {
+            Swal.fire({ icon: 'error', text: result.message });
+        }
+    } catch (error) {
+        Swal.fire({ icon: 'error', text: 'प्रयोगकर्ता विवरण लोड गर्दा त्रुटि आयो।' });
+        console.error(error);
+    }
+}
+
+// Edit user (placeholder - to be implemented)
+function editUser(username) {
+    Swal.fire({
+        icon: 'info',
+        text: 'Edit functionality अझै implement गरिएको छैन।'
+    });
+}
+
+// Delete user
+async function deleteUser(username) {
+    const { value: confirm } = await Swal.fire({
+        title: 'पुष्टि गर्नुहोस्',
+        text: `के तपाईं ${username} लाई मेटाउन चाहनुहुन्छ? यो कार्य पूर्ववत गर्न सकिँदैन।`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'हो, मेटाउनुहोस्',
+        cancelButtonText: 'रद्द गर्नुहोस्'
+    });
+
+    if (confirm) {
+        try {
+            Swal.fire({
+                icon: 'info',
+                text: 'मेटाउँदै छ...',
+                allowOutsideClick: false,
+                showConfirmButton: false
+            });
+
+            const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'delete_user', username: username })
+            });
+
+            const result = await response.json();
+            Swal.close();
+
+            if (result.status === 'success') {
+                Swal.fire({ icon: 'success', text: result.message });
+                document.getElementById('loadUsersBtn').click();
+            } else {
+                Swal.fire({ icon: 'error', text: result.message });
+            }
+        } catch (error) {
+            Swal.close();
+            Swal.fire({ icon: 'error', text: 'मेटाउँदा त्रुटि आयो।' });
+            console.error(error);
+        }
+    }
+}
+
+// ========== AUDIT LOG FUNCTIONS ==========
+
+/**
+ * Load all audit logs from Google Sheets
+ */
+async function loadAuditLogs() {
+    try {
+        Swal.fire({
+            icon: 'info',
+            text: 'अडिट लग लोड हुँदैछ...',
+            allowOutsideClick: false,
+            showConfirmButton: false
+        });
+
+        const response = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'get_audit_log' })
+        });
+
+        const result = await response.json();
+        Swal.close();
+
+        if (result.status === 'success') {
+            allAuditLogs = result.logs || [];
+            filteredAuditLogs = allAuditLogs;
+            currentAuditPage = 1;
+            auditLogsLoaded = true;
+            
+            renderAuditLogTable();
+            showToast('अडिट लग सफलतापूर्वक लोड भयो', 'success', 2000);
+        } else {
+            Swal.close();
+            Swal.fire({ icon: 'error', text: result.message || 'अडिट लग लोड गर्न सकिएन' });
+        }
+    } catch (error) {
+        Swal.close();
+        Swal.fire({ icon: 'error', text: 'अडिट लग लोड गर्दा त्रुटि आयो।' });
+        console.error('Error loading audit logs:', error);
+    }
+}
+
+/**
+ * Filter audit logs by Details field
+ */
+function filterAuditLogs(searchText) {
+    if (!searchText || searchText.trim() === '') {
+        filteredAuditLogs = allAuditLogs;
+    } else {
+        const searchLower = searchText.toLowerCase();
+        filteredAuditLogs = allAuditLogs.filter(log => {
+            const details = String(log.details || '').toLowerCase();
+            const username = String(log.username || '').toLowerCase();
+            const action = String(log.action || '').toLowerCase();
+            return details.includes(searchLower) || username.includes(searchLower) || action.includes(searchLower);
+        });
+    }
+    currentAuditPage = 1;
+    renderAuditLogTable();
+}
+
+/**
+ * Change items per page for audit log
+ */
+function changeAuditPageSize(newSize) {
+    auditItemsPerPage = parseInt(newSize);
+    currentAuditPage = 1;
+    renderAuditLogTable();
+}
+
+/**
+ * Render audit log table with pagination
+ */
+function renderAuditLogTable() {
+    if (!auditLogsLoaded || !filteredAuditLogs) {
+        return;
+    }
+
+    const tbody = document.getElementById('auditLogBody');
+    const table = document.getElementById('auditLogTable');
+    if (!tbody || !table) return;
+
+    // Calculate pagination
+    const totalLogs = filteredAuditLogs.length;
+    const totalPages = Math.ceil(totalLogs / auditItemsPerPage);
+    const startIndex = (currentAuditPage - 1) * auditItemsPerPage;
+    const endIndex = Math.min(startIndex + auditItemsPerPage, totalLogs);
+    const paginatedLogs = filteredAuditLogs.slice(startIndex, endIndex);
+
+    // Render table rows
+    if (paginatedLogs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px; color: #64748b;">अडिट लग मिलेन।</td></tr>';
+    } else {
+        tbody.innerHTML = paginatedLogs.map((log, index) => {
+            const timestamp = new Date(log.timestamp).toLocaleString('en-US');
+            const action = log.action || '-';
+            const username = log.username || '-';
+            const details = log.details || '-';
+            
+            return `
+                <tr style="border-bottom: 1px solid #ddd; hover:background: #f5f5f5;">
+                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${timestamp}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;">${username}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px;"><span style="background: #e3f2fd; padding: 2px 6px; border-radius: 3px; color: #1565c0;">${action}</span></td>
+                    <td style="padding: 8px; border: 1px solid #ddd; font-size: 11px; max-width: 300px; word-wrap: break-word;">${details}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // Render pagination controls
+    renderAuditPaginationControls(totalLogs, totalPages);
+}
+
+/**
+ * Render audit log pagination controls
+ */
+function renderAuditPaginationControls(totalLogs, totalPages) {
+    const container = document.getElementById('auditLogContent');
+    if (!container) return;
+
+    // Remove existing pagination if any
+    const existingPagination = container.querySelector('.audit-pagination-container');
+    if (existingPagination) {
+        existingPagination.remove();
+    }
+
+    // Create pagination container
+    const paginationDiv = document.createElement('div');
+    paginationDiv.className = 'audit-pagination-container';
+    paginationDiv.style.cssText = `
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 15px;
+        padding: 12px;
+        background: #f8f9fa;
+        border-radius: 5px;
+        flex-wrap: wrap;
+        gap: 10px;
+    `;
+
+    // Page size selector
+    const pageSizeDiv = document.createElement('div');
+    pageSizeDiv.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+    pageSizeDiv.innerHTML = `
+        <label style="font-weight: 600; color: #2d3748; font-size: 0.9rem;">प्रति पेज:</label>
+        <select id="auditPageSizeSelect" style="padding: 5px 10px; border: 1px solid #cbd5e0; border-radius: 4px; font-family: 'Kalimati', sans-serif;">
+            <option value="20" ${auditItemsPerPage === 20 ? 'selected' : ''}>२० (20)</option>
+            <option value="50" ${auditItemsPerPage === 50 ? 'selected' : ''}>५० (50)</option>
+            <option value="100" ${auditItemsPerPage === 100 ? 'selected' : ''}>१०० (100)</option>
+            <option value="500" ${auditItemsPerPage === 500 ? 'selected' : ''}>५०० (500)</option>
+        </select>
+    `;
+
+    // Info div
+    const infoDiv = document.createElement('div');
+    infoDiv.style.cssText = 'color: #4a5568; font-size: 0.9rem; font-weight: 500;';
+    infoDiv.innerHTML = `जम्मा: <strong>${toNepaliDigits(filteredAuditLogs.length)}</strong> | पेज: <strong>${currentAuditPage}</strong>/${totalPages}`;
+
+    // Navigation buttons
+    const navDiv = document.createElement('div');
+    navDiv.style.cssText = 'display: flex; gap: 5px; align-items: center;';
+    
+    const prevBtn = document.createElement('button');
+    prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+    prevBtn.className = 'btn-pagination';
+    prevBtn.style.cssText = `
+        padding: 6px 10px;
+        border: 1px solid #cbd5e0;
+        background: #fff;
+        border-radius: 4px;
+        cursor: pointer;
+        color: #2d3748;
+        transition: all 0.2s;
+    `;
+    prevBtn.disabled = currentAuditPage === 1;
+    prevBtn.onclick = () => {
+        if (currentAuditPage > 1) {
+            currentAuditPage--;
+            renderAuditLogTable();
+        }
+    };
+
+    const nextBtn = document.createElement('button');
+    nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+    nextBtn.className = 'btn-pagination';
+    nextBtn.style.cssText = `
+        padding: 6px 10px;
+        border: 1px solid #cbd5e0;
+        background: #fff;
+        border-radius: 4px;
+        cursor: pointer;
+        color: #2d3748;
+        transition: all 0.2s;
+    `;
+    nextBtn.disabled = currentAuditPage === totalPages;
+    nextBtn.onclick = () => {
+        if (currentAuditPage < totalPages) {
+            currentAuditPage++;
+            renderAuditLogTable();
+        }
+    };
+
+    navDiv.appendChild(prevBtn);
+    navDiv.appendChild(nextBtn);
+
+    paginationDiv.appendChild(pageSizeDiv);
+    paginationDiv.appendChild(infoDiv);
+    paginationDiv.appendChild(navDiv);
+
+    container.appendChild(paginationDiv);
+
+    // Add event listener to page size selector
+    const selectElement = document.getElementById('auditPageSizeSelect');
+    if (selectElement) {
+        selectElement.addEventListener('change', function() {
+            changeAuditPageSize(this.value);
+        });
+    }
+}
+
+/**
+ * Setup audit log event listeners
+ */
+function setupAuditLogEventListeners() {
+    const loadBtn = document.getElementById('loadAuditLogBtn');
+    if (loadBtn) {
+        loadBtn.addEventListener('click', loadAuditLogs);
+    }
+
+    // Add filter input for audit logs
+    const auditLogContent = document.getElementById('auditLogContent');
+    if (auditLogContent) {
+        // Create filter section above table
+        const filterDiv = document.createElement('div');
+        filterDiv.id = 'auditLogFilterContainer';
+        filterDiv.style.cssText = `
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        `;
+        filterDiv.innerHTML = `
+            <input 
+                type="text" 
+                id="auditLogFilterInput" 
+                placeholder="विवरण, प्रयोगकर्ता वा कार्य अनुसार खोज्नुहोस्..." 
+                style="
+                    flex: 1;
+                    min-width: 250px;
+                    padding: 8px 12px;
+                    border: 1px solid #cbd5e0;
+                    border-radius: 5px;
+                    font-family: 'Kalimati', sans-serif;
+                    font-size: 0.9rem;
+                "
+            />
+            <button 
+                id="auditLogClearFilterBtn" 
+                style="
+                    padding: 8px 16px;
+                    background: #ef4444;
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    font-family: 'Kalimati', sans-serif;
+                    font-weight: 600;
+                "
+            >
+                <i class="fas fa-times"></i> फिल्टर हटाउनुहोस्
+            </button>
+        `;
+
+        const table = document.getElementById('auditLogTable');
+        if (table && table.parentNode && !document.getElementById('auditLogFilterContainer')) {
+            table.parentNode.insertBefore(filterDiv, table);
+        }
+
+        // Add event listeners
+        const filterInput = document.getElementById('auditLogFilterInput');
+        const clearBtn = document.getElementById('auditLogClearFilterBtn');
+
+        if (filterInput) {
+            const debouncedFilter = debounce(function() {
+                filterAuditLogs(filterInput.value);
+            }, 300);
+            filterInput.addEventListener('input', debouncedFilter);
+        }
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function() {
+                if (filterInput) {
+                    filterInput.value = '';
+                    filterAuditLogs('');
+                }
+            });
+        }
+    }
+}
+
+// Initialize audit log listeners on DOMContentLoaded
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(() => {
+        setupAuditLogEventListeners();
+    }, 500);
+});
+

@@ -50,9 +50,9 @@ async function calculateGovernanceIndices(officeMonitoringData, citizenSurveyDat
 }
 
 /**
- * Gemini Prompt निर्माण
+ * Gemini Prompt निर्माण - includes optional projectMonitoring data
  */
-function buildGovernancePrompt(indices, rawData, regionType, regionName) {
+function buildGovernancePrompt(indices, rawData, regionType, regionName, projectMonitoring) {
   return `
 तपाईं राष्ट्रिय सतर्गता केन्द्रको सुशासन तथा सेवा प्रवाह विश्लेषक हुनुहुन्छ।
 
@@ -68,6 +68,10 @@ function buildGovernancePrompt(indices, rawData, regionType, regionName) {
 
 **तथ्याङ्क विवरण (Raw Data Overview)**:
 ${JSON.stringify(rawData, null, 2)}
+
+${projectMonitoring && projectMonitoring.aggregates ? "**आयोजना अनुगमन सारांश:**\n" + JSON.stringify(projectMonitoring.aggregates, null, 2) : ''}
+${projectMonitoring && projectMonitoring.topOverspend ? "**Top Overspend Examples:**\n" + JSON.stringify(projectMonitoring.topOverspend.slice(0,5), null, 2) : ''}
+${projectMonitoring && projectMonitoring.stalled ? "**Stalled Examples:**\n" + JSON.stringify(projectMonitoring.stalled.slice(0,5), null, 2) : ''}
 
 निम्न शीर्षकमा विस्तृत विश्लेषण दिनुहोस्:
 
@@ -98,9 +102,9 @@ ${JSON.stringify(rawData, null, 2)}
 /**
  * Gemini API मार्फत विश्लेषण गर्ने फंक्शन
  */
-async function analyzeGovernanceWithGemini(indices, rawData, regionType, regionName) {
+async function analyzeGovernanceWithGemini(indices, rawData, regionType, regionName, projectMonitoring) {
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
-  const prompt = buildGovernancePrompt(indices, rawData, regionType, regionName);
+  const prompt = buildGovernancePrompt(indices, rawData, regionType, regionName, projectMonitoring);
   
   const result = await model.generateContent(prompt);
   const response = await result.response;
