@@ -1,0 +1,1437 @@
+<!DOCTYPE html>
+<html lang="ne">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>राष्ट्रिय सतर्कता केन्द्र - लगइन</title>
+    <link rel="icon" type="image/png" href="coa.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Mukta:wght@200..800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Kalimati&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Metadata for dropdowns -->
+    <script src="metadata.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#2b6cb0',
+                        glass: 'rgba(255, 255, 255, 0.7)',
+                    },
+                    fontFamily: {
+                        sans: ['Kalimati', 'Mukta', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Kalimati', 'Mukta', sans-serif;
+            min-height: 100vh;
+            background: url('homepage.jpg') no-repeat center center fixed;
+            background-size: cover;
+            display: flex;
+            flex-direction: column;
+            color: #fff;
+        }
+
+        /* Header */
+        .login-header {
+            background: linear-gradient(135deg, rgba(0, 0, 70, 0.82), rgba(28, 181, 224, 0.78), rgba(0, 51, 102, 0.82));
+            background-size: 400% 400%;
+            animation: headerGradientMove 15s ease infinite;
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            z-index: 10;
+        }
+
+        @keyframes headerGradientMove {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .header-left img {
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3));
+        }
+
+        .header-text h1 {
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1.2;
+            color: #fff;
+        }
+
+        .header-text h2 {
+            font-size: 13px;
+            font-weight: 500;
+            color: rgba(255,255,255,0.85);
+            line-height: 1.3;
+        }
+
+        .header-text p {
+            font-size: 11px;
+            color: rgba(255,255,255,0.7);
+            font-weight: 400;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .clock-section {
+            text-align: right;
+            border-right: 1px solid rgba(255,255,255,0.2);
+            padding-right: 16px;
+        }
+
+        .clock-section .nepali-date {
+            font-size: 11px;
+            font-weight: 700;
+            color: #fff;
+            white-space: nowrap;
+            margin-bottom: 2px;
+        }
+
+        .clock-section .time-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            justify-content: flex-end;
+            font-size: 10px;
+            font-weight: 500;
+            color: rgba(255,255,255,0.7);
+        }
+
+        .clock-section .time-row .separator {
+            opacity: 0.3;
+        }
+
+        .clock-section .time-row .english-date {
+            font-size: 9px;
+        }
+
+        .header-right .flag {
+            height: 44px;
+            width: auto;
+            filter: drop-shadow(0 2px 6px rgba(0,0,0,0.3));
+        }
+
+        /* Mobile: Hide clock and flag on small screens */
+        @media (max-width: 768px) {
+            .header-right {
+                display: none;
+            }
+        }
+
+        /* Hero Section */
+        .hero-section {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 30px 20px;
+            gap: 40px;
+            flex-wrap: wrap;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .hero-left {
+            flex: 1;
+            min-width: 280px;
+            max-width: 520px;
+            text-align: left;
+        }
+
+        .hero-left .welcome-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.9;
+        }
+
+        .hero-left h2 {
+            font-size: 28px;
+            font-weight: 700;
+            line-height: 1.4;
+            color: #fff;
+            text-shadow: 0 2px 12px rgba(0,0,0,0.2);
+        }
+
+        .hero-left h2 span {
+            display: block;
+            font-size: 20px;
+            font-weight: 400;
+            color: rgba(255,255,255,0.8);
+            margin-top: 8px;
+        }
+
+        .hero-left .sub-text {
+            margin-top: 16px;
+            font-size: 14px;
+            color: rgba(255,255,255,0.7);
+            line-height: 1.6;
+        }
+
+        .hero-left .decorative-line {
+            width: 80px;
+            height: 3px;
+            background: linear-gradient(90deg, #f0c040, #ff6b6b);
+            border-radius: 2px;
+            margin: 16px 0 0;
+        }
+
+        /* Login Box */
+        .login-box {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(16px);
+            border-radius: 12px;
+            padding: 22px 20px 32px;
+            width: 247px;
+            max-width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 0 40px rgba(28, 181, 224, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .login-box:hover {
+            transform: translateY(-2px);
+        }
+
+        .login-box .logo-wrap {
+            text-align: center;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .login-box .logo-wrap img {
+            width: 38px;
+            height: 38px;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 8px rgba(0,0,0,0.1));
+        }
+
+        .login-box .login-title {
+            text-align: center;
+            font-size: 12px;
+            font-weight: 700;
+            color: #1a202c;
+            margin-bottom: 2px;
+        }
+
+        .login-box .login-subtitle {
+            text-align: center;
+            font-size: 9px;
+            color: #718096;
+            margin-bottom: 12px;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 11px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 3px;
+        }
+
+        .form-group label i {
+            margin-right: 4px;
+            color: #2b6cb0;
+            font-size: 10px;
+        }
+
+        .form-group .input-wrap {
+            position: relative;
+        }
+
+        .form-group .input-wrap input {
+            width: 100%;
+            padding: 6px 8px 6px 28px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 10px;
+            color: #1a202c;
+            background: #f7fafc;
+            transition: all 0.3s ease;
+            outline: none;
+            font-family: 'Kalimati', 'Mukta', sans-serif;
+        }
+
+        .form-group .input-wrap input:focus {
+            border-color: #2b6cb0;
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(43, 108, 176, 0.15);
+        }
+
+        .form-group .input-wrap .input-icon {
+            position: absolute;
+            left: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #a0aec0;
+            font-size: 12px;
+        }
+
+        .form-group .input-wrap .toggle-password {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #a0aec0;
+            cursor: pointer;
+            font-size: 12px;
+            background: none;
+            border: none;
+            padding: 4px;
+        }
+
+        .form-group .input-wrap .toggle-password:hover {
+            color: #2b6cb0;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-bottom: 6px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 12px;
+            height: 12px;
+            accent-color: #2b6cb0;
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            font-size: 11px;
+            color: #4a5568;
+            cursor: pointer;
+            margin-bottom: 0;
+        }
+
+        .forgot-password {
+            text-align: right;
+            margin-bottom: 8px;
+        }
+
+        .forgot-password a {
+            font-size: 10px;
+            color: #2b6cb0;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .forgot-password a:hover {
+            text-decoration: underline;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(16px);
+            border-radius: 12px;
+            padding: 24px;
+            width: 90%;
+            max-width: 450px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .modal-header h3 {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1a202c;
+            margin: 0;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: #718096;
+            cursor: pointer;
+            padding: 4px 8px;
+            transition: color 0.3s ease;
+        }
+
+        .modal-close:hover {
+            color: #e53e3e;
+        }
+
+        .modal-form .form-group {
+            margin-bottom: 16px;
+        }
+
+        .modal-form .form-group label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 4px;
+        }
+
+        .modal-form .form-group input,
+        .modal-form .form-group select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #1a202c;
+            background: #f7fafc;
+            transition: all 0.3s ease;
+            outline: none;
+            font-family: 'Kalimati', 'Mukta', sans-serif;
+        }
+
+        .modal-form .form-group input:focus,
+        .modal-form .form-group select:focus {
+            border-color: #2b6cb0;
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(43, 108, 176, 0.15);
+        }
+
+        .modal-form .btn-submit {
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(135deg, #2b6cb0, #1a365d);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Kalimati', 'Mukta', sans-serif;
+            margin-top: 8px;
+        }
+
+        .modal-form .btn-submit:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(43, 108, 176, 0.45);
+        }
+
+        .modal-form .btn-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .modal-form .btn-submit.loading .btn-text {
+            display: none;
+        }
+
+        .modal-form .btn-submit.loading .spinner {
+            display: inline-block;
+        }
+
+        .modal-info-text {
+            font-size: 11px;
+            color: #718096;
+            text-align: center;
+            margin-top: 12px;
+            line-height: 1.5;
+        }
+
+        /* Force English-only input */
+        input[type="text"], input[type="password"], input[type="email"], input[type="tel"] {
+            font-family: 'Arial', 'Helvetica', sans-serif !important;
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 5px;
+            background: linear-gradient(135deg, #1d73cf, #1f6dda);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Kalimati', 'Mukta', sans-serif;
+            box-shadow: 0 4px 14px rgba(43, 108, 176, 0.35);
+        }
+
+        .btn-login:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(43, 108, 176, 0.45);
+            background: linear-gradient(135deg, #3182ce, #2b6cb0);
+        }
+
+        .btn-login:active {
+            transform: translateY(0);
+        }
+
+        .btn-login i {
+            margin-right: 5px;
+            font-size: 10px;
+        }
+
+        .btn-signup {
+            width: 100%;
+            padding: 5px;
+            background: transparent;
+            color: #2b6cb0;
+            border: 1.5px solid #2b6cb0;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Kalimati', 'Mukta', sans-serif;
+            margin-top: 4px;
+            margin-bottom: 8px;
+        }
+
+        .btn-signup:hover {
+            background: rgba(43, 108, 176, 0.08);
+            border-color: #1a365d;
+            color: #1a365d;
+        }
+
+        .btn-signup i {
+            margin-right: 4px;
+            font-size: 10px;
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 3px 0;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #e2e8f0;
+        }
+
+        .divider span {
+            font-size: 9px;
+            color: #8292a5;
+        }
+
+        .error-msg {
+            color: #e53e3e;
+            font-size: 10px;
+            text-align: center;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .error-msg.show {
+            display: block;
+        }
+
+        /* Loading spinner */
+        .spinner {
+            display: none;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .btn-login.loading .btn-text {
+            display: none;
+        }
+
+        .btn-login.loading .spinner {
+            display: inline-block;
+        }
+
+        /* Footer */
+        .login-footer {
+            text-align: center;
+            padding: 12px;
+            font-size: 11px;
+            color: rgba(255,255,255,0.5);
+            background: rgba(0,0,0,0.2);
+            backdrop-filter: blur(8px);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .login-header {
+                padding: 10px 16px;
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .header-left {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .header-right {
+                width: 100%;
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+
+            .clock-section {
+                border-right: none;
+                padding-right: 0;
+                text-align: center;
+            }
+
+            .hero-section {
+                padding: 20px 16px;
+                gap: 24px;
+            }
+
+            .hero-left h2 {
+                font-size: 22px;
+            }
+
+            .hero-left h2 span {
+                font-size: 16px;
+            }
+
+            .login-box {
+                padding: 10px;
+                width: 80%;
+                max-width: 320px;
+            }
+
+            .header-text h1 {
+                font-size: 15px;
+            }
+
+            .header-text h2 {
+                font-size: 11px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .login-box {
+                padding: 20px 16px 16px;
+            }
+
+            .hero-left h2 {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="login-header">
+        <div class="header-left">
+            <img src="coa.png" alt="नेपालको निसान छाप">
+            <div class="header-text">
+                <h1>नेपाल सरकार</h1>
+                <h2>राष्ट्रिय सतर्कता केन्द्र</h2>
+                <p>अनुगमन तथा सर्वेक्षण ड्यासबोर्ड</p>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="clock-section">
+                <div class="nepali-date" id="clockNepaliDate">लोड गर्दै...</div>
+                <div class="time-row">
+                    <span id="clockNepaliTime">--:--:--</span>
+                    <span class="separator">|</span>
+                    <span class="english-date" id="clockEnglishDate"></span>
+                </div>
+            </div>
+            <img src="nepal-flag.gif" alt="नेपालको झण्डा" class="flag">
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="hero-left">
+            <h2>
+                राष्ट्रिय सतर्कता केन्द्रको
+                <span>अनुगमन तथा सर्वेक्षण ड्यासबोर्डमा स्वागत छ।</span>
+            </h2>
+            <p class="sub-text">
+                सार्वजनिक संस्थाको सेवाप्रवाह, नियमितता र आयोजनाको अनुगमन एवम् सेवाग्राही सर्वेक्षण
+            </p>
+            <div class="decorative-line"></div>
+        </div>
+
+        <!-- Login Box -->
+        <div class="login-box">
+            <div class="logo-wrap">
+                <img src="coa.png" alt="नेपालको निसान छाप">
+            </div>
+            <div class="login-title" style="color: #0e155e;">ड्यासबोर्डमा प्रवेश गर्नुहोस्</div>
+            
+            <!-- <div class="login-subtitle">कृपया आफ्नो युजरनेम/पासवर्ड प्रविष्ट गर्नुहोस्</div> -->
+             <br>
+
+            <form id="loginForm" autocomplete="off">
+                <div class="form-group">
+                    <!-- <label for="username"><i class="fas fa-user"></i> युजरनेम/Username</label> -->
+                    <div class="input-wrap">
+                        <i class="fas fa-user input-icon"></i>
+                        <input type="text" id="username" name="username" placeholder="युजरनेम प्रविष्ट गर्नुहोस्" required autocomplete="off" lang="en" style="ime-mode: disabled;">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <!-- <label for="password"><i class="fas fa-lock"></i> पासवर्ड/Password</label> -->
+                    <div class="input-wrap">
+                        <i class="fas fa-lock input-icon"></i>
+                        <input type="password" id="password" name="password" placeholder="पासवर्ड प्रविष्ट गर्नुहोस्" required autocomplete="off" lang="en" style="ime-mode: disabled;">
+                        <button type="button" class="toggle-password" id="togglePassword" tabindex="-1">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" id="rememberMe" name="rememberMe">
+                    <label for="rememberMe">मलाई सम्झनुहोस्</label>
+                </div>
+
+                <div class="forgot-password">
+                    <a href="#" id="forgotPasswordLink">पासवर्ड बिर्सनुभयो?</a>
+                </div>
+
+                <button type="submit" class="btn-login" id="loginBtn">
+                    <span class="btn-text"><i class="fas fa-sign-in-alt"></i> लगइन गर्नुहोस्</span>
+                    <span class="spinner"></span>
+                </button>
+
+                <div class="divider">
+                    <span>वा</span>
+                </div>
+
+                <button type="button" class="btn-signup" id="signupBtn">
+                    <i class="fas fa-user-plus"></i>Sign Up
+                </button>
+
+                <div class="error-msg" id="loginError">
+                    <i class="fas fa-exclamation-circle"></i> <span id="errorText">गलत युजरनेम वा पासवर्ड। कृपया पुनः प्रयास गर्नुहोस्।</span>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="login-footer">
+        &copy; <span id="currentYear">2026</span> राष्ट्रिय सतर्कता केन्द्र। सर्वाधिकार सुरक्षित
+    </footer>
+
+    <!-- Signup Modal -->
+    <div class="modal-overlay" id="signupModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 style="color: #03193d;">नयाँ युजर दर्ता</h4>
+                <button class="modal-close" id="closeSignupModal"><i class="fas fa-times"></i></button>
+            </div>
+            <form class="modal-form" id="signupForm">
+                <div class="form-group">
+                    <label for="signupMinistry">मन्त्रालय</label>
+                    <select id="signupMinistry" name="ministry" lang="en" style="ime-mode: disabled;">
+                        <option value="">छान्नुहोस्</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="signupProvince">प्रदेश*</label>
+                    <select id="signupProvince" name="province" required lang="en" style="ime-mode: disabled;">
+                        <option value="">छान्नुहोस्</option>
+                        <option value="1">कोशी प्रदेश</option>
+                        <option value="2">मधेश प्रदेश</option>
+                        <option value="3">बागमती प्रदेश</option>
+                        <option value="4">गण्डकी प्रदेश</option>
+                        <option value="5">लुम्बिनी प्रदेश</option>
+                        <option value="6">कर्णाली प्रदेश</option>
+                        <option value="7">सुदूरपश्चिम प्रदेश</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="signupDistrict">जिल्ला*</label>
+                    <select id="signupDistrict" name="district" required lang="en" style="ime-mode: disabled;">
+                        <option value="">पहिले प्रदेश छान्नुहोस्</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="signupLocalLevel">स्थानीय तह*</label>
+                    <select id="signupLocalLevel" name="localLevel" required lang="en" style="ime-mode: disabled;">
+                        <option value="">पहिले जिल्ला छान्नुहोस्</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="signupOffice">कार्यालयको नाम*</label>
+                    <input type="text" id="signupOffice" name="office" required lang="en" style="ime-mode: disabled;">
+                </div>
+                <div class="form-group">
+                    <label for="signupFullName">प्रयोगकर्ताको पूरा नाम*</label>
+                    <input type="text" id="signupFullName" name="fullName" required lang="en" style="ime-mode: disabled;">
+                </div>
+                <div class="form-group">
+                    <label for="signupEmail">इमेल*</label>
+                    <input type="email" id="signupEmail" name="email" required lang="en" style="ime-mode: disabled;" placeholder="तपाईंको इमेल नै युजरनेम हुनेछ">
+                </div>
+                <div class="form-group">
+                    <label for="signupMobile">मोबाइल नं.*</label>
+                    <input type="tel" id="signupMobile" name="mobile" required lang="en" style="ime-mode: disabled;">
+                </div>
+                <button type="submit" class="btn-submit" id="signupSubmitBtn">
+                    <span class="btn-text"><i class="fas fa-paper-plane"></i> दर्ता गर्नुहोस्</span>
+                    <span class="spinner"></span>
+                </button>
+                <p class="modal-info-text">दर्ता गरेपछि तपाईंको इमेलमा अस्थायी पासवर्ड पठाइनेछ।</p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Forgot Password Modal -->
+    <div class="modal-overlay" id="forgotPasswordModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>पासवर्ड पुनः प्राप्त गर्नुहोस्</h3>
+                <button class="modal-close" id="closeForgotPasswordModal"><i class="fas fa-times"></i></button>
+            </div>
+            <form class="modal-form" id="forgotPasswordForm">
+                <div class="form-group">
+                    <label for="forgotUsername">युजरनेम/इमेल *</label>
+                    <input type="text" id="forgotUsername" name="username" placeholder="तपाईंको इमेल प्रविष्ट गर्नुहोस्" required lang="en" style="ime-mode: disabled;">
+                </div>
+                <button type="submit" class="btn-submit" id="forgotPasswordSubmitBtn">
+                    <span class="btn-text"><i class="fas fa-paper-plane"></i> पठाउनुहोस्/Send</span>
+                    <span class="spinner"></span>
+                </button>
+                <p class="modal-info-text">तपाईंको इमेलमा अस्थायी पासवर्ड पठाइनेछ।</p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div class="modal-overlay" id="changePasswordModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>पासवर्ड परिवर्तन गर्नुहोस्</h3>
+                <button class="modal-close" id="closeChangePasswordModal"><i class="fas fa-times"></i></button>
+            </div>
+            <form class="modal-form" id="changePasswordForm">
+                <div class="form-group">
+                    <label for="currentPassword">हालको पासवर्ड*</label>
+                    <input type="password" id="currentPassword" name="currentPassword" required lang="en" style="ime-mode: disabled;">
+                </div>
+                <div class="form-group">
+                    <label for="newPassword">नयाँ पासवर्ड*</label>
+                    <input type="password" id="newPassword" name="newPassword" required lang="en" style="ime-mode: disabled;">
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">नयाँ पासवर्ड पुष्टि गर्नुहोस्*</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" required lang="en" style="ime-mode: disabled;">
+                </div>
+                <button type="submit" class="btn-submit" id="changePasswordSubmitBtn">
+                    <span class="btn-text"><i class="fas fa-key"></i> पासवर्ड परिवर्तन गर्नुहोस्</span>
+                    <span class="spinner"></span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // ===== Real-time Clock (Nepali + English) =====
+        function updateClock() {
+            const now = new Date();
+            
+            // English time
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('clockNepaliTime').textContent = hours + ':' + minutes + ':' + seconds;
+
+            // English date
+            const englishMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const englishDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const engDateStr = englishDays[now.getDay()] + ', ' + now.getDate() + ' ' + englishMonths[now.getMonth()] + ' ' + now.getFullYear();
+            document.getElementById('clockEnglishDate').textContent = engDateStr;
+
+            // Nepali date - accurate AD to BS conversion
+            try {
+                const nepaliMonths = ['वैशाख', 'जेठ', 'असार', 'साउन', 'भदौ', 'असोज', 'कात्तिक', 'मंसिर', 'पुष', 'माघ', 'फागुन', 'चैत'];
+                const nepaliDays = ['आइतबार', 'सोमबार', 'मङ्गलबार', 'बुधबार', 'बिहिबार', 'शुक्रबार', 'शनिबार'];
+
+                // Reference: April 14, 2023 = 1 Baisakh 2080
+                const refDate = new Date(2023, 3, 14);
+                const diffTime = now.getTime() - refDate.getTime();
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+                // Nepali year calculation
+                const nepaliYear = 2080 + Math.floor(diffDays / 365);
+
+                // Days in current Nepali year (subtract 1 to fix off-by-one error)
+                const daysInYear = (diffDays % 365) - 1;
+
+                // Nepali month days (approximate but more accurate)
+                const monthDays = [31, 31, 32, 32, 31, 31, 30, 30, 29, 29, 30, 30];
+
+                let remainingDays = daysInYear;
+                let nepaliMonth = 0;
+                let nepaliDate = 1;
+
+                for (let i = 0; i < monthDays.length; i++) {
+                    if (remainingDays < monthDays[i]) {
+                        nepaliMonth = i;
+                        nepaliDate = remainingDays + 1;
+                        break;
+                    }
+                    remainingDays -= monthDays[i];
+                }
+
+                const dayName = nepaliDays[now.getDay()] || '';
+                const monthName = nepaliMonths[nepaliMonth] || nepaliMonths[0];
+
+                const nepaliDateStr = nepaliYear + ' ' + monthName + ' ' + nepaliDate + ', ' + dayName;
+                document.getElementById('clockNepaliDate').textContent = nepaliDateStr;
+            } catch(e) {
+                document.getElementById('clockNepaliDate').textContent = 'नेपाली मिति';
+            }
+        }
+
+        // Wait for nepali-date-converter to load before starting clock
+        function startClock() {
+            updateClock();
+            setInterval(updateClock, 1000);
+        }
+
+        // Start clock after library loads
+        window.addEventListener('load', function() {
+            setTimeout(startClock, 100);
+        });
+
+        // Current year
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+        // ===== Toggle Password Visibility =====
+        document.getElementById('togglePassword').addEventListener('click', function() {
+            const passwordInput = document.getElementById('password');
+            const icon = this.querySelector('i');
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        });
+
+        // ===== Remember Me - Load saved username =====
+        (function loadRememberedUser() {
+            const savedUsername = localStorage.getItem('login_username');
+            const savedRemember = localStorage.getItem('login_remember');
+            if (savedRemember === 'true' && savedUsername) {
+                document.getElementById('username').value = savedUsername;
+                document.getElementById('rememberMe').checked = true;
+            }
+        })();
+
+        // ===== Google Apps Script URL =====
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwSh34LtDzVu9Hs0IZ6YDBrjxBkXfo3WpYpMw9dQV4i9dUJfsnfDwyrPyTMgvgNUAjO/exec';
+
+        // ===== Login Form Submit =====
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const rememberMe = document.getElementById('rememberMe').checked;
+            const loginBtn = document.getElementById('loginBtn');
+            const errorMsg = document.getElementById('loginError');
+            const errorText = document.getElementById('errorText');
+
+            // Hide previous error
+            errorMsg.classList.remove('show');
+
+            // Basic validation
+            if (!username || !password) {
+                errorText.textContent = 'कृपया युजरनेम र पासवर्ड प्रविष्ट गर्नुहोस्।';
+                errorMsg.classList.add('show');
+                return;
+            }
+
+            // Show loading
+            loginBtn.classList.add('loading');
+            loginBtn.disabled = true;
+
+            // Authenticate with Google Sheets via GET (no CORS issues)
+            const loginUrl = `${SCRIPT_URL}?action=check_login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
+
+            fetch(loginUrl)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Save remember me
+                    if (rememberMe) {
+                        localStorage.setItem('login_username', username);
+                        localStorage.setItem('login_remember', 'true');
+                    } else {
+                        localStorage.removeItem('login_username');
+                        localStorage.removeItem('login_remember');
+                    }
+
+                    // Set login session
+                    sessionStorage.setItem('isLoggedIn', 'true');
+                    sessionStorage.setItem('loggedInUser', JSON.stringify(data.user));
+                    sessionStorage.setItem('loginTime', new Date().toISOString());
+
+                    // Check if user must change password
+                    if (data.user.mustChangePassword) {
+                        document.getElementById('changePasswordModal').classList.add('show');
+                        loginBtn.classList.remove('loading');
+                        loginBtn.disabled = false;
+                    } else {
+                        window.location.href = 'index.html';
+                    }
+                } else {
+                    errorText.textContent = data.message || 'लगइन असफल भयो। युजरनेम वा पासवर्ड मिलेन।';
+                    errorMsg.classList.add('show');
+                    loginBtn.classList.remove('loading');
+                    loginBtn.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Login error:', error);
+                // Fallback to local validation for admin
+                if (username === 'admin' && password === 'nvc123') {
+                    if (rememberMe) {
+                        localStorage.setItem('login_username', username);
+                        localStorage.setItem('login_remember', 'true');
+                    } else {
+                        localStorage.removeItem('login_username');
+                        localStorage.removeItem('login_remember');
+                    }
+                    sessionStorage.setItem('isLoggedIn', 'true');
+                    sessionStorage.setItem('loggedInUser', JSON.stringify({ username: username, role: 'admin', mustChangePassword: false }));
+                    sessionStorage.setItem('loginTime', new Date().toISOString());
+                    window.location.href = 'index.html';
+                } else {
+                    errorText.textContent = 'सर्भरमा जोड्न सकिएन। कृपया पुनः प्रयास गर्नुहोस्।';
+                    errorMsg.classList.add('show');
+                    loginBtn.classList.remove('loading');
+                    loginBtn.disabled = false;
+                }
+            });
+        });
+
+        // ===== Sign Up Button =====
+        document.getElementById('signupBtn').addEventListener('click', function() {
+            document.getElementById('signupModal').classList.add('show');
+            populateSignupDropdowns();
+        });
+
+        // ===== Populate Signup Dropdowns =====
+        function populateSignupDropdowns() {
+            // Populate Ministry dropdown
+            const ministrySelect = document.getElementById('signupMinistry');
+            if (ministrySelect && ministrySelect.options.length === 1) {
+                if (typeof METADATA !== 'undefined' && METADATA.ministries) {
+                    METADATA.ministries.forEach(ministry => {
+                        const option = document.createElement('option');
+                        option.value = ministry;
+                        option.textContent = ministry;
+                        ministrySelect.appendChild(option);
+                    });
+                }
+            }
+
+            // Province change handler - populate districts
+            const provinceSelect = document.getElementById('signupProvince');
+            const districtSelect = document.getElementById('signupDistrict');
+            
+            provinceSelect.addEventListener('change', function() {
+                const provinceId = this.value;
+                districtSelect.innerHTML = '<option value="">छान्नुहोस्</option>';
+                document.getElementById('signupLocalLevel').innerHTML = '<option value="">पहिले जिल्ला छान्नुहोस्</option>';
+                
+                if (provinceId && typeof METADATA !== 'undefined' && METADATA.districts) {
+                    const districts = METADATA.districts[provinceId];
+                    if (districts) {
+                        districts.forEach(district => {
+                            const option = document.createElement('option');
+                            option.value = district;
+                            option.textContent = district;
+                            districtSelect.appendChild(option);
+                        });
+                    }
+                }
+            });
+
+            // District change handler - populate local levels
+            districtSelect.addEventListener('change', function() {
+                const district = this.value;
+                const localLevelSelect = document.getElementById('signupLocalLevel');
+                localLevelSelect.innerHTML = '<option value="">छान्नुहोस्</option>';
+                
+                if (district && typeof METADATA !== 'undefined' && METADATA.municipalities) {
+                    const provinceId = provinceSelect.value;
+                    if (METADATA.municipalities[provinceId] && METADATA.municipalities[provinceId][district]) {
+                        const municipalities = METADATA.municipalities[provinceId][district];
+                        municipalities.forEach(municipality => {
+                            const option = document.createElement('option');
+                            option.value = municipality;
+                            option.textContent = municipality;
+                            localLevelSelect.appendChild(option);
+                        });
+                    }
+                }
+            });
+        }
+
+        // ===== Forgot Password Link =====
+        document.getElementById('forgotPasswordLink').addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('forgotPasswordModal').classList.add('show');
+        });
+
+        // ===== Modal Close Buttons =====
+        document.getElementById('closeSignupModal').addEventListener('click', function() {
+            document.getElementById('signupModal').classList.remove('show');
+        });
+
+        document.getElementById('closeForgotPasswordModal').addEventListener('click', function() {
+            document.getElementById('forgotPasswordModal').classList.remove('show');
+        });
+
+        document.getElementById('closeChangePasswordModal').addEventListener('click', function() {
+            document.getElementById('changePasswordModal').classList.remove('show');
+        });
+
+        // ===== Close modal on overlay click =====
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.remove('show');
+                }
+            });
+        });
+
+        // ===== Signup Form Submit =====
+        document.getElementById('signupForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('signupSubmitBtn');
+            const formData = {
+                ministry: document.getElementById('signupMinistry').value,
+                province: document.getElementById('signupProvince').value,
+                district: document.getElementById('signupDistrict').value,
+                localLevel: document.getElementById('signupLocalLevel').value,
+                office: document.getElementById('signupOffice').value,
+                fullName: document.getElementById('signupFullName').value,
+                email: document.getElementById('signupEmail').value,
+                mobile: document.getElementById('signupMobile').value
+            };
+
+            submitBtn.classList.add('loading');
+            submitBtn.disabled = true;
+
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'signup',
+                    ...formData
+                })
+            })
+            .then(() => {
+                alert('दर्ता अनुरोध पठाइयो। कृपया तपाईंको इमेलमा अस्थायी पासवर्ड जाँच गर्नुहोस्।');
+                document.getElementById('signupModal').classList.remove('show');
+                document.getElementById('signupForm').reset();
+            })
+            .catch(error => {
+                console.error('Signup error:', error);
+                alert('दर्ता असफल भयो। कृपया पुनः प्रयास गर्नुहोस्।');
+            })
+            .finally(() => {
+                submitBtn.classList.remove('loading');
+                submitBtn.disabled = false;
+            });
+        });
+
+        // ===== Forgot Password Form Submit =====
+        document.getElementById('forgotPasswordForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('forgotPasswordSubmitBtn');
+            const username = document.getElementById('forgotUsername').value;
+
+            submitBtn.classList.add('loading');
+            submitBtn.disabled = true;
+
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'forgot_password',
+                    username: username
+                })
+            })
+            .then(() => {
+                alert('अस्थायी पासवर्ड अनुरोध पठाइयो। कृपया तपाईंको इमेल जाँच गर्नुहोस्।');
+                document.getElementById('forgotPasswordModal').classList.remove('show');
+                document.getElementById('forgotPasswordForm').reset();
+            })
+            .catch(error => {
+                console.error('Forgot password error:', error);
+                alert('अनुरोध असफल भयो। कृपया पुनः प्रयास गर्नुहोस्।');
+            })
+            .finally(() => {
+                submitBtn.classList.remove('loading');
+                submitBtn.disabled = false;
+            });
+        });
+
+        // ===== Change Password Form Submit =====
+        document.getElementById('changePasswordForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('changePasswordSubmitBtn');
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            if (newPassword !== confirmPassword) {
+                alert('नयाँ पासवर्ड मिलेन। कृपया पुनः प्रयास गर्नुहोस्।');
+                return;
+            }
+
+            const user = JSON.parse(sessionStorage.getItem('loggedInUser') || '{}');
+
+            submitBtn.classList.add('loading');
+            submitBtn.disabled = true;
+
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'change_password',
+                    username: user.username,
+                    currentPassword: currentPassword,
+                    newPassword: newPassword
+                })
+            })
+            .then(() => {
+                alert('पासवर्ड परिवर्तन अनुरोध पठाइयो!');
+                document.getElementById('changePasswordModal').classList.remove('show');
+                document.getElementById('changePasswordForm').reset();
+
+                // Update user data in session
+                user.mustChangePassword = false;
+                sessionStorage.setItem('loggedInUser', JSON.stringify(user));
+
+                // Redirect to dashboard
+                window.location.href = 'index.html';
+            })
+            .catch(error => {
+                console.error('Change password error:', error);
+                alert('पासवर्ड परिवर्तन असफल भयो। कृपया पुनः प्रयास गर्नुहोस्।');
+            })
+            .finally(() => {
+                submitBtn.classList.remove('loading');
+                submitBtn.disabled = false;
+            });
+        });
+
+        // ===== Enter key support =====
+        document.getElementById('password').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+            }
+        });
+
+        // ===== Prevent Nepali digit conversion =====
+        function preventNepaliDigits(input) {
+            // Replace Nepali digits with English digits
+            const nepaliDigits = '०१२३४५६७८९';
+            const englishDigits = '0123456789';
+            let value = input.value;
+            
+            for (let i = 0; i < nepaliDigits.length; i++) {
+                value = value.replace(new RegExp(nepaliDigits[i], 'g'), englishDigits[i]);
+            }
+            
+            if (value !== input.value) {
+                input.value = value;
+            }
+        }
+
+        function setupDigitPrevention(input) {
+            // Prevent composition (IME conversion)
+            input.addEventListener('compositionstart', function() {
+                this.isComposing = true;
+            });
+            input.addEventListener('compositionend', function() {
+                this.isComposing = false;
+                preventNepaliDigits(this);
+            });
+            input.addEventListener('input', function() {
+                if (!this.isComposing) {
+                    preventNepaliDigits(this);
+                }
+            });
+            input.addEventListener('blur', function() {
+                preventNepaliDigits(this);
+            });
+            // Force English keyboard
+            input.addEventListener('keydown', function(e) {
+                this.style.imeMode = 'disabled';
+            });
+            // Prevent beforeinput for Nepali digits
+            input.addEventListener('beforeinput', function(e) {
+                if (e.inputType === 'insertText' && e.data) {
+                    // Check if the input contains Nepali digits
+                    const nepaliDigits = '०१२३४५६७८९';
+                    for (let i = 0; i < e.data.length; i++) {
+                        if (nepaliDigits.includes(e.data[i])) {
+                            e.preventDefault();
+                            // Insert English digit instead
+                            const englishDigit = '0123456789'[nepaliDigits.indexOf(e.data[i])];
+                            const start = this.selectionStart;
+                            const end = this.selectionEnd;
+                            this.value = this.value.substring(0, start) + englishDigit + this.value.substring(end);
+                            this.selectionStart = this.selectionEnd = start + 1;
+                            break;
+                        }
+                    }
+                }
+            });
+        }
+
+        // Apply to username and password fields
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+
+        if (usernameInput) {
+            setupDigitPrevention(usernameInput);
+        }
+
+        if (passwordInput) {
+            setupDigitPrevention(passwordInput);
+        }
+
+        // Apply to modal input fields
+        const modalInputs = document.querySelectorAll('.modal-form input');
+        modalInputs.forEach(input => {
+            setupDigitPrevention(input);
+        });
+
+        // Continuous check to ensure digits stay in English format (backup)
+        setInterval(function() {
+            const allInputs = document.querySelectorAll('input[type="text"], input[type="password"], input[type="email"], input[type="tel"]');
+            allInputs.forEach(input => {
+                preventNepaliDigits(input);
+            });
+        }, 100);
+
+        // ===== Check if already logged in =====
+        (function checkAlreadyLoggedIn() {
+            if (sessionStorage.getItem('isLoggedIn') === 'true') {
+                // Check if user needs to change password
+                const showChangePassword = sessionStorage.getItem('showChangePassword');
+                if (showChangePassword === 'true') {
+                    sessionStorage.removeItem('showChangePassword');
+                    document.getElementById('changePasswordModal').classList.add('show');
+                } else {
+                    // Already logged in, redirect to dashboard
+                    window.location.href = 'index.html';
+                }
+            }
+        })();
+    </script>
+
+</body>
+</html>
