@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ne">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>राष्ट्रिय सतर्कता केन्द्र - आयोजना अनुगमन फारम</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Mangal', 'Preeti', 'Times New Roman', serif;
+            background: #f5f5f5;
+            padding: 30px 15px;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+        }
+        .form-container {
+            max-width: 1100px;
+            width: 100%;
+            background: white;
+            padding: 30px 25px;
+            border-radius: 10px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        }
+        h1, h2, h3 {
+            text-align: center;
+            margin: 0.2em 0;
+            font-weight: normal;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #1e3c72;
+            padding-bottom: 10px;
+        }
+        .header h1 {
+            font-size: 1.9rem;
+            font-weight: bold;
+            color: #1e3c72;
+        }
+        .header h2 {
+            font-size: 1.4rem;
+            color: #2c3e50;
+            margin-top: 5px;
+        }
+        .header h3 {
+            font-size: 1.2rem;
+            color: #2c3e50;
+            margin-top: 2px;
+            font-weight: bold;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0;
+            font-size: 0.95rem;
+        }
+        th, td {
+            border: 1px solid #333;
+            padding: 8px 10px;
+            vertical-align: middle;
+        }
+        .bold-label {
+            font-weight: 600;
+            background-color: #f1f9ff;
+            width: 28%;
+        }
+        .inner-table {
+            border: none;
+            width: 100%;
+            margin: 0;
+        }
+        .inner-table td {
+            border: none;
+            padding: 4px 6px;
+            vertical-align: middle;
+        }
+        .dropdown, .date-input, .text-input {
+            width: 100%;
+            padding: 5px 4px;
+            border: 1px solid #aaa;
+            border-radius: 4px;
+            background-color: #fff;
+            font-family: inherit;
+            font-size: 0.9rem;
+        }
+        .text-input {
+            width: 100%;
+            border: 1px solid #aaa;
+            border-radius: 4px;
+            padding: 5px 4px;
+        }
+        .checkbox-group {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+        }
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: normal;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #1e3c72;
+        }
+        .radio-group {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: normal;
+        }
+        .remark-col {
+            min-width: 120px;
+        }
+        .remark-col input {
+            width: 100%;
+            border: none;
+            border-bottom: 1px dashed #888;
+            background: transparent;
+            padding: 4px 2px;
+        }
+        .section-head {
+            background-color: #d9e6f2;
+            font-weight: bold;
+            text-align: center;
+            font-size: 1.1rem;
+        }
+        .sub-section {
+            background-color: #eaf3fa;
+        }
+        .signature-area {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            margin-top: 15px;
+        }
+        .signature-item {
+            flex: 1;
+            min-width: 150px;
+            margin: 5px 0;
+            padding: 0 10px;
+        }
+        .signature-item input {
+            border: none;
+            border-bottom: 1px solid #333;
+            width: 100%;
+            padding: 6px 4px;
+            background: transparent;
+        }
+        .bottom-note {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            text-align: center;
+            color: #444;
+        }
+        .remark-field {
+            width: 100%;
+            min-height: 60px;
+            border: 1px solid #aaa;
+            border-radius: 4px;
+            padding: 8px;
+            font-family: inherit;
+            background: #fcfcfc;
+        }
+        .inline-flex {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .td-date {
+            min-width: 130px;
+        }
+        .td-dropdown {
+            min-width: 120px;
+        }
+        @media (max-width: 700px) {
+            .form-container { padding: 15px; }
+            table, .inner-table { font-size: 0.85rem; }
+            .bold-label { width: 35%; }
+        }
+    </style>
+</head>
+<body>
+<div class="form-container">
+
+    <!-- HEADER -->
+    <div class="header">
+        <h1>नेपाल सरकार</h1>
+        <h2>राष्ट्रिय सतर्कता केन्द्र</h2>
+        <h3>विकास निर्माण आयोजना अनुगमन/निरीक्षण फारम</h3>
+    </div>
+
+    <!-- क. आयोजनाको साधारण विवरण -->
+    <h4 style="background:#d9e6f2; padding:6px 12px; margin:20px 0 8px 0; border-radius:4px;">क. आयोजनाको साधारण विवरण</h4>
+    <table>
+        <tr><td class="bold-label">१. आयोजनाको नाम</td><td colspan="5"><input type="text" class="text-input" placeholder="आयोजनाको नाम"></td></tr>
+        <tr>
+            <td class="bold-label">२. स्थान (जिल्ला / स्थानीय तह / वडा नं.)</td>
+            <td style="width:18%"><label>प्रदेश <select class="dropdown"><option>प्रदेश १</option><option>प्रदेश २</option><option>प्रदेश ३</option><option>प्रदेश ४</option><option>प्रदेश ५</option><option>प्रदेश ६</option><option>प्रदेश ७</option></select></label></td>
+            <td style="width:18%"><label>जिल्ला <select class="dropdown"><option>काठमाडौं</option><option>ललितपुर</option><option>भक्तपुर</option><option>चितवन</option><option>पोखरा</option><option>विराटनगर</option><option>धरान</option></select></label></td>
+            <td style="width:20%"><label>स्थानीय तह <select class="dropdown"><option>महानगरपालिका</option><option>उपमहानगरपालिका</option><option>नगरपालिका</option><option>गाउँपालिका</option></select></label></td>
+            <td style="width:12%"><label>वडा नं. <input type="number" class="text-input" style="width:60px;" placeholder=""></label></td>
+        </tr>
+        <tr><td class="bold-label">३. कार्यान्वयन गर्ने निकाय</td><td colspan="5"><input type="text" class="text-input" placeholder="कार्यान्वयन गर्ने निकाय"></td></tr>
+        <tr><td class="bold-label">४. निर्माण व्यवसायी / ठेकेदारको नाम</td><td colspan="5"><input type="text" class="text-input" placeholder="ठेकेदारको नाम"></td></tr>
+        <tr>
+            <td class="bold-label">५. सम्झौता नं. र मिति</td>
+            <td colspan="2"><input type="text" class="text-input" placeholder="सम्झौता नं."></td>
+            <td colspan="3"><label>मिति <input type="date" class="date-input" style="width:auto;"></label></td>
+        </tr>
+        <tr><td class="bold-label">६. आयोजना सुरु मिति</td><td colspan="5"><input type="date" class="date-input" style="width:auto;"></td></tr>
+        <tr><td class="bold-label">७. आयोजना सम्पन्न हुने (अपेक्षित) मिति</td><td colspan="5"><input type="date" class="date-input" style="width:auto;"></td></tr>
+        <tr><td class="bold-label">८. स्वीकृत लागत अनुमान (रु.)</td><td colspan="5"><input type="text" class="text-input" placeholder="रु."></td></tr>
+        <tr><td class="bold-label">९. हालसम्म भुक्तानी/खर्च भएको रकम (रु.)</td><td colspan="5"><input type="text" class="text-input" placeholder="रु."></td></tr>
+        <tr><td class="bold-label">१०. भौतिक प्रगति (%)</td><td colspan="5"><input type="text" class="text-input" placeholder="%"></td></tr>
+        <tr><td class="bold-label">११. अनुगमन मिति</td><td colspan="5"><input type="date" class="date-input" style="width:auto;"></td></tr>
+        <tr><td class="bold-label">१२. अनुगमन टोली (नाम, पद)</td><td colspan="5"><input type="text" class="text-input" placeholder="नाम, पद"></td></tr>
+    </table>
+
+    <!-- ख. उद्देश्य तथा लक्ष्य सम्बन्धी विषय -->
+    <h4 style="background:#d9e6f2; padding:6px 12px; margin:20px 0 8px 0; border-radius:4px;">ख. उद्देश्य तथा लक्ष्य सम्बन्धी विषय</h4>
+    <table>
+        <tr style="background:#eaf3fa; font-weight:bold;"><th style="width:55%;">अनुगमनका विषय</th><th style="width:10%;">छ</th><th style="width:10%;">छैन</th><th style="width:25%;">कैफियत</th></tr>
+        <tr><td>आयोजना निर्धारित उद्देश्य अनुरूप कार्यान्वयन भए नभएको</td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="text" class="text-input" placeholder=""></td></tr>
+        <tr><td>आयोजनाको लक्ष्य (Target) स्पष्ट रूपमा तोकिए नतोकिएको</td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="text" class="text-input" placeholder=""></td></tr>
+        <tr><td>तोकिएको लक्ष्य अनुरूप कार्य प्रगति भए नभएको</td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="text" class="text-input" placeholder=""></td></tr>
+        <tr><td>सम्भाव्यता अध्ययन (Feasibility Study) गरिए नगरिएको</td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="text" class="text-input" placeholder=""></td></tr>
+    </table>
+
+    <!-- ग. गुणस्तर तथा प्राविधिक पक्ष -->
+    <h4 style="background:#d9e6f2; padding:6px 12px; margin:20px 0 8px 0; border-radius:4px;">ग. गुणस्तर तथा प्राविधिक पक्ष</h4>
+    <table>
+        <tr style="background:#eaf3fa; font-weight:bold;"><th style="width:55%;">अनुगमनका विषय</th><th>छ</th><th>छैन</th><th>कैफियत</th></tr>
+        <tr><td>आयोजनाको डिजाइन/प्रारुप उपयुक्त र मापदण्ड अनुसारको भए नभएको</td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="text" class="text-input" placeholder=""></td></tr>
+        <tr><td>निर्माण सामग्रीको गुणस्तर तोकिएको स्पेसिफिकेशन अनुरूप भए नभएको</td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="text" class="text-input" placeholder=""></td></tr>
+        <tr><td>निर्माण कार्य सार्वजनिक निर्माण निर्देशिका/प्रचलित कानून बमोजिम भए नभएको</td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="text" class="text-input" placeholder=""></td></tr>
+        <tr><td>गुणस्तर नियन्त्रणका लागि प्रयोगशाला परीक्षण (Lab Test) गरिए नगरिएको</td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="text" class="text-input" placeholder=""></td></tr>
+    </table>
+
+    <!-- घ. आर्थिक तथा समय व्यवस्थापन -->
+    <h4 style="background:#d9e6f2; padding:6px 12px; margin:20px 0 8px 0; border-radius:4px;">घ. आर्थिक तथा समय व्यवस्थापन</h4>
+    <table>
+        <tr style="background:#eaf3fa; font-weight:bold;"><th style="width:55%;">अनुगमनका विषय</th><th>छ</th><th>छैन</th><th>कैफियत</th></tr>
+        <tr><td>आयोजनाका लागि बजेट विनियोजन र निकासा समयमै भए नभएको</td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="text" class="text-input" placeholder=""></td></tr>
+        <tr><td>तोकिएको समय तालिका (Schedule) अनुसार काम अगाडि बढेको छ।</td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="text" class="text-input" placeholder=""></td></tr>
+        <tr><td>निर्माण कार्य पूर्वअनुमान गरिएको लागतभित्रै सम्पन्न हुने देखिन्छ।</td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="text" class="text-input" placeholder=""></td></tr>
+        <tr><td>म्याद थप वा लागत वृद्धि (Variation/Cost Overrun) भएको छ।</td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="text" class="text-input" placeholder=""></td></tr>
+    </table>
+
+    <!-- ङ. खरिद प्रक्रिया -->
+    <h4 style="background:#d9e6f2; padding:6px 12px; margin:20px 0 8px 0; border-radius:4px;">ङ. खरिद प्रक्रिया</h4>
+    <table>
+        <tr style="background:#eaf3fa; font-weight:bold;"><th style="width:55%;">अनुगमनका विषय</th><th>छ</th><th>छैन</th><th>कैफियत</th></tr>
+        <tr><td>सेवा, वस्तु वा निर्माण सामग्री खरिद प्रक्रिया पारदर्शी ढंगले भए नभएको</td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="text" class="text-input" placeholder=""></td></tr>
+        <tr><td>खरिद ऐन/नियम बमोजिमको प्रक्रिया पूरा गरिए नगरिएको</td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="text" class="text-input" placeholder=""></td></tr>
+        <tr><td>ठेक्का सम्झौता र बीमा/जमानतपत्र (Guarantee) यथोचित रहे नरहेको</td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="text" class="text-input" placeholder=""></td></tr>
+    </table>
+
+    <!-- च. उपलब्धि, दिगोपन र लागत प्रभावकारिता -->
+    <h4 style="background:#d9e6f2; padding:6px 12px; margin:20px 0 8px 0; border-radius:4px;">च. उपलब्धि, दिगोपन र लागत प्रभावकारिता</h4>
+    <table>
+        <tr style="background:#eaf3fa; font-weight:bold;"><th style="width:55%;">अनुगमनका विषय</th><th>छ</th><th>छैन</th><th>कैफियत</th></tr>
+        <tr><td>आयोजनाबाट अपेक्षित उपलब्धि हासिल हुने देखिए नदेखिएको</td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="text" class="text-input" placeholder=""></td></tr>
+        <tr><td>आयोजनाको दिगोपन (Sustainability) सुनिश्चित भए नभएको</td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="text" class="text-input" placeholder=""></td></tr>
+        <tr><td>लागतको प्रभावकारिता (Cost Effectiveness) रहे नरहेको</td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="text" class="text-input" placeholder=""></td></tr>
+        <tr><td>सञ्चालन तथा मर्मत-सम्भारको जिम्मेवारी स्पष्ट तोकिए नतोकिएको</td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="text" class="text-input" placeholder=""></td></tr>
+    </table>
+
+    <!-- छ. समग्र कैफियत / अवलोकन -->
+    <h4 style="background:#d9e6f2; padding:6px 12px; margin:20px 0 8px 0; border-radius:4px;">छ. समग्र कैफियत / अवलोकन</h4>
+    <table><tr><td><textarea class="remark-field" rows="3" placeholder="समग्र कैफियत / अवलोकन लेख्नुहोस्..."></textarea></td></tr></table>
+
+    <!-- ज. सुझाव / सिफारिस -->
+    <h4 style="background:#d9e6f2; padding:6px 12px; margin:20px 0 8px 0; border-radius:4px;">ज. सुझाव / सिफारिस</h4>
+    <table><tr><td><textarea class="remark-field" rows="3" placeholder="सुझाव / सिफारिस लेख्नुहोस्..."></textarea></td></tr></table>
+
+    <!-- झ. अनुगमन टोली -->
+    <h4 style="background:#d9e6f2; padding:6px 12px; margin:20px 0 8px 0; border-radius:4px;">झ. अनुगमन टोली</h4>
+    <table>
+        <tr style="background:#eaf3fa; font-weight:bold;">
+            <th style="width:35%;">नाम, थर:</th>
+            <th style="width:35%;">पद:</th>
+            <th style="width:30%;">मिति:</th>
+        </tr>
+        <tr><td><input type="text" class="text-input" placeholder="नाम थर"></td><td><input type="text" class="text-input" placeholder="पद"></td><td><input type="date" class="date-input" style="width:auto;"></td></tr>
+        <tr><td><input type="text" class="text-input" placeholder="नाम थर"></td><td><input type="text" class="text-input" placeholder="पद"></td><td><input type="date" class="date-input" style="width:auto;"></td></tr>
+        <tr><td><input type="text" class="text-input" placeholder="नाम थर"></td><td><input type="text" class="text-input" placeholder="पद"></td><td><input type="date" class="date-input" style="width:auto;"></td></tr>
+    </table>
+
+    <div class="bottom-note">राष्ट्रिय सतर्कता केन्द्र • विकास निर्माण आयोजना अनुगमन फारम</div>
+</div>
+</body>
+</html>

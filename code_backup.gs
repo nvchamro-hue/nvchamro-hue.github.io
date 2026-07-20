@@ -51,21 +51,6 @@ function ensureUsersSheetColumns(ss) {
   }
 }
 
-function wrapResponse(output) {
-  try {
-    output.setHeader('Access-Control-Allow-Origin', '*');
-    output.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    output.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  } catch (err) {
-    Logger.log('wrapResponse failed to set headers: ' + err.message);
-  }
-  return output;
-}
-
-function doOptions(e) {
-  return wrapResponse(ContentService.createTextOutput(''));
-}
-
 function doPost(e) {
   try {
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -74,65 +59,65 @@ function doPost(e) {
     
     // AI विश्लेषण रिक्वेस्ट सम्हाल्ने
     if (data.action === 'analyze') {
-      return wrapResponse(handleAIAnalysis(data));
+      return handleAIAnalysis(data);
     }
     if (data.action === 'save_ai_summary') {
-      return wrapResponse(saveAISummary(data));
+      return saveAISummary(data);
     }
 
     // Delete action सम्हाल्ने
     if (data.action === 'delete') {
-      return wrapResponse(handleDelete(data));
+      return handleDelete(data);
     }
 
     // User authentication actions
     if (data.action === 'login') {
-      return wrapResponse(handleLogin(data));
+      return handleLogin(data);
     }
     if (data.action === 'signup') {
-      return wrapResponse(handleSignup(data));
+      return handleSignup(data);
     }
     if (data.action === 'forgot_password') {
-      return wrapResponse(handleForgotPassword(data));
+      return handleForgotPassword(data);
     }
     if (data.action === 'change_password') {
-      return wrapResponse(handleChangePassword(data));
+      return handleChangePassword(data);
     }
     if (data.action === 'get_users') {
-      return wrapResponse(handleGetUsers(data));
+      return handleGetUsers(data);
     }
     if (data.action === 'get_all_users') {
-      return wrapResponse(handleGetUsers(data));
+      return handleGetUsers(data);
     }
     if (data.action === 'get_pending_registrations') {
-      return wrapResponse(handleGetPendingRegistrations(data));
+      return handleGetPendingRegistrations(data);
     }
     if (data.action === 'get_password_reset_requests') {
-      return wrapResponse(handleGetPasswordResetRequests(data));
+      return handleGetPasswordResetRequests(data);
     }
     if (data.action === 'approve_user') {
-      return wrapResponse(handleApproveUser(data));
+      return handleApproveUser(data);
     }
     if (data.action === 'reject_user') {
-      return wrapResponse(handleRejectUser(data));
+      return handleRejectUser(data);
     }
     if (data.action === 'approve_password_reset') {
-      return wrapResponse(handleApprovePasswordReset(data));
+      return handleApprovePasswordReset(data);
     }
     if (data.action === 'reject_password_reset') {
-      return wrapResponse(handleRejectPasswordReset(data));
+      return handleRejectPasswordReset(data);
     }
     if (data.action === 'get_user') {
-      return wrapResponse(handleGetUser(data));
+      return handleGetUser(data);
     }
     if (data.action === 'update_user') {
-      return wrapResponse(handleUpdateUser(data));
+      return handleUpdateUser(data);
     }
     if (data.action === 'create_user') {
-      return wrapResponse(handleCreateUser(data));
+      return handleCreateUser(data);
     }
     if (data.action === 'delete_user') {
-      return wrapResponse(handleDeleteUser(data));
+      return handleDeleteUser(data);
     }
     if (data.action === 'get_audit_log') {
       return handleGetAuditLog(data);
@@ -349,18 +334,6 @@ function doGet(e) {
     } catch (err) {
       // Invalid session, continue as guest
     }
-  }
-
-  if (e && e.parameter && e.parameter.action === 'get_all_users') {
-    return wrapResponse(handleGetUsers(e.parameter));
-  }
-
-  if (e && e.parameter && e.parameter.action === 'get_pending_registrations') {
-    return wrapResponse(handleGetPendingRegistrations(e.parameter));
-  }
-
-  if (e && e.parameter && e.parameter.action === 'get_password_reset_requests') {
-    return wrapResponse(handleGetPasswordResetRequests(e.parameter));
   }
 
   // Handle login check via GET (no CORS issues)
@@ -1710,7 +1683,47 @@ function handleGetUser(data) {
 /**
  * Delete user
  */
-/** Deleted duplicate handleDeleteUser (kept admin variant later) */
+function handleDeleteUser(data) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var usersSheet = ss.getSheetByName(USERS_SHEET_NAME);
+    
+    if (!usersSheet) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'error',
+        message: 'Users sheet not found'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var username = data.username;
+    var rows = usersSheet.getDataRange().getValues();
+    
+    for (var i = 1; i < rows.length; i++) {
+      if (rows[i][0] === username) {
+        // Delete the user row
+        usersSheet.deleteRow(i + 1);
+        
+        // Log to audit
+        logAuditAction(username, 'USER_DELETED', 'User deleted by admin');
+        
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'success',
+          message: 'User deleted successfully'
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error',
+      message: 'User not found'
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error',
+      message: err.message
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
 
 /**
  * Update user (admin only)
@@ -1728,38 +1741,18 @@ function handleUpdateUser(data) {
     }
 
     var username = data.username;
-    var userData = data.userData || {};
+    var role = data.role;
+    var status = data.status;
 
     var rows = usersSheet.getDataRange().getValues();
-    var lastCol = usersSheet.getLastColumn();
     for (var i = 1; i < rows.length; i++) {
       if (rows[i][0] === username) {
-        // rows[] is zero-indexed for the values array; sheet columns are 1-based
-        // Column mapping based on header setup:
-        // 1: Username, 2: Password, 3: Role, 4: Full Name, 5: Email, 6: Ministry,
-        // 7: Province, 8: District, 9: Local Level, 10: Office, 11: Mobile, 14: Status
-
-        var updated = false;
-        if (userData.role) { usersSheet.getRange(i + 1, 3).setValue(userData.role); updated = true; }
-        if (userData.fullName) { usersSheet.getRange(i + 1, 4).setValue(userData.fullName); updated = true; }
-        if (userData.email) { usersSheet.getRange(i + 1, 5).setValue(userData.email); updated = true; }
-        if (userData.ministry) { usersSheet.getRange(i + 1, 6).setValue(userData.ministry); updated = true; }
-        if (userData.province) { usersSheet.getRange(i + 1, 7).setValue(userData.province); updated = true; }
-        if (userData.district) { usersSheet.getRange(i + 1, 8).setValue(userData.district); updated = true; }
-        if (userData.localLevel) { usersSheet.getRange(i + 1, 9).setValue(userData.localLevel); updated = true; }
-        if (userData.officeName) { usersSheet.getRange(i + 1, 10).setValue(userData.officeName); updated = true; }
-        if (userData.mobile) { usersSheet.getRange(i + 1, 11).setValue(userData.mobile); updated = true; }
-        if (userData.status) { usersSheet.getRange(i + 1, 14).setValue(userData.status); updated = true; }
-
-        // If caller passed top-level role/status (legacy), respect them too
-        if (data.role) { usersSheet.getRange(i + 1, 3).setValue(data.role); updated = true; }
-        if (data.status) { usersSheet.getRange(i + 1, 14).setValue(data.status); updated = true; }
-
-        if (updated) {
-          // Log to audit (try to use adminUsername when provided)
-          try { logAuditAction(data.adminUsername || 'system', 'UPDATE_USER', 'Updated user: ' + username); } catch (e) {}
-        }
-
+        if (role) usersSheet.getRange(i + 1, 3).setValue(role);
+        if (status) usersSheet.getRange(i + 1, 14).setValue(status);
+        
+        // Log to audit
+        logAuditAction(data.adminUsername, 'UPDATE_USER', 'Updated user: ' + username);
+        
         return ContentService.createTextOutput(JSON.stringify({
           status: 'success',
           message: 'User updated successfully'

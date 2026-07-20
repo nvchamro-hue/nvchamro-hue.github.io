@@ -882,13 +882,8 @@ button.submit-btn:active {
 .stat-number {
     font-size: 1.3rem;
     font-weight: 800;
-    color: #1a202c;
     margin-bottom: 2px;
     letter-spacing: -0.025em;
-    background: linear-gradient(135deg, var(--accent-blue), #1e40af);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
     line-height: 1.2;
 }
 
